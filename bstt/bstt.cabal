@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:      Data.Type.BST
+  exposed-modules:      Data.Type.Bst
 
   default-extensions:   DataKinds
                       , TypeOperators

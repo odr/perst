@@ -5,9 +5,9 @@
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeInType                #-}
 {-# LANGUAGE UndecidableInstances      #-}
-module Data.Type.BST
-    ( BST(..)
-    , ListToBST
+module Data.Type.Bst
+    ( Bst(..)
+    , ListToBst
     , BstToList
     , Rep(..)
     -- , RepL(..)
@@ -34,21 +34,21 @@ import           Lens.Micro                  (Lens', lens, (&), (.~), (^.))
 type (:::) (a::k1) (b::k2) = '(a,b)
 
 promote [d|
-    data BST a  = TNil
-                | BST1 a
-                | BST2 a a
-                | BST3 (BST a) a (BST a)
+    data Bst a  = TNil
+                | Bst1 a
+                | Bst2 a a
+                | Bst3 (Bst a) a (Bst a)
         deriving Show
 
-    -- listToBST doesn't nub data because it can silently remove some value.
+    -- listToBst doesn't nub data because it can silently remove some value.
     -- Application should check that there is no repetitions in some way
-    listToBST :: Ord a => [a] -> BST a
-    listToBST xs = go (sort xs) $ length xs
+    listToBst :: Ord a => [a] -> Bst a
+    listToBst xs = go (sort xs) $ length xs
       where
         go [] _ = TNil
-        go [z] _ = BST1 z
-        go [z1,z2] _ = BST2 z1 z2
-        go zs cnt = BST3 (go ls lc) r (go rs $ cnt - lc - 1)
+        go [z] _ = Bst1 z
+        go [z1,z2] _ = Bst2 z1 z2
+        go zs cnt = Bst3 (go ls lc) r (go rs $ cnt - lc - 1)
           where
             lc = d2 cnt
             (ls,r:rs) = splitAt lc zs
@@ -58,11 +58,11 @@ promote [d|
                     | k >= m = m
                     | otherwise = g (m-1) (k+1)
 
-    bstToList :: BST a -> [a]
+    bstToList :: Bst a -> [a]
     bstToList TNil            = []
-    bstToList (BST1 z)        = [z]
-    bstToList (BST2 z1 z2)    = [z1, z2]
-    bstToList (BST3 z1 z2 z3) = bstToList z1 ++ [z2] ++ bstToList z3
+    bstToList (Bst1 z)        = [z]
+    bstToList (Bst2 z1 z2)    = [z1, z2]
+    bstToList (Bst3 z1 z2 z3) = bstToList z1 ++ [z2] ++ bstToList z3
 
     |]
 
@@ -72,62 +72,11 @@ type family Rep (t :: k) :: Type where
     Rep (a :: Type) = a -- Rep () = Rep '[]  ==> not injection
     Rep ((a ': b) :: [k1]) = (Rep a, Rep b)
     Rep ('(a, b) :: (k1,k2)) = Tagged a (Rep b)
-    Rep (TNil :: BST k1) = ()
-    Rep (BST1 a :: BST k1) = Rep a
-    Rep (BST2 a b :: BST k1) = (Rep a, Rep b)
-    Rep (BST3 a b c :: BST k1) = (Rep a, Rep b, Rep c)
+    Rep (TNil :: Bst k1) = ()
+    Rep (Bst1 a :: Bst k1) = Rep a
+    Rep (Bst2 a b :: Bst k1) = (Rep a, Rep b)
+    Rep (Bst3 a b c :: Bst k1) = (Rep a, Rep b, Rep c)
 
-    {-
---------- Initialization, Conversion ----------------
--- | We need interface to make strong-typed Named Record from weak-typed generalized struct.
---
--- So there is type 'Lifted' where field values lifted in some functor.
--- Common case is @Lifted Maybe@. Then we have 'Default' instance for @Lifted Maybe T@.
--- And then fill it using Lenses.
-type family Lifted f a where
-    Lifted f (Tagged (n::k) v) = Tagged n (Lifted f v)
-    Lifted f (a,b) = (Lifted f a, Lifted f b)
-    Lifted f (v :: Type) = f v
--}
-{-
-
-type family RepL (f :: Type -> Type) (t :: k) :: Type where
-    RepL f '[] = ()
-    RepL f ('[a] :: [k1]) = RepL f a
-    RepL f (a :: Type) = f a
-    RepL f ((a ': b) :: [k1]) = (RepL f a, RepL f b)
-    RepL f ('(a, b) :: (k1,k2)) = Tagged a (RepL f b)
-    RepL f (TNil :: BST k1) = ()
-    RepL f (BST1 a :: BST k1) = RepL f a
-    RepL f (BST2 a b :: BST k1) = (RepL f a, RepL f b)
-    RepL f (BST3 a b c :: BST k1) = (RepL f a, RepL f b, RepL f c)
-
-class RepN (a :: k) where
-    repN :: Proxy# a -> RepL Maybe a
-    -- repToMaybe :: Proxy# a -> Rep a -> RepL Maybe a
-    -- repFromMaybe :: Proxy# a -> RepL Maybe a -> Maybe (Rep a)
-
-instance RepN (a :: Type) where
-    repN _ = Nothing
-
-instance RepN a => RepN ('[a] :: [k]) where
-    repN _ = repN (proxy# :: Proxy# a)
-
-instance (RepN a, RepN (b ': c)) => RepN ((a ': b ': c) :: [k]) where
-    repN _ = (repN (proxy# :: Proxy# a), repN (proxy# :: Proxy# (b ': c)))
-
-instance RepN b => RepN ( '(a,b) :: (k1,k2)) where
-    repN _ = tagWith (Proxy :: Proxy a) $ repN (proxy# :: Proxy# b)
-
-instance RepN a => RepN (BST1 a :: BST k) where
-    repN _ = repN (proxy# :: Proxy# a)
-
-instance (RepN a, RepN b) => RepN (BST2 a b :: BST k) where
-    repN _ = (repN (proxy# :: Proxy# a), repN (proxy# :: Proxy# b))
-
-instance (RepN a, RepN b, RepN c) => RepN (BST3 a b c :: BST k) where
-    repN _ = (repN (proxy# :: Proxy# a), repN (proxy# :: Proxy# b), repN (proxy# :: Proxy# c))
--}
 class RepLens (a :: k1) (b :: k2) where
     repLens :: Proxy# '(a,b) -> Lens' (Rep a) (Rep b)
 
@@ -151,25 +100,25 @@ instance (RepLensB (If (a == b) 1 0) (a : as) b)
         => RepLens ((a ': as) :: [k]) (b :: k) where
     repLens p = repLensB p (proxy# :: Proxy# (If (a == b) 1 0))
 
-instance RepLens (BST1 a) a where
+instance RepLens (Bst1 a) a where
     repLens _ = id
 
-instance RepLensB (If (a == c) 1 (If (b == c) 2 0)) (BST2 a b) c
-        => RepLens (BST2 a b :: BST k) (c :: k) where
+instance RepLensB (If (a == c) 1 (If (b == c) 2 0)) (Bst2 a b) c
+        => RepLens (Bst2 a b :: Bst k) (c :: k) where
     repLens p = repLensB p (proxy# :: Proxy# (If (a == c) 1 (If (b == c) 2 0)))
 
-instance RepLensB (If (b == d) 2 (If (b :< d) 1 3)) (BST3 a b c) d
-        => RepLens (BST3 a b c :: BST k) (d :: k) where
+instance RepLensB (If (b == d) 2 (If (b :< d) 1 3)) (Bst3 a b c) d
+        => RepLens (Bst3 a b c :: Bst k) (d :: k) where
     repLens p = repLensB p (proxy# :: Proxy# (If (b == d) 2 (If (b :< d) 1 3)))
 
-instance RepLens (a :: BST k) (TNil :: BST k) where
+instance RepLens (a :: Bst k) (TNil :: Bst k) where
     repLens _ f v = const v <$> f ()
 
-instance RepLens a b => RepLens (a :: BST k) (BST1 b :: BST k) where
+instance RepLens a b => RepLens (a :: Bst k) (Bst1 b :: Bst k) where
     repLens _ = repLens (proxy# :: Proxy# '(a,b))
 
 instance (RepLens a b, RepLens a c)
-        => RepLens (a :: BST k) (BST2 b c :: BST k) where
+        => RepLens (a :: Bst k) (Bst2 b c :: Bst k) where
     repLens _ = lens get set
       where
         get = (,) <$> (^. repLens (proxy# :: Proxy# '(a,b)))
@@ -178,7 +127,7 @@ instance (RepLens a b, RepLens a c)
                           & repLens (proxy# :: Proxy# '(a,c)) .~ v2
 
 instance (RepLens a b, RepLens a c, RepLens a d)
-        => RepLens (a :: BST k) (BST3 b c d :: BST k) where
+        => RepLens (a :: Bst k) (Bst3 b c d :: Bst k) where
     repLens _ = lens get set
       where
         get =  (,,) <$> (^. repLens (proxy# :: Proxy# '(a,b)))
@@ -205,28 +154,29 @@ instance    ( Rep (a ': as) ~ (Rep a, Rep as)
   where
     repLensB _ _ f (x,y) = (x,) <$> repLens (proxy# :: Proxy# '(as,b)) f y
 
-instance RepLensB 1 (BST2 a b) a
+instance RepLensB 1 (Bst2 a b) a
   where
     repLensB _ _ f (x,y) = (,y) <$> f x
 
-instance RepLensB 2 (BST2 a b) b
+instance RepLensB 2 (Bst2 a b) b
   where
     repLensB _ _ f (x,y) = (x,) <$> f y
 
-instance RepLensB 2 (BST3 a b c) b
+instance RepLensB 2 (Bst3 a b c) b
   where
     repLensB _ _ f (x,y,z) = (x,,z) <$> f y
 
-instance RepLens a d => RepLensB 1 (BST3 a b c) d
+instance RepLens a d => RepLensB 1 (Bst3 a b c) d
   where
     repLensB _ _ f (x,y,z) = (,y,z) <$> repLens (proxy# :: Proxy# '(a,d)) f x
 
-instance RepLens c d => RepLensB 3 (BST3 a b c) d
+instance RepLens c d => RepLensB 3 (Bst3 a b c) d
   where
     repLensB _ _ f (x,y,z) = (x,y,) <$> repLens (proxy# :: Proxy# '(c,d)) f z
 
+class CreateBst
 
-type Rec = ListToBST (Map HeadSym0 (Group (Sort '[
+type Rec = ListToBst (Map HeadSym0 (Group (Sort '[
         3,4,2,1,6,7,12,32,12,42,35
         -- ,64,78,23,32,45,65,84,32,18
         -- ,43,55,64,1,2,3,4,5,6,7
@@ -240,5 +190,5 @@ type Rec1 = '[ "t1":::Int, "a":::String, "z":::Char, "d":::[Int]
     ]
         {--------------------------------------------------
 test = Proxy :: Proxy Rec
--- test = Proxy :: Proxy (ListToBST (Map HeadSym0 (Group (Sort Rec))))
+-- test = Proxy :: Proxy (ListToBst (Map HeadSym0 (Group (Sort Rec))))
 -}

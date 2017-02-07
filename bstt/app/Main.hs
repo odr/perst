@@ -1,6 +1,6 @@
 module Main where
 
-import           Data.Type.BST
+import           Data.Type.Bst
 
 main :: IO ()
 main = print 1
