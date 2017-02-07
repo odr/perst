@@ -7,15 +7,20 @@
 {-# LANGUAGE UndecidableInstances      #-}
 module Data.Type.Bst
     ( Bst(..)
+    -- | Strong balanced binary tree on type level
     , ListToBst
+    -- | Type family to convert List to Binary Tree
+    --   ListToBst doesn't nub data because it can silently remove some value.
+    --   Application should check that there is no repetitions in some way
     , BstToList
+    -- | Convert Tree to List
     , Rep(..)
-    -- , RepL(..)
-    -- , RepN(..)
+    -- | Representation of types with many kinds as value
     , RepLens(..)
-    , Rec1
-    , (:::)
-    , Data.Promotion.Prelude.List.Sort
+    -- | Lenses to working with fields by labels
+    , BstCreate(..)
+    -- | class to create BST and instance to create it from List
+    , (:::) -- | convenient type to write "a" ::: Int instead of '("a", Int)
     ) where
 
 import           Data.Kind                   (Type)
@@ -24,7 +29,7 @@ import           Data.Promotion.Prelude      (type ($$), (:+$), (:-$), (:>=$))
 import           Data.Promotion.Prelude.List
 import           Data.Promotion.TH           ((:<), promote)
 import           Data.Proxy                  (Proxy (..))
-import           Data.Tagged                 (Tagged, tagWith)
+import           Data.Tagged                 (Tagged)
 import           Data.Type.Bool              (If)
 import           Data.Type.Equality          (type (==))
 import           GHC.Prim                    (Proxy#, proxy#)
@@ -40,8 +45,6 @@ promote [d|
                 | Bst3 (Bst a) a (Bst a)
         deriving Show
 
-    -- listToBst doesn't nub data because it can silently remove some value.
-    -- Application should check that there is no repetitions in some way
     listToBst :: Ord a => [a] -> Bst a
     listToBst xs = go (sort xs) $ length xs
       where
@@ -67,11 +70,12 @@ promote [d|
     |]
 
 type family Rep (t :: k) :: Type where
+    -- | Representation of types with many kinds as value
     Rep '[] = ()
     Rep ('[a] :: [k1]) = Rep a
     Rep (a :: Type) = a -- Rep () = Rep '[]  ==> not injection
     Rep ((a ': b) :: [k1]) = (Rep a, Rep b)
-    Rep ('(a, b) :: (k1,k2)) = Tagged a (Rep b)
+    Rep ('(a, b) :: (k1,k2)) = {- Tagged a -} (Rep b)
     Rep (TNil :: Bst k1) = ()
     Rep (Bst1 a :: Bst k1) = Rep a
     Rep (Bst2 a b :: Bst k1) = (Rep a, Rep b)
@@ -96,8 +100,11 @@ instance (RepLens as b1, RepLens as (b2 ': bs)) => RepLens as (b1 ': b2 ': bs)
         set x (v1,v2) = x & repLens (proxy# :: Proxy# '(as,b1)) .~ v1
                           & repLens (proxy# :: Proxy# '(as,(b2 ': bs))) .~ v2
 
-instance (RepLensB (If (a == b) 1 0) (a : as) b)
-        => RepLens ((a ': as) :: [k]) (b :: k) where
+instance RepLens ('[a] :: [k]) (a :: k) where
+    repLens _ = id
+
+instance (RepLensB (If (a == b) 1 0) (a ': a1 ': as) b)
+        => RepLens ((a ': a1 ': as) :: [k]) (b :: k) where
     repLens p = repLensB p (proxy# :: Proxy# (If (a == b) 1 0))
 
 instance RepLens (Bst1 a) a where
@@ -174,21 +181,25 @@ instance RepLens c d => RepLensB 3 (Bst3 a b c) d
   where
     repLensB _ _ f (x,y,z) = (x,y,) <$> repLens (proxy# :: Proxy# '(c,d)) f z
 
-class CreateBst
+class BstCreate (a :: k1) (b :: Bst k2) where
+    bstCreate :: Proxy# '(a,b) -> Rep a -> Rep b
 
-type Rec = ListToBst (Map HeadSym0 (Group (Sort '[
-        3,4,2,1,6,7,12,32,12,42,35
-        -- ,64,78,23,32,45,65,84,32,18
-        -- ,43,55,64,1,2,3,4,5,6,7
-        -- ,24,8,9,10,11,12,13,14,15,16
-        -- ,81,82,83,84,85,86,87,88,89,90
-        -- ,51,52,53,54,55,56,57,58,59,60
-        -- ,17,18,19,20,21,22
-        ,23,24,25,26,27,28,29,30])))
-type Rec1 = '[ "t1":::Int, "a":::String, "z":::Char, "d":::[Int]
+instance BstCreate (a :: [k1]) (TNil :: Bst k1) where
+    bstCreate _ _ = ()
 
-    ]
-        {--------------------------------------------------
-test = Proxy :: Proxy Rec
--- test = Proxy :: Proxy (ListToBst (Map HeadSym0 (Group (Sort Rec))))
--}
+instance RepLens a b => BstCreate (a :: [k1]) (Bst1 b :: Bst k1) where
+    bstCreate _ x = x ^. repLens (proxy# :: Proxy# '(a, b))
+
+instance (RepLens a b, RepLens a c)
+        => BstCreate (a :: [k1]) (Bst2 b c :: Bst k1) where
+    bstCreate _ = (,)
+                <$> (^. repLens (proxy# :: Proxy# '(a, b)))
+                <*> (^. repLens (proxy# :: Proxy# '(a, c)))
+
+instance (BstCreate a l, BstCreate a r, RepLens a t)
+        => BstCreate (a :: [k1]) (Bst3 l t r :: Bst k1) where
+    bstCreate _ x =
+        ( bstCreate (proxy# :: Proxy# '(a,l)) x
+        , x ^. repLens (proxy# :: Proxy# '(a, t))
+        , bstCreate (proxy# :: Proxy# '(a,r)) x
+        )

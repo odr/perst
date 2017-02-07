@@ -1,6 +1,6 @@
 {-# LANGUAGE MagicHash            #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Pers.Database.Sqlite
+module Perst.Database.Sqlite
     -- ( Sqlite, sqlite
     -- )
     where
@@ -19,12 +19,12 @@ import qualified Data.Text.Lazy             as TL
 import           Database.SQLite3
 import           GHC.Prim                   (Proxy#, proxy#)
 import           GHC.TypeLits               (KnownSymbol)
-import           Pers.Database.DDL          (DDL (..), FieldDDL (..),
+import           Perst.Database.DDL         (DDL (..), FieldDDL (..),
                                              RowDDL (..))
-import           Pers.Database.Types        (DBOption (..), DataDef (..),
+import           Perst.Database.Types       (DBOption (..), DataDef (..),
                                              RefType, SessionMonad,
                                              TableConstraint)
-import           Pers.Types                 (k2s)
+import           Perst.Types                (k2s)
 import           Prelude                    as P
 
 

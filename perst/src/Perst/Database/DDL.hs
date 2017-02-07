@@ -1,7 +1,7 @@
 {-# LANGUAGE MagicHash               #-}
 {-# LANGUAGE UndecidableInstances    #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
-module Pers.Database.DDL
+module Perst.Database.DDL
     ( DDL(..)
     , FieldDDL(..)
     , RowDDL(..)
@@ -12,11 +12,10 @@ import           Data.Proxy             (Proxy (..))
 import           Data.Text.Format       (format)
 import           Data.Text.Lazy         (Text)
 import qualified Data.Text.Lazy         as TL (null)
-import           Data.Type.KSet         (Subset)
 import           GHC.Prim               (Proxy#, proxy#)
 import           GHC.TypeLits           (KnownSymbol, Symbol (..), symbolVal')
-import           Pers.Database.Types
-import           Pers.Types
+import           Perst.Database.Types
+import           Perst.Types
 
 
 class DDL backend (t :: DataDef *) where

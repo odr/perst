@@ -1,6 +1,6 @@
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Pers.Database.Types
+module Perst.Database.Types
 --     ( RefType(..)
 --     , DataDef(..)
 -- --    , TableLike(..)
@@ -16,12 +16,11 @@ import           Control.Monad.IO.Class     (MonadIO)
 import           Control.Monad.Trans.Reader (ReaderT)
 import           Data.Proxy                 (Proxy (..))
 import           Data.Text.Lazy             (Text)
-import           Data.Type.KSet             (Subset)
 import           GHC.Exts                   (Constraint)
 import           GHC.Prim                   (Proxy#, proxy#)
 import           GHC.TypeLits               (KnownSymbol, SomeSymbol (..),
                                              Symbol (..), symbolVal')
-import           Pers.Types                 (AllIsNub, AllSubFst, CheckFK,
+import           Perst.Types                (AllIsNub, AllSubFst, CheckFK,
                                              CheckRec, FkIsNub, IsNub, IsSubFst,
                                              KindToStar (..))
 

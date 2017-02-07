@@ -1,4 +1,4 @@
-module Pers.Database.DML where
+module Perst.Database.DML where
 
 import           Data.Proxy          (Proxy (..))
 import           Pers.Database.Types

@@ -1,7 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE UndecidableInstances      #-}
-module Pers.Types where
+module Perst.Types where
 import           Data.List                    (groupBy, nub, (\\))
 import           Data.Promotion.TH            (promoteOnly)
 import           Data.Singletons.Prelude
@@ -27,6 +27,8 @@ promoteOnly
 
         isNub :: Eq a => [a] -> Bool
         isNub xs = xs == nub xs
+        -- isNub xs = let zs = sort xs in
+        --    zs == map head (group zs)
 
         allIsNub :: Eq a => [[a]] -> Bool
         allIsNub = all isNub
