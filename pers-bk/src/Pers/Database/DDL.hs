@@ -19,14 +19,9 @@ import           Pers.Database.Types
 import           Pers.Types
 
 
-class   ( TableLike a
-        , Subset (KeyDef a) (FirstL (RecordDef a))
-        , Subset (UniqDef a) (FirstL (RecordDef a))
-        , CheckFK (RecordDef a) (FKDef a)
-        )
-        => DDL backend a where
-    createTable :: (MonadIO m) => Proxy a -> SessionMonad backend m ()
-    dropTable   :: (MonadIO m) => Proxy a -> SessionMonad backend m ()
+class DDL backend (t :: DataDef *) where
+    ddlCreate :: (MonadIO m) => Proxy t -> SessionMonad backend m ()
+    ddlDrop   :: (MonadIO m) => Proxy t -> SessionMonad backend m ()
 
 -- | DDL-type-information and conversion from/to type to/from database type.
 --   Database type is a type specified in db-library which
@@ -38,10 +33,12 @@ class FieldDDL backend (a :: *) where
     toDb        :: Proxy# backend -> a -> FieldDB backend -- ^ value to database type
     fromDb      :: Proxy# backend -> FieldDB backend -> Maybe a -- ^ database type to value
 
+-- instance FieldDDL b a => KindToStar a Text where
+--     k2s _ = typeName (proxy# :: Proxy# b) (Proxy :: Proxy a)
+
 class RowDDL backend (a :: [(Symbol,*)]) where
     -- | String to describe a row for table creation
-    rowCreate   :: Proxy# backend -> Proxy a
-                -> [Text] -> [Text]
+    rowCreate   :: Proxy# backend -> Proxy a -> [Text] -> [Text]
 
 instance RowDDL b ('[]) where
     rowCreate _ _   = id

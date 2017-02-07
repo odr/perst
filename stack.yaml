@@ -1,9 +1,11 @@
 flags: {}
 extra-package-dbs: []
 packages:
+- bstt
 - pers-bk
 - pers-bk-sqlite
 extra-deps:
 - bookkeeper-0.2.4
 - type-level-sets-0.8.0.0
+- type-level-bst-0.1
 resolver: nightly-2017-02-03

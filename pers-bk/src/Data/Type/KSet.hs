@@ -132,7 +132,7 @@ instance {-# OVERLAPS #-} (Nub (e ': f ': s) ~ (e ': Nub (f ': s)),
 
 
 {-| Construct a subsetset 's' from a superset 't' -}
-class Subset s t where
+class Subset (s :: [a]) (t :: [a]) where
    subset :: Set t -> Set s
 
 instance Subset '[] '[] where

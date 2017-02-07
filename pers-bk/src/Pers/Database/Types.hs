@@ -1,14 +1,14 @@
-{-# LANGUAGE MagicHash #-}
-{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE PolyKinds            #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Pers.Database.Types
-    ( x
-    , RefType(..)
-    , DataDef(..)
-    , TableLike(..)
-    , CheckFK
-    , SessionMonad
-    , DBOption(..)
-    ) where
+--     ( RefType(..)
+--     , DataDef(..)
+-- --    , TableLike(..)
+--     , SessionMonad
+--     , DBOption(..)
+--     , TableConstraint
+--     )
+    where
 
 --import           Bookkeeper
 import           Control.Monad.Catch        (MonadCatch)
@@ -21,9 +21,9 @@ import           GHC.Exts                   (Constraint)
 import           GHC.Prim                   (Proxy#, proxy#)
 import           GHC.TypeLits               (KnownSymbol, SomeSymbol (..),
                                              Symbol (..), symbolVal')
-import           Pers.Types                 (FirstL)
-
-x = 1
+import           Pers.Types                 (AllIsNub, AllSubFst, CheckFK,
+                                             CheckRec, FkIsNub, IsNub, IsSubFst,
+                                             KindToStar (..))
 
 data RefType = Parent   -- ^ reference to master data. Delete "Cascade"
              | Ref      -- ^ reference to dictionary.
@@ -33,6 +33,10 @@ class GetRefType (r::RefType) where
     getRefType :: Proxy# (r :: RefType) -> RefType
 instance GetRefType Parent  where getRefType _ = Parent
 instance GetRefType Ref     where getRefType _ = Ref
+instance KindToStar Parent RefType where
+    k2s _ = Parent
+instance KindToStar Ref RefType where
+    k2s _ = Ref
 
 data DataDef k
     = TableDef
@@ -51,16 +55,25 @@ class TableLike (a::k) where
     -- | Foreign keys: [ [(referencing_field, referenced_field)], (table_name, RefType)]
     type FKDef      (a :: k) :: [([(Symbol,Symbol)],(Symbol,RefType))]
 
-instance TableLike  (TableDef n rec pk uk fk :: DataDef *) where
-    type TabName    (TableDef n rec pk uk fk) = n
-    type RecordDef  (TableDef n rec pk uk fk) = rec
-    type KeyDef     (TableDef n rec pk uk fk) = pk
-    type UniqDef    (TableDef n rec pk uk fk) = uk
-    type FKDef      (TableDef n rec pk uk fk) = fk
+instance TableLike  (TableDef n r p u f :: DataDef *) where
+    type TabName    (TableDef n r p u f) = n
+    type RecordDef  (TableDef n r p u f) = r
+    type KeyDef     (TableDef n r p u f) = p
+    type UniqDef    (TableDef n r p u f) = u
+    type FKDef      (TableDef n r p u f) = f
 
-type family CheckFK (a :: [(k,k2)]) (b :: [([(k,k3)],k4)]) :: Constraint where
-    CheckFK a '[] = ()
-    CheckFK a ('(bs,b) ': cs) = (Subset (FirstL bs) (FirstL a), CheckFK a cs)
+type TableConstraint n r p u f
+    =   ( KindToStar n String, KindToStar p [String], KindToStar u [[String]]
+        , KindToStar f [([(String, String)], (String, RefType))]
+        , IsSubFst p r ~ True, AllSubFst u r ~ True, CheckFK f r ~ True
+        , IsNub p ~ True, AllIsNub u ~ True, FkIsNub f ~ True
+        , CheckRec r ~ True
+        )
+
+type TabConstr (t :: DataDef *) =
+    ( TableLike t
+    , TableConstraint (TabName t) (RecordDef t) (KeyDef t) (UniqDef t) (FKDef t)
+    )
 
 -- | Options for backend
 class DBOption back where

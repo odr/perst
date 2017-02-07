@@ -3,4 +3,4 @@ module Main where
 import           Pers.Database.Types
 
 main :: IO ()
-main = print x
+main = print 1

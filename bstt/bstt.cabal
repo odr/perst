@@ -1,4 +1,4 @@
-name:                pers-bk
+name:                bstt
 version:             0.1.0.0
 synopsis:            Initial project template from stack
 description:         Please see README.md
@@ -15,42 +15,44 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Pers.Database.Types
-                      , Pers.Types
-                      , Pers.Database.DDL
-                      , Data.Type.KSet
+  exposed-modules:      Data.Type.BST
 
-  extensions:           DataKinds
+  default-extensions:   DataKinds
                       , TypeOperators
                       , KindSignatures
                       , OverloadedStrings
+                      , OverloadedLabels
                       , TypeFamilies
                       , ScopedTypeVariables
                       , PolyKinds
                       , MultiParamTypeClasses
                       , FlexibleContexts
                       , FlexibleInstances
-                      , ConstraintKinds
+                      , FlexibleInstances
                       , MagicHash
 
   build-depends:       base >= 4.7 && < 5
-                      , bookkeeper
-                      -- , type-level-bst
-                      -- , type-level-sets
-                      , ghc-prim
-                      , transformers
-                      , text
-                      , exceptions
-                      , text-format
+                      , tagged
                       , singletons
+                      , ghc-prim
+                      , microlens
   default-language:    Haskell2010
 
-executable pers-bk-exe
+executable bstt-exe
   hs-source-dirs:      app
   main-is:             Main.hs
+  default-extensions: TypeOperators
+                      , DataKinds
+                      , ScopedTypeVariables
+                      , OverloadedStrings
+                      -- , KindSignatures
+                      -- , OverloadedLabels
+                      -- , TypeFamilies
+                      -- , FlexibleInstances
+                      -- , FlexibleInstances
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
-                     , pers-bk
+                      , bstt
   default-language:    Haskell2010
 
 test-suite pers-bk-test
@@ -58,7 +60,7 @@ test-suite pers-bk-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   build-depends:       base
-                     , pers-bk
+                      , bstt
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 

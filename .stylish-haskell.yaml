@@ -189,10 +189,10 @@ language_extensions:
   - TypeOperators
   - KindSignatures
   - OverloadedStrings
-  - OverloadedLabels
   - TypeFamilies
   - ScopedTypeVariables
   - PolyKinds
   - MultiParamTypeClasses
   - FlexibleContexts
   - FlexibleInstances
+  - MagicHash
