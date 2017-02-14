@@ -20,11 +20,12 @@ import           Database.SQLite3
 import           GHC.Prim                   (Proxy#, proxy#)
 import           GHC.TypeLits               (KnownSymbol)
 import           Perst.Database.DDL         (DDL (..), FieldDDL (..),
-                                             RowDDL (..))
+                                             HasNull (..), RowCreateConstr,
+                                             rowCreate)
 import           Perst.Database.Types       (DBOption (..), DataDef (..),
                                              RefType, SessionMonad,
                                              TableConstraint)
-import           Perst.Types                (k2s)
+import           Perst.Types                (KindToStar (..))
 import           Prelude                    as P
 
 
@@ -46,46 +47,61 @@ instance DBOption Sqlite where
                 (\(e::SomeException) -> liftIO (close conn >> P.print "closed!!!") >> throwM e)
 
 instance (FieldDDL Sqlite a) => FieldDDL Sqlite (Maybe a) where
-    typeName pb (_::Proxy (Maybe a))
-                        = typeName pb (Proxy :: Proxy a)
+    -- typeName pb (_::Proxy (Maybe a))
+    --                     = typeName pb (Proxy :: Proxy a)
     toDb pb (Just a) = toDb pb a
     toDb _ Nothing   = SQLNull
     fromDb _ SQLNull = Just Nothing
     fromDb pb a      = Just <$> fromDb pb a
-    nullStr _ _         = ""
+    -- nullStr _ _         = ""
 
 instance FieldDDL Sqlite Int64 where
-    typeName _ _            = "INTEGER"
+    -- typeName _ _            = "INTEGER"
     toDb _                = SQLInteger
     fromDb _ (SQLInteger a) = Just a
     fromDb _ _              = Nothing
 
 instance FieldDDL Sqlite Text where
-    typeName _ _            = "TEXT"
+    -- typeName _ _            = "TEXT"
     toDb _                = SQLText
     fromDb _ (SQLText a) = Just a
     fromDb _ _           = Nothing
 
 instance FieldDDL Sqlite Double where
-    typeName _ _            = "FLOAT"
+    -- typeName _ _            = "FLOAT"
     toDb _                 = SQLFloat
     fromDb _ (SQLFloat a) = Just a
     fromDb _ _            = Nothing
 
 instance FieldDDL Sqlite ByteString where
-    typeName _ _            = "BLOB"
+    -- typeName _ _            = "BLOB"
     toDb _                 = SQLBlob
     fromDb _ (SQLBlob a) = Just a
     fromDb _ _           = Nothing
 
-instance (RowDDL Sqlite r, TableConstraint n r p u f) => DDL Sqlite (TableDef n r p u f)
+instance KindToStar '(Sqlite, Int64     )   String where k2s _ = "INTEGER"
+instance KindToStar '(Sqlite, Text      )   String where k2s _ = "TEXT"
+instance KindToStar '(Sqlite, Double    )   String where k2s _ = "FLOAT"
+instance KindToStar '(Sqlite, ByteString)   String where k2s _ = "BLOB"
+instance KindToStar '(Sqlite,a) String => KindToStar '(Sqlite,Maybe a) String
+    where k2s _ = k2s (proxy# :: Proxy# '(Sqlite,a))
+
+instance KindToStar '(Sqlite, Int64     )   HasNull where k2s _ = HasNull False
+instance KindToStar '(Sqlite, Text      )   HasNull where k2s _ = HasNull False
+instance KindToStar '(Sqlite, Double    )   HasNull where k2s _ = HasNull False
+instance KindToStar '(Sqlite, ByteString)   HasNull where k2s _ = HasNull False
+instance KindToStar '(Sqlite, Maybe a   )   HasNull where k2s _ = HasNull True
+
+instance (RowCreateConstr Sqlite r, TableConstraint n r p u f)
+        => DDL Sqlite (TableDef n r p u f)
   where
     ddlCreate _
         = runSqliteDDL
             $ format "CREATE TABLE IF NOT EXISTS {} ({}, PRIMARY KEY ({}) {} {})"
                 ( k2s (proxy# :: Proxy# n) :: String
                 , TL.intercalate ","
-                    $ rowCreate (proxy# :: Proxy# Sqlite) (Proxy :: Proxy r) []
+                    $ map TL.pack
+                    $ rowCreate (Proxy :: Proxy Sqlite) (Proxy :: Proxy r)
                 , intercalate ","
                     (k2s (proxy# :: Proxy# p) :: [String])
                 , foldMap (format ",UNIQUE ({})" . Only . intercalate ",")

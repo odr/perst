@@ -196,3 +196,5 @@ language_extensions:
   - FlexibleContexts
   - FlexibleInstances
   - MagicHash
+  - OverloadedLabels
+  - DeriveGeneric
