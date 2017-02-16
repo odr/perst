@@ -39,25 +39,25 @@ singletons
         fkIsNub :: (Eq a, Eq b) => [([(a,b)],(c,d))] -> Bool
         fkIsNub = all (pIsNub . unzip) . map fst
 
-        comparing :: (Ord a) => (b -> a) -> b -> b -> Ordering
-        comparing p x y = compare (p x) (p y)
+        -- comparing :: (Ord a) => (b -> a) -> b -> b -> Ordering
+        -- comparing p x y = compare (p x) (p y)
+        --
+        -- sortByFst :: (Ord a) => [(a,b)] -> [(a,b)]
+        -- sortByFst = sortBy (comparing fst)
+        --
+        -- on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+        -- on g f x y = g (f x) (f y)
+        --
+        -- groupByFst :: (Eq a) => [(a,b)] -> [[(a,b)]]
+        -- groupByFst = groupBy (on (==) fst)
+        --
+        -- checkRec :: (Ord a, Eq a) => [(a,b)] -> Bool
+        -- checkRec = all isS . groupByFst . sortByFst
+        --   where
+        --     isS xs = length (take 2 xs) == 1
 
-        sortByFst :: (Ord a) => [(a,b)] -> [(a,b)]
-        sortByFst = sortBy (comparing fst)
-
-        on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-        on g f x y = g (f x) (f y)
-
-        groupByFst :: (Eq a) => [(a,b)] -> [[(a,b)]]
-        groupByFst = groupBy (on (==) fst)
-
-        checkRec :: (Ord a, Eq a) => [(a,b)] -> Bool
-        checkRec = all isS . groupByFst . sortByFst
-          where
-            isS xs = length (take 2 xs) == 1
-
-        backTypes :: a -> [(b,c)] -> [(a,c)]
-        backTypes a = map ((,) a . snd)
+        backTypes :: a -> (a -> c -> Symbol) -> [(b,c)] -> [Symbol]
+        backTypes a f = map (f a . snd)
 
     |]
 

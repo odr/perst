@@ -37,10 +37,10 @@ library
                       , singletons
                       , ghc-prim
                       , microlens
-                      , bookkeeper
+                      -- , bookkeeper
   default-language:    Haskell2010
 
-executable bstt-exe
+executable lstt-exe
   hs-source-dirs:      app
   main-is:             Main.hs
   default-extensions: TypeOperators
@@ -61,7 +61,7 @@ executable bstt-exe
                       , microlens
   default-language:    Haskell2010
 
-test-suite pers-bk-test
+test-suite lstt-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs

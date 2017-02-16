@@ -11,11 +11,10 @@ main = print test
 test = 1
 
 data Dat0 = Rec0 deriving (Show, Eq, Generic)
-vd0 = Refl :: Gnames (Rep Dat0) :~: '[]
+vd0 = Refl :: Fields Dat0 :~: '[]
 
 data Dat1 = Rec1 { f11 :: Int } deriving (Show, Eq, Generic)
--- instance Lensed Dat1
-vd1 = Refl :: Gnames (Rep Dat1) :~: '["f11":::Int]
+vd1 = Refl :: Fields Dat1 :~: '["f11":::Int]
 
 data Dat2 = Rec2
     { f21 :: Int
@@ -24,7 +23,7 @@ data Dat2 = Rec2
     } deriving (Show, Eq, Generic)
 --instance Lensed Dat2
 vr2 = Rec2 1 'x' (2,"test")
-vd2 = Refl :: Gnames (Rep Dat2) :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
+vd2 = Refl :: Fields Dat2 :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
 -- vr221 = vr2 ^. nlens (FieldName :: FieldName "f21")
 -- vr2212 = vr2 ^. nlens (fromLabel (proxy# :: Proxy# "f21") :: Proxy "f21")
 vr2213 = vr2 ^. #f22
@@ -56,14 +55,14 @@ vr2' = toGrec [XInt 5, XChar 'z', XIS (7,"odr")] :: Dat2
 x2 = fromGrec vr2' :: [X]
 
 newtype Nt1 = Nt1 { unNt1 :: Dat2 } deriving (Show, Eq, Generic)
-vnt1 = Refl :: Gnames (Rep Nt1) :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
+vnt1 = Refl :: Fields Nt1 :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
 rnt1 = Nt1 vr2
 nt11 = Nt1 vr2 ^. #f23
 nt1 = toGrec [XInt 5, XChar 'z', XIS (7,"odr")] :: Nt1
 x1 = fromGrec nt1 :: [X]
 
 data DatS = Rd1 Int | Rd2 deriving (Show, Eq, Generic)
--- vd5 = Refl :: Gnames (Rep DatS) :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
+-- vd5 = Refl :: Fields DatS) :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
 
 data DatBig = RecBig
     { fb1  :: Int
@@ -97,7 +96,7 @@ data DatBig = RecBig
     , fb29 :: Int
     ,f30::Int,f31::Int,f32::Int,f33::Int,f34::Int,f35::Int,f36::Int,f37::Int,f38::Int,f39::Int
     } deriving (Show, Eq, Generic)
-vdb = Refl :: (Gnames (Rep DatBig) :~: '[
+vdb = Refl :: (Fields DatBig :~: '[
     "fb1":::Int,"fb2":::Char,"fb3":::(Int,String),"fb4":::Int,"fb5":::Char,"fb6":::(Int,String)
     ,"fb7":::Int,"fb8":::Char,"fb9":::(Int,String)
     ,"fb10":::Int,"fb11":::Char,"fb12":::(Int,String),"fb13":::Int,"fb14":::Char

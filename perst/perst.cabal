@@ -33,7 +33,7 @@ library
                       , MagicHash
 
   build-depends:       base >= 4.7 && < 5
-                      -- , bookkeeper
+                      , grec
                       -- , type-level-bst
                       -- , type-level-sets
                       , ghc-prim

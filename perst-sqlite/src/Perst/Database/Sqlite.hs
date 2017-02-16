@@ -19,19 +19,24 @@ import qualified Data.Text.Lazy             as TL
 import           Database.SQLite3
 import           GHC.Prim                   (Proxy#, proxy#)
 import           GHC.TypeLits               (KnownSymbol)
-import           Perst.Database.DDL         (DDL (..), FieldDDL (..),
-                                             HasNull (..), RowCreateConstr,
-                                             rowCreate)
-import           Perst.Database.Types       (DBOption (..), DataDef (..),
-                                             RefType, SessionMonad,
-                                             TableConstraint)
-import           Perst.Types                (KindToStar (..))
+import           Perst.Database.DDL         (DDL (..), rowCreate)
+import           Perst.Database.Types
 import           Prelude                    as P
 
-
 data Sqlite
+
 sqlite :: Proxy Sqlite
 sqlite = Proxy
+
+type instance DbTypeName Sqlite Int64      = "INTEGER NOT NULL"
+type instance DbTypeName Sqlite Text       = "TEXT NOT NULL"
+type instance DbTypeName Sqlite Double     = "FLOAT NOT NULL"
+type instance DbTypeName Sqlite ByteString = "BLOB NOT NULL"
+
+type instance DbTypeName Sqlite (Maybe Int64     ) = "INTEGER NULL"
+type instance DbTypeName Sqlite (Maybe Text      ) = "TEXT NULL"
+type instance DbTypeName Sqlite (Maybe Double    ) = "FLOAT NULL"
+type instance DbTypeName Sqlite (Maybe ByteString) = "BLOB NULL"
 
 instance DBOption Sqlite where
     type Conn Sqlite            = Database
@@ -46,78 +51,30 @@ instance DBOption Sqlite where
         catch (runReaderT sm (Proxy, conn) <* liftIO (close conn >> P.print "closed!!!"))
                 (\(e::SomeException) -> liftIO (close conn >> P.print "closed!!!") >> throwM e)
 
-instance (FieldDDL Sqlite a) => FieldDDL Sqlite (Maybe a) where
-    -- typeName pb (_::Proxy (Maybe a))
-    --                     = typeName pb (Proxy :: Proxy a)
-    toDb pb (Just a) = toDb pb a
-    toDb _ Nothing   = SQLNull
-    fromDb _ SQLNull = Just Nothing
-    fromDb pb a      = Just <$> fromDb pb a
-    -- nullStr _ _         = ""
-
-instance FieldDDL Sqlite Int64 where
-    -- typeName _ _            = "INTEGER"
-    toDb _                = SQLInteger
-    fromDb _ (SQLInteger a) = Just a
-    fromDb _ _              = Nothing
-
-instance FieldDDL Sqlite Text where
-    -- typeName _ _            = "TEXT"
-    toDb _                = SQLText
-    fromDb _ (SQLText a) = Just a
-    fromDb _ _           = Nothing
-
-instance FieldDDL Sqlite Double where
-    -- typeName _ _            = "FLOAT"
-    toDb _                 = SQLFloat
-    fromDb _ (SQLFloat a) = Just a
-    fromDb _ _            = Nothing
-
-instance FieldDDL Sqlite ByteString where
-    -- typeName _ _            = "BLOB"
-    toDb _                 = SQLBlob
-    fromDb _ (SQLBlob a) = Just a
-    fromDb _ _           = Nothing
-
-instance KindToStar '(Sqlite, Int64     )   String where k2s _ = "INTEGER"
-instance KindToStar '(Sqlite, Text      )   String where k2s _ = "TEXT"
-instance KindToStar '(Sqlite, Double    )   String where k2s _ = "FLOAT"
-instance KindToStar '(Sqlite, ByteString)   String where k2s _ = "BLOB"
-instance KindToStar '(Sqlite,a) String => KindToStar '(Sqlite,Maybe a) String
-    where k2s _ = k2s (proxy# :: Proxy# '(Sqlite,a))
-
-instance KindToStar '(Sqlite, Int64     )   HasNull where k2s _ = HasNull False
-instance KindToStar '(Sqlite, Text      )   HasNull where k2s _ = HasNull False
-instance KindToStar '(Sqlite, Double    )   HasNull where k2s _ = HasNull False
-instance KindToStar '(Sqlite, ByteString)   HasNull where k2s _ = HasNull False
-instance KindToStar '(Sqlite, Maybe a   )   HasNull where k2s _ = HasNull True
-
-instance (RowCreateConstr Sqlite r, TableConstraint n r p u f)
-        => DDL Sqlite (TableDef n r p u f)
+instance (TabConstrB Sqlite (TableDef r p u f))
+        => DDL Sqlite (TableDef r p u f)
   where
-    ddlCreate _
+    ddlCreate pt
         = runSqliteDDL
             $ format "CREATE TABLE IF NOT EXISTS {} ({}, PRIMARY KEY ({}) {} {})"
-                ( k2s (proxy# :: Proxy# n) :: String
+                ( tableName pt
                 , TL.intercalate ","
                     $ map TL.pack
-                    $ rowCreate (Proxy :: Proxy Sqlite) (Proxy :: Proxy r)
-                , intercalate ","
-                    (k2s (proxy# :: Proxy# p) :: [String])
+                    $ rowCreate (Proxy :: Proxy Sqlite) pt
+                , intercalate "," $ fieldNames pt
                 , foldMap (format ",UNIQUE ({})" . Only . intercalate ",")
-                    (k2s (proxy# :: Proxy# u) :: [[String]])
+                    $ uniqKeys pt
                 , foldMap ( format ",FOREIGN KEY ({}) REFERENCES {} ({})"
                           . ((,,) <$> intercalate "," . fst . fst
                                   <*> fst . snd
                                   <*> intercalate "," . snd . fst
                             )
                           . first unzip
-                          )
-                    (k2s (proxy# :: Proxy# f) :: [([(String, String)], (String, RefType))])
+                          ) $ foreignKeys pt
                 )
-    ddlDrop _
+    ddlDrop pt
         = runSqliteDDL
-            $ format "DROP TABLE {}" $ Only (k2s (proxy# :: Proxy# n) :: String)
+            $ format "DROP TABLE {}" $ Only (tableName pt :: String)
 
 runSqliteDDL :: (MonadIO m) => TL.Text -> SessionMonad Sqlite m ()
 runSqliteDDL cmd = do

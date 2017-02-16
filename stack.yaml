@@ -7,10 +7,10 @@ packages:
 - perst
 - perst-sqlite
 extra-deps:
-- haddock-api-2.17.3
-- bookkeeper-0.2.4
-- type-level-sets-0.8.0.0
-- gi-gtk-3.0.11
-- gi-gobject-2.0.11
+# - haddock-api-2.17.3
+# - bookkeeper-0.2.4
+# - type-level-sets-0.8.0.0
+# - gi-gtk-3.0.11
+# - gi-gobject-2.0.11
 # - type-level-bst-0.1
-resolver: nightly-2017-02-03
+resolver: lts-8.0

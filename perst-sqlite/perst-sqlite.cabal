@@ -31,6 +31,7 @@ library
                       -- , FlexibleInstances
 
   build-depends:       base >= 4.7 && < 5
+                      , grec
                       , perst
                       , direct-sqlite
                       , ghc-prim
@@ -44,10 +45,10 @@ library
 executable perst-sqlite-exe
   hs-source-dirs:      app
   main-is:             Main.hs
-  default-extensions: TypeOperators
-                      , DataKinds
-                      , ScopedTypeVariables
-                      , OverloadedStrings
+  -- default-extensions: TypeOperators
+  --                     , DataKinds
+  --                     , ScopedTypeVariables
+  --                     , OverloadedStrings
                       -- , KindSignatures
                       -- , OverloadedLabels
                       -- , TypeFamilies
