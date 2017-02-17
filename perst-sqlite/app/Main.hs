@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -21,7 +22,7 @@ import           Perst.Types           ((:::))
 newtype NInt = NInt Int64 deriving (Show, Eq, Ord, Generic)
 type instance DbTypeName Sqlite NInt = "INTEGER NOT NULL"
 
-data Rec = Tab
+data Tab = Rec
   { id   :: Int64
   , name :: T.Text
   , val  :: Maybe Double
@@ -29,28 +30,28 @@ data Rec = Tab
   , z    :: NInt
   } deriving (Show, Eq, Generic)
 
-data Rec1 = Tab1
-  { id  :: Int64
-  , v0  :: Double
-  , v1  :: Double
-  , v2  :: Double
-  , v3  :: Double
-  , v4  :: Double
-  , v5  :: Double
-  , v6  :: Double
-  , v7  :: Double
-  , v8  :: Double
-  , v9  :: Double
-  , v10 :: Double
-  , v11 :: Double
-  , v12 :: Double
-  , v13 :: Double
-  , v14 :: Double
-  , v15 :: Double
-  , v16 :: Double
-  , v17 :: Double
-  , v18 :: Double
-  , v19 :: Double
+data Tab1 = Rec1
+  { id :: Int64
+  , v0 :: Double
+  , v1 :: Double
+  , v2 :: Double
+  , v3 :: Double
+  , v4 :: Double
+  , v5 :: Double
+  -- , v6  :: Double
+  -- , v7  :: Double
+  -- , v8  :: Double
+  -- , v9  :: Double
+  -- , v10 :: Double
+  -- , v11 :: Double
+  -- , v12 :: Double
+  -- , v13 :: Double
+  -- , v14 :: Double
+  -- , v15 :: Double
+  -- , v16 :: Double
+  -- , v17 :: Double
+  -- , v18 :: Double
+  -- , v19 :: Double
   -- , v20 :: Double
   -- , v21 :: Double
   -- , v22 :: Double
@@ -74,27 +75,41 @@ data Rec1 = Tab1
   -- , v40 :: Double
   } deriving (Eq, Show, Generic)
 
-type Tab = TableDef Rec '["id"] '[ '["name"]] '[]
+type TTab = TableDef Tab '["id"] '[ '["name"]] '[]
 
-pTab :: Proxy Tab
+pTab :: Proxy TTab
 pTab = Proxy
 
-type Tab1 = TableDef Rec1 '["id"] '[] '[]
+type TTab1 = TableDef Tab1 '["id"] '[] '[]
 
-pTab1 :: Proxy Tab1
+pTab1 :: Proxy TTab1
 pTab1 = Proxy
 
-createTab :: SessionMonad Sqlite IO ()
-createTab = do
-    catch (ddlDrop pTab) (\(_::SomeException) -> return ())
-    ddlCreate pTab
+data Customer = Customer
+  { id    :: Int64
+  , name  :: T.Text
+  , email :: T.Text
+  } deriving (Show, Generic)
+
+data Orders = Order -- name ORDER is disbled in sqlite!
+  { id         :: Int64
+  , num        :: T.Text
+  , customerId :: Int64
+  } deriving (Show, Generic)
+type TCustomer = TableDef Customer '["id"] '[ '["name"]] '[]
+type TOrder = TableDef Orders '["id"] '[ '["num"]] '[ '( '[ '("customerId", "id")], '("Customer", DCCascade))]
+pCustomer = Proxy :: Proxy TCustomer
+pOrder = Proxy :: Proxy TOrder
+
+
+createTab :: TabConstrB Sqlite a => Proxy (a :: DataDef) -> SessionMonad Sqlite IO ()
+createTab (p :: Proxy a)= do
+    catch (dropTable p) (\(_::SomeException) -> return ())
+    createTable sqlite p
 
 main :: IO ()
 main = runSession sqlite "test.db" $ do
-  catch (ddlDrop pTab) (\(_::SomeException) -> return ())
-  ddlCreate pTab
-  catch (ddlDrop pTab1) (\(_::SomeException) -> return ())
-  ddlCreate pTab1
-
--- main:: IO ()
--- main = undefined
+  createTab pTab
+  createTab pTab1
+  createTab pCustomer
+  createTab pOrder

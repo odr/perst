@@ -3,12 +3,12 @@ module Perst.Database.DML where
 import           Data.Proxy           (Proxy (..))
 import           Perst.Database.Types
 
--- class (TabConstr t) => DML (b :: *) (t::DataDef *)
---   where
+class (TabConstrB b t) => DML (b :: *) (t::DataDef)
+  where
     -- | Insert the list of values into database.
     -- Should create Insert-statement with parameters
     -- and execute it for all values in list
---    ins ::  Proxy t -> RecordDef t -> SessionMonad b m ()
+    ins ::  Proxy t -> Record t -> SessionMonad b m ()
 {-
 
     -- | In many cases PK should be generated.

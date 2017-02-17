@@ -1,26 +1,21 @@
-{-# LANGUAGE MagicHash            #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Perst.Database.Sqlite
-    -- ( Sqlite, sqlite
-    -- )
+    ( Sqlite, sqlite
+    )
     where
 
-import           Control.Arrow              (first)
-import           Control.Monad.Catch
+import           Control.Monad.Catch        (SomeException, catch, throwM)
 import           Control.Monad.IO.Class     (MonadIO (..))
 import           Control.Monad.Trans.Reader (ReaderT (..), ask)
 import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
-import           Data.List                  (intercalate)
 import           Data.Proxy                 (Proxy (..))
 import           Data.Text                  (Text)
 import           Data.Text.Format           (Only (..), format)
-import qualified Data.Text.Lazy             as TL
-import           Database.SQLite3
-import           GHC.Prim                   (Proxy#, proxy#)
-import           GHC.TypeLits               (KnownSymbol)
-import           Perst.Database.DDL         (DDL (..), rowCreate)
-import           Perst.Database.Types
+import           Data.Text.Lazy             (toStrict)
+import           Database.SQLite3           (Database, SQLData, close, exec,
+                                             open)
+import           Perst.Database.Types       (DBOption (..), DbTypeName)
 import           Prelude                    as P
 
 data Sqlite
@@ -43,40 +38,15 @@ instance DBOption Sqlite where
     type SessionParams Sqlite   = Text
     type FieldDB Sqlite         = SQLData
     paramName _                 = format "?{}" . Only
+    afterCreateTableText _      = "IF NOT EXISTS"
+    deleteConstraintText _ _    = ""
     runSession _ par sm         = do
-        liftIO $ P.print "Make Sqlite Connection!"
-        conn <- liftIO $ open par
-        -- liftIO $ catch (exec conn "PRAGMA foreign_keys = ON;")
-        --             (\(_::SomeException) -> return ()) -- for sqlite3
-        catch (runReaderT sm (Proxy, conn) <* liftIO (close conn >> P.print "closed!!!"))
-                (\(e::SomeException) -> liftIO (close conn >> P.print "closed!!!") >> throwM e)
-
-instance (TabConstrB Sqlite (TableDef r p u f))
-        => DDL Sqlite (TableDef r p u f)
-  where
-    ddlCreate pt
-        = runSqliteDDL
-            $ format "CREATE TABLE IF NOT EXISTS {} ({}, PRIMARY KEY ({}) {} {})"
-                ( tableName pt
-                , TL.intercalate ","
-                    $ map TL.pack
-                    $ rowCreate (Proxy :: Proxy Sqlite) pt
-                , intercalate "," $ fieldNames pt
-                , foldMap (format ",UNIQUE ({})" . Only . intercalate ",")
-                    $ uniqKeys pt
-                , foldMap ( format ",FOREIGN KEY ({}) REFERENCES {} ({})"
-                          . ((,,) <$> intercalate "," . fst . fst
-                                  <*> fst . snd
-                                  <*> intercalate "," . snd . fst
-                            )
-                          . first unzip
-                          ) $ foreignKeys pt
-                )
-    ddlDrop pt
-        = runSqliteDDL
-            $ format "DROP TABLE {}" $ Only (tableName pt :: String)
-
-runSqliteDDL :: (MonadIO m) => TL.Text -> SessionMonad Sqlite m ()
-runSqliteDDL cmd = do
-    liftIO $ P.print cmd
-    ask >>= \(_,conn) -> liftIO (exec conn $ TL.toStrict cmd)
+      liftIO $ P.print "Make Sqlite Connection!"
+      conn <- liftIO $ open par
+      -- liftIO $ catch (exec conn "PRAGMA foreign_keys = ON;")
+      --             (\(_::SomeException) -> return ()) -- for sqlite3
+      catch (runReaderT sm (Proxy, conn) <* liftIO (close conn >> P.print "closed!!!"))
+              (\(e::SomeException) -> liftIO (close conn >> P.print "closed!!!") >> throwM e)
+    runCommand cmd = do
+      liftIO $ P.print cmd
+      ask >>= \(_,conn) -> liftIO (exec conn $ toStrict cmd)

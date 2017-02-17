@@ -1,5 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
-module Data.Type.Grec.Lens((:::), Cons, Fields, nlens, FieldName(..)) where
+module Data.Type.Grec.Lens((:::), Cons, Fields, Typ, nlens, FieldName(..)) where
 
 import           Data.Kind                     (Type)
 import           Data.Maybe                    (isJust)
@@ -22,6 +22,14 @@ type family GCons (a :: k1) :: Symbol where
   GCons (D1 _ (C1 (MetaCons s _ _) _)) = s
   GCons a = TypeError (
       Text "GCons is supported for Representation of data or newtype with one constructor"
+      :$$: Text "Checked type is " :<>: ShowType a
+      )
+
+type Typ a = GTyp (Rep a)
+type family GTyp (a :: k1) :: Symbol where
+  GTyp (D1 (MetaData s _ _ _) _) = s
+  GTyp a = TypeError (
+      Text "GTyp is supported for Representation of data or newtype"
       :$$: Text "Checked type is " :<>: ShowType a
       )
 
