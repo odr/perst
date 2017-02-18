@@ -18,6 +18,7 @@ library
   exposed-modules:     Perst.Database.Types
                       , Perst.Types
                       , Perst.Database.DDL
+                      , Perst.Database.DML
 
   extensions:           DataKinds
                       , TypeOperators

@@ -2,8 +2,8 @@ flags: {}
 extra-package-dbs: []
 packages:
 - grec
-- lstt
-- bstt
+# - lstt
+# - bstt
 - perst
 - perst-sqlite
 extra-deps:

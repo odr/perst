@@ -12,7 +12,7 @@ import           Data.List              (intercalate)
 import           Data.Proxy             (Proxy (..))
 import           Data.Text.Format       (Only (..), format)
 import           Data.Text.Lazy         (Text)
-import qualified Data.Text.Lazy         as TL
+-- import qualified Data.Text.Lazy         as TL
 import           Data.Type.Grec
 import           Perst.Database.Types
 import           Perst.Types
@@ -23,9 +23,9 @@ createTableText pb pt
   = format "CREATE TABLE {} {} ({}, PRIMARY KEY ({}) {} {})"
       ( afterCreateTableText pb
       , tableName pt
-      , TL.intercalate ","
-          $ map TL.pack
-          $ zipWith (\n t -> n ++ " " ++ t) (fieldNames pt) (dbTypeNames pb pt)
+      , intercalate ","
+          $ zipWith (\n (t,b) -> n ++ " " ++ t ++ if b then " NULL" else " NOT NULL")
+                    (fieldNames pt) (dbTypeNames pb pt)
       , intercalate "," $ primaryKey pt
       , foldMap (format ",UNIQUE ({})" . Only . intercalate ",")
           $ uniqKeys pt
@@ -43,7 +43,7 @@ dropTableText pt = format "DROP TABLE {}" $ Only (tableName pt :: String)
 
 createTable :: (DBOption b, TabConstrB b t, MonadIO m)
             => Proxy b -> Proxy t -> SessionMonad b m ()
-createTable pb = runCommand . createTableText pb
+createTable pb = execCommand . createTableText pb
 
 dropTable :: (DBOption b, TabConstr t, MonadIO m) => Proxy t -> SessionMonad b m ()
-dropTable = runCommand . dropTableText
+dropTable = execCommand . dropTableText

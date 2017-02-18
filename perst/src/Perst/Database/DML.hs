@@ -1,15 +1,47 @@
 module Perst.Database.DML where
 
-import           Data.Proxy           (Proxy (..))
+import           Control.Monad.Catch        (MonadMask, finally)
+import           Control.Monad.IO.Class     (MonadIO (..))
+import           Control.Monad.Trans.Reader (ask)
+import           Data.List                  (intercalate)
+import           Data.Proxy                 (Proxy (..))
+import           Data.Text.Format           (format)
+import           Data.Text.Lazy             (Text)
+import qualified Data.Text.Lazy             as TL
+import           Data.Type.Grec             (fromGrec)
 import           Perst.Database.Types
 
+
+insertText :: (DBOption b, TabConstrB b t, InsConstr b t (Record t))
+            => Proxy b -> Proxy t -> Text
+insertText pb (pt :: Proxy t) = insertText' pb pt (Proxy :: Proxy (Record t))
+
+insertText' :: (DBOption b, TabConstrB b t, InsConstr b t r)
+            => Proxy b -> Proxy t -> Proxy r -> Text
+insertText' pb pt pr
+  = format "INSERT INTO {}({}) VALUES({})"
+    ( tableName pt
+    , intercalate "," fns
+    , TL.intercalate "," $ zipWith (const $ paramName pb) fns [1..]
+    )
+ where
+  fns = fieldNames' pr
+
+insertMany  :: (MonadIO m, MonadMask m, DBOption b, TabConstrB b t, InsConstr b t r)
+            => Proxy t -> [r] -> SessionMonad b m ()
+insertMany pt (rs :: [r]) = do
+  (pb :: Proxy b, _) <- ask
+  (cmd :: PrepCmd b) <- prepareCommand $ insertText' pb pt (Proxy :: Proxy r)
+  finally  (mapM_ (runPrepared cmd . fromGrec) rs)
+                  (finalizePrepared cmd)
+
+{-
 class (TabConstrB b t) => DML (b :: *) (t::DataDef)
   where
     -- | Insert the list of values into database.
     -- Should create Insert-statement with parameters
     -- and execute it for all values in list
     ins ::  Proxy t -> Record t -> SessionMonad b m ()
-{-
 
     -- | In many cases PK should be generated.
     -- There are some possibilities:

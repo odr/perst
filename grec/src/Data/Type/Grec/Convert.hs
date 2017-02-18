@@ -1,12 +1,21 @@
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Data.Type.Grec.Convert(Convert(..), toGrec, fromGrec) where
+module Data.Type.Grec.Convert(
+    Convert(..)
+    , toGrec
+    , fromGrec
+    , ToGrecConstr
+    , FromGrecConstr
+  ) where
 
 import           GHC.Generics
 
 class Convert a b where
   convert :: a -> b
 
-toGrec :: (Generic b, GToGrec a (Rep b)) => [a] -> b
+type ToGrecConstr a r = (Generic r, GToGrec a (Rep r))
+
+toGrec :: ToGrecConstr a b => [a] -> b
 toGrec xs = to $ gToGrec xs
 
 class GToGrec a g where
@@ -27,7 +36,9 @@ instance (Generic b, GToGrec a (Rep b))
     => GToGrec a (D1 (MetaData md1 md2 md3 True) (C1 mc (S1 c (K1 i b)))) where
   gToGrec as = M1 . M1 . M1 . K1 $ toGrec as
 
-fromGrec :: (Generic b, GFromGrec a (Rep b)) => b -> [a]
+type FromGrecConstr r a = (Generic r, GFromGrec a (Rep r))
+
+fromGrec :: FromGrecConstr b a => b -> [a]
 fromGrec = gFromGrec . from
 
 class GFromGrec a g where

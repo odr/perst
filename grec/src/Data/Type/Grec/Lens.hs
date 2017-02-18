@@ -54,8 +54,9 @@ nlens :: (Generic b, GLensed n a (Rep b)
         => FieldName n -> (a -> f a) -> b -> f b
 nlens p f b = to <$> gnlens p f (from b)
 
-class Lookup n (GFields g) ~ Just a => GLensed (n :: Symbol) a g where
-    gnlens :: Functor f => FieldName n -> (a -> f a) -> g b -> f (g b)
+class Lookup n (GFields g) ~ Just a
+      => GLensed (n :: Symbol) a g where
+  gnlens :: Functor f => FieldName n -> (a -> f a) -> g b -> f (g b)
 
 class Lookup n (GFields g) ~ Just a
     => GLensedB (x :: Bool) (n :: Symbol) a g where

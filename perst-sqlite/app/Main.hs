@@ -15,6 +15,7 @@ import           Control.Monad.Catch   (SomeException, catch)
 import           Data.Proxy            (Proxy (..))
 import           GHC.Generics          (Generic)
 import           Perst.Database.DDL
+import           Perst.Database.DML
 import           Perst.Database.Sqlite
 import           Perst.Database.Types
 import           Perst.Types           ((:::))
@@ -92,12 +93,16 @@ data Customer = Customer
   } deriving (Show, Generic)
 
 data Orders = Order -- name ORDER is disbled in sqlite!
-  { id         :: Int64
-  , num        :: T.Text
-  , customerId :: Int64
+  { id           :: Int64
+  , num          :: T.Text
+  , customerId   :: Int64
+  , coCustomerId :: Maybe Int64
   } deriving (Show, Generic)
 type TCustomer = TableDef Customer '["id"] '[ '["name"]] '[]
-type TOrder = TableDef Orders '["id"] '[ '["num"]] '[ '( '[ '("customerId", "id")], '("Customer", DCCascade))]
+type TOrder = TableDef Orders '["id"] '[ '["num"]]
+    '[ '( '[ '("customerId", "id")], '("Customer", DCCascade))
+     , '( '[ '("coCustomerId", "id")], '("Customer", DCSetNull))
+     ]
 pCustomer = Proxy :: Proxy TCustomer
 pOrder = Proxy :: Proxy TOrder
 
@@ -113,3 +118,7 @@ main = runSession sqlite "test.db" $ do
   createTab pTab1
   createTab pCustomer
   createTab pOrder
+  insertMany pCustomer [ Customer 1 "odr" "x"
+                       , Customer 2 "dro" "y"
+                       , Customer 3 "דוגמה" "דואר"
+                       ]
