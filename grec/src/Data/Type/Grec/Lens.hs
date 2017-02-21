@@ -1,52 +1,19 @@
 {-# LANGUAGE UndecidableInstances #-}
-module Data.Type.Grec.Lens((:::), Cons, Fields, Typ, nlens, FieldName(..)) where
+module Data.Type.Grec.Lens(nlens, FieldName(..)) where
 
-import           Data.Kind                     (Type)
 import           Data.Maybe                    (isJust)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.Maybe (IsJust)
+import           Data.Type.Grec.Type
 import           GHC.Generics
 import           GHC.OverloadedLabels          (IsLabel (..))
 import           GHC.TypeLits                  (ErrorMessage (..), TypeError)
-
-type (:::) a b = '(a,b)
 
 data FieldName (n::Symbol) = FieldName
 instance (Generic b, GLensed n a (Rep b)
          , Functor f, Lookup n (GFields (Rep b)) ~ Just a
          ) => IsLabel n ((a -> f a) -> b -> f b) where
   fromLabel _ = nlens (FieldName :: FieldName n)
-
-type Cons a = GCons (Rep a)
-type family GCons (a :: k1) :: Symbol where
-  GCons (D1 _ (C1 (MetaCons s _ _) _)) = s
-  GCons a = TypeError (
-      Text "GCons is supported for Representation of data or newtype with one constructor"
-      :$$: Text "Checked type is " :<>: ShowType a
-      )
-
-type Typ a = GTyp (Rep a)
-type family GTyp (a :: k1) :: Symbol where
-  GTyp (D1 (MetaData s _ _ _) _) = s
-  GTyp a = TypeError (
-      Text "GTyp is supported for Representation of data or newtype"
-      :$$: Text "Checked type is " :<>: ShowType a
-      )
-
-type Fields a = GFields (Rep a)
-type family GFields (a :: k1) :: [(Symbol,Type)] where
-  -- data
-  GFields (M1 D (MetaData _ _ _ 'False) s) = GFields s
-  -- newtype
-  GFields (M1 D (MetaData _ _ _ 'True) (C1 _ (S1 _ (Rec0 dt)))) = GFields (Rep dt)
-  GFields (M1 C _ s) = GFields s
-  GFields (M1 S (MetaSel ('Just s) _ _ _) (Rec0 v)) = '[ '(s, v)]
-  GFields U1 = '[]
-  GFields (a :*: b) = GFields a :++ GFields b
-  GFields a = TypeError (
-      Text "GFields is supported for Representation of record with one constructor or newtype for such record"
-      :$$: Text "Checked type is " :<>: ShowType a
-      )
 
 nlens :: (Generic b, GLensed n a (Rep b)
          , Functor f, Lookup n (GFields (Rep b)) ~ Just a

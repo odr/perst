@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:      Data.Type.Grec
+                      , Data.Type.Grec.Type
                       , Data.Type.Grec.Convert
                       , Data.Type.Grec.Lens
 
@@ -33,11 +34,10 @@ library
                       , MagicHash
 
   build-depends:       base >= 4.7 && < 5
-                      -- , tagged
+                      , tagged
                       , singletons
                       , ghc-prim
                       , microlens
-                      -- , bookkeeper
   default-language:    Haskell2010
 
 executable grec-exe
@@ -59,6 +59,7 @@ executable grec-exe
                       , singletons
                       , ghc-prim
                       , microlens
+                      , tagged
   default-language:    Haskell2010
 
 test-suite pers-bk-test

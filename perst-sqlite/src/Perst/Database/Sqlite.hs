@@ -16,8 +16,9 @@ import           Data.Text.Format           (Only (..), format)
 import           Data.Text.Lazy             (toStrict)
 import           Data.Type.Grec             (Convert (..))
 import           Database.SQLite3           (Database, SQLData (..), Statement,
-                                             bind, close, exec, finalize, open,
-                                             prepare, reset, step)
+                                             bind, close, exec, finalize,
+                                             lastInsertRowId, open, prepare,
+                                             reset, step)
 import           Perst.Database.Types       (DBOption (..), DbTypeName)
 
 data Sqlite
@@ -69,7 +70,7 @@ instance DBOption Sqlite where
     type PrepCmd Sqlite         = Statement
     type GenKey Sqlite          = Int64
 
-    paramName _                 = format "?{}" . Only
+    paramName _                 = format "?{}" . Only . (+1)
     afterCreateTableText _      = "IF NOT EXISTS"
     deleteConstraintText _ _    = ""
     runSession _ par sm         = do
@@ -82,12 +83,16 @@ instance DBOption Sqlite where
     prepareCommand cmd = do
       liftIO $ print $ "prepareCommand: " <> cmd
       ask >>= \(_,conn) -> liftIO (prepare conn $ toStrict cmd)
+    preRunInAuto = return ()
     runPrepared stat ps = liftIO $ do
+      putStrLn "runPrepared"
+      print ps
       reset stat
       bind stat ps
       step stat
       return ()
     finalizePrepared = liftIO . finalize
+    getLastKey = ask >>= \(_,conn) -> liftIO (lastInsertRowId conn)
     execCommand cmd = do
       liftIO $ print $ "execCommand: " <> cmd
       ask >>= \(_,conn) -> liftIO (exec conn $ toStrict cmd)

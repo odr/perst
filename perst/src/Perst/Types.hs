@@ -3,16 +3,24 @@
 {-# LANGUAGE TypeInType                #-}
 {-# LANGUAGE UndecidableInstances      #-}
 module Perst.Types where
-import           Data.Kind                    (Type)
-import           Data.List                    (groupBy, nub, sortBy, (\\))
+import           Data.Kind                     (Type)
+import           Data.List                     (groupBy, nub, sortBy, (\\))
+import           Data.Maybe                    (fromJust, isNothing)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
-import           Data.Singletons.TH           (promote, singletons)
-import           GHC.Exts                     (Constraint)
-import           GHC.Prim                     (Proxy#, proxy#)
+import           Data.Singletons.Prelude.Maybe
+import           Data.Singletons.TH            (promote, singletons,
+                                                singletonsOnly)
+import           GHC.Exts                      (Constraint)
+import           GHC.Prim                      (Proxy#, proxy#)
 import           GHC.TypeLits
 
-type (:::) a b = '(a,b)
+-- type (:::) a b = '(a,b)
+--
+-- -- To write like (5 // "s" // Nothing) and get (5,("s",Nothing))
+-- infixr 5 //
+-- (//) :: a -> b -> (a,b)
+-- a // b = (a,b)
 
 singletons
   [d| isSub :: Eq a => [a] -> [a] -> Bool
@@ -44,31 +52,17 @@ singletons
 
       mandatoryFields :: (c -> (d, Bool)) -> [(b,c)] -> [b]
       mandatoryFields f = map fst . filter (\(b,c) -> not $ snd $ f c)
-  |]
 
-promote
-  [d|
       subset :: Eq a => [a] -> [a] -> Bool
       subset as = null . (as \\)
-      -- subNub [] _ = True
-      -- subNub (a:_) [] = False
-      -- subNub (a:as) bs = let (b1,b2) = span (/= a) bs in
-      --   case b2 of
-      --     []    -> False
-      --     b:bs2 -> subNub as $ b1 ++ bs2
+
+      submap :: Eq a => [a] -> [(a,b)] -> Maybe [b]
+      submap as ps = let rs = map (`lookup` ps) as in
+        if any_ isNothing rs then Nothing else Just (map fromJust rs)
   |]
 
--- class KindToStar (a :: k) (b :: Type) where
---     k2s :: Proxy# a -> b
---
--- instance KindToStar '[] [a] where
---     k2s _ = []
---
--- instance KnownSymbol a => KindToStar a String where
---     k2s _ = symbolVal' (proxy# :: Proxy# a)
---
--- instance (KindToStar a b, KindToStar as [b]) => KindToStar ((a :: k) ': as) [b] where
---     k2s _ = k2s (proxy# :: Proxy# a) : k2s (proxy# :: Proxy# as)
---
--- instance (KindToStar a b, KindToStar c d) => KindToStar '(a,c) (b,d) where
---     k2s _ = (k2s (proxy# :: Proxy# a), k2s (proxy# :: Proxy# c))
+singletonsOnly
+  [d| posList :: Eq a => [a] -> [a] -> Maybe [Nat]
+      posList as xs = let rs = map (`elemIndex` xs) as in
+        if any_ isNothing rs then Nothing else Just (map fromJust rs)
+  |]

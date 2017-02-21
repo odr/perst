@@ -1,7 +1,7 @@
 module Data.Type.Grec
-    ( module Data.Type.Grec.Convert
-    , module Data.Type.Grec.Lens
+    ( module Grec
     ) where
 
-import           Data.Type.Grec.Convert
-import           Data.Type.Grec.Lens
+import           Data.Type.Grec.Convert as Grec
+import           Data.Type.Grec.Lens    as Grec
+import           Data.Type.Grec.Type    as Grec

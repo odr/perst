@@ -8,17 +8,18 @@
 
 module Main where
 
-import           Data.Int              (Int64)
-import qualified Data.Text             as T
+import           Data.Int               (Int64)
+import qualified Data.Text              as T
 
-import           Control.Monad.Catch   (SomeException, catch)
-import           Data.Proxy            (Proxy (..))
-import           GHC.Generics          (Generic)
+import           Control.Monad.Catch    (SomeException, catch)
+import           Control.Monad.IO.Class (MonadIO (..))
+import           Data.Proxy             (Proxy (..))
+import           GHC.Generics           (Generic)
 import           Perst.Database.DDL
 import           Perst.Database.DML
 import           Perst.Database.Sqlite
 import           Perst.Database.Types
-import           Perst.Types           ((:::))
+-- import           Perst.Types            ((:::))
 
 newtype NInt = NInt Int64 deriving (Show, Eq, Ord, Generic)
 type instance DbTypeName Sqlite NInt = "INTEGER NOT NULL"
@@ -99,7 +100,7 @@ data Orders = Order -- name ORDER is disbled in sqlite!
   , coCustomerId :: Maybe Int64
   } deriving (Show, Generic)
 type TCustomer = TableDef Customer '["id"] '[ '["name"]] '[]
-type TOrder = TableDef Orders '["id"] '[ '["num"]]
+type TOrder = TableDef Orders '["id"] '[ '["customerId", "num"]]
     '[ '( '[ '("customerId", "id")], '("Customer", DCCascade))
      , '( '[ '("coCustomerId", "id")], '("Customer", DCSetNull))
      ]
@@ -108,10 +109,11 @@ pOrder = Proxy :: Proxy TOrder
 
 
 createTab :: TabConstrB Sqlite a => Proxy (a :: DataDef) -> SessionMonad Sqlite IO ()
-createTab (p :: Proxy a)= do
+createTab (p :: Proxy a) = do
     catch (dropTable p) (\(_::SomeException) -> return ())
     createTable sqlite p
 
+o1 = Order 0 "1" 1 Nothing
 main :: IO ()
 main = runSession sqlite "test.db" $ do
   createTab pTab
@@ -122,3 +124,16 @@ main = runSession sqlite "test.db" $ do
                        , Customer 2 "dro" "y"
                        , Customer 3 "דוגמה" "דואר"
                        ]
+  rs <- insertManyAuto pOrder [ Order 0 "1" 1 Nothing
+                              , Order 0 "2" 1 (Just 2)
+                              , Order 0 "3" 1 (Just 1)
+                              , Order 0 "1" 2 (Just 3)
+                              ]
+  let ords = [ Order (rs!!3) "z4" 3 (Just 1)
+             , Order (rs!!1) "z2" 2 Nothing
+             ]
+  updateByPKMany pOrder ords
+
+
+
+  return ()
