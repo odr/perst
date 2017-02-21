@@ -14,6 +14,7 @@ import qualified Data.Text              as T
 import           Control.Monad.Catch    (SomeException, catch)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Proxy             (Proxy (..))
+import           Data.Tagged
 import           GHC.Generics           (Generic)
 import           Perst.Database.DDL
 import           Perst.Database.DML
@@ -133,7 +134,15 @@ main = runSession sqlite "test.db" $ do
              , Order (rs!!1) "z2" 2 Nothing
              ]
   updateByPKMany pOrder ords
+  updateByKey pCustomer (Tagged "dro" :: Tagged '["name"] T.Text, Tagged "numnum" :: Tagged '["email"] T.Text)
 
+  updateByKey pCustomer
+              (Tagged "odr" :: Subrec TCustomer '["name"]
+              , Tagged ("zu",(4,"odr1")) :: Subrec TCustomer '["email","id","name"]
+              )
 
+  updateByPK pCustomer $ Customer 2 "drodro" "z"
+
+  deleteByPK pOrder (Order 3 "3" 1 (Just 1))
 
   return ()

@@ -25,6 +25,7 @@ module Perst.Database.Types
   , InsConstr
   , InsAutoConstr
   , UpdByKeyConstr
+  , DelByKeyConstr
 
   -- * Non-select Command returns
 
@@ -51,28 +52,31 @@ module Perst.Database.Types
   -- * other stuffs
 
   , SessionMonad
+  , Subrec
   )
  where
 
-import           Control.Monad.Catch          (MonadCatch)
-import           Control.Monad.IO.Class       (MonadIO)
-import           Control.Monad.Trans.Reader   (ReaderT)
-import           Data.Kind                    (Type)
-import           Data.Proxy                   (Proxy (..))
+import           Control.Monad.Catch           (MonadCatch)
+import           Control.Monad.IO.Class        (MonadIO)
+import           Control.Monad.Trans.Reader    (ReaderT)
+import           Data.Kind                     (Type)
+import           Data.Proxy                    (Proxy (..))
 import           Data.Singletons.Prelude
-import           Data.Singletons.Prelude.List ((:\\))
-import           Data.Singletons.TH           (singletons)
-import           Data.Text.Lazy               (Text)
+import           Data.Singletons.Prelude.List  ((:\\))
+import           Data.Singletons.Prelude.Maybe (FromJust)
+import           Data.Singletons.TH            (singletons)
+import           Data.Tagged                   (Tagged)
+import           Data.Text.Lazy                (Text)
 import           Data.Type.Grec
-import           GHC.Exts                     (Constraint)
-import           GHC.Generics                 (Generic)
-import           GHC.Prim                     (Proxy#, proxy#)
-import           GHC.TypeLits                 (KnownSymbol, SomeSymbol (..),
-                                               Symbol (..), symbolVal')
-import           Perst.Types                  (AllIsNub, AllSubFst, BackTypes,
-                                               CheckFK, FkIsNub, IsNub,
-                                               IsSubFst, MandatoryFields,
-                                               PosList, Submap, Subset)
+import           GHC.Exts                      (Constraint)
+import           GHC.Generics                  (Generic)
+import           GHC.Prim                      (Proxy#, proxy#)
+import           GHC.TypeLits                  (KnownSymbol, SomeSymbol (..),
+                                                Symbol (..), symbolVal')
+import           Perst.Types                   (AllIsNub, AllSubFst, BackTypes,
+                                                CheckFK, FkIsNub, IsNub,
+                                                IsSubFst, MandatoryFields,
+                                                PosList, Submap, Subset)
 
 singletons [d|
   data DeleteConstraint = DCCascade
@@ -107,9 +111,9 @@ instance TableLike  (TableDef r p u f :: DataDef) where
   type FKDef      (TableDef r p u f) = f
 
 type FieldNames t = Map FstSym0 (RecordDef t)
-type FieldNames' r = Map FstSym0 (FieldsGrec r)
+type FieldNames' r = FieldNamesGrec r
 type FieldTypes t = Map SndSym0 (RecordDef t)
-type FieldTypes' r = Map SndSym0 (FieldsGrec r)
+type FieldTypes' r = FieldTypesGrec r
 
 type PosKey t = PosList (KeyDef t) (FieldNames t)
 
@@ -129,15 +133,15 @@ type TabConstr (t :: DataDef) =
   )
 type TabConstrB (b :: Type) (t::DataDef) =
   ( TabConstr t
+  , DBOption b
   , SingI (BackTypes b NullableSym0 DbTypeNameSym0 (RecordDef t))
   )
 
 type Mandatory t = MandatoryFields NullableSym0 (RecordDef t)
 
 type RecConstr (b :: Type) (t :: DataDef) (r :: Type) =
-  ( TableLike t
-  , DBOption b
-  , ConvToGrec [FieldDB b] r
+  ( TabConstrB b t
+  -- , ConvToGrec [FieldDB b] r
   , ConvFromGrec r [FieldDB b]
   -- inserted record is subrecord from table record
   , Submap (FieldNames' r) (RecordDef t) ~ Just (FieldTypes' r)
@@ -159,14 +163,24 @@ type InsAutoConstr b t r =
   , Submap (KeyDef t) (RecordDef t) ~ Just '[GenKey b]
   )
 
-type UpdByKeyConstr b t r (k :: [Symbol]) =
+type Subrec t ns = Tagged ns (ListToPairs (FromJust (Submap ns (RecordDef t))))
+
+type UpdByKeyConstr b t r (k :: Type) =
   ( RecConstr b t r
-  , SingI k
+  , SingI (FieldNames' k)
+  , ConvFromGrec k [FieldDB b]
   -- Perhaps we need Sort all keys to check it without counting of field's order
   -- but it can slow down compile time and profit is not obvious.
   -- I refuse it taking into account that we also can't make case insensitive comparing.
   -- So keys are both case and order sensitive.
-  , Elem k (KeyDef t ': UniqDef t) ~ True
+  , Elem (FieldNames' k) ((KeyDef t) ': (UniqDef t)) ~ True
+  )
+
+type DelByKeyConstr b t (k :: Type) =
+  ( TabConstrB b t
+  , SingI (FieldNames' k)
+  , ConvFromGrec k [FieldDB b]
+  , Elem (FieldNames' k) ((KeyDef t) ': (UniqDef t)) ~ True
   )
 
 type family Nullable a :: (Type, Bool) where
@@ -183,10 +197,10 @@ type NullableSym1 a = Nullable a
 tableName :: KnownSymbol (TabName t) => Proxy t -> String
 tableName (_ :: Proxy t) = fromSing (sing :: Sing (TabName t))
 
-fieldNames :: SingI (Map FstSym0 (RecordDef t)) => Proxy t -> [String]
+fieldNames :: SingI (FieldNames t) => Proxy t -> [String]
 fieldNames (_ :: Proxy t) = fromSing (sing :: Sing (FieldNames t))
 
-fieldNames' :: SingI (Map FstSym0 (FieldsGrec r)) => Proxy r -> [String]
+fieldNames' :: SingI (FieldNames' r) => Proxy r -> [String]
 fieldNames' (_ :: Proxy r) = fromSing (sing :: Sing (FieldNames' r))
 
 dbTypeNames :: SingI (BackTypes b NullableSym0 DbTypeNameSym0 (RecordDef t))

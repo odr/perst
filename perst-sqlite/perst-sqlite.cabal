@@ -63,6 +63,7 @@ executable perst-sqlite-exe
                      , perst-sqlite
                      , text
                      , exceptions
+                     , tagged
   default-language:    Haskell2010
 
 test-suite pers-bk-test

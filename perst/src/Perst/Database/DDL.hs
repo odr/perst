@@ -18,7 +18,7 @@ import           Perst.Database.Types
 import           Perst.Types
 
 
-createTableText :: (DBOption b, TabConstrB b t) => Proxy b -> Proxy t -> Text
+createTableText :: TabConstrB b t => Proxy b -> Proxy t -> Text
 createTableText pb pt
   = format "CREATE TABLE {} {} ({}, PRIMARY KEY ({}) {} {})"
       ( afterCreateTableText pb
@@ -41,9 +41,9 @@ createTableText pb pt
 dropTableText :: TabConstr t => Proxy t -> Text
 dropTableText pt = format "DROP TABLE {}" $ Only (tableName pt :: String)
 
-createTable :: (DBOption b, TabConstrB b t, MonadIO m)
+createTable :: (TabConstrB b t, MonadIO m)
             => Proxy b -> Proxy t -> SessionMonad b m ()
 createTable pb = execCommand . createTableText pb
 
-dropTable :: (DBOption b, TabConstr t, MonadIO m) => Proxy t -> SessionMonad b m ()
+dropTable :: (TabConstrB b t, MonadIO m) => Proxy t -> SessionMonad b m ()
 dropTable = execCommand . dropTableText

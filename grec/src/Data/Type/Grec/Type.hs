@@ -1,15 +1,29 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Type.Grec.Type
-    ( (:::), Cons, Fields, Typ, GFields, ListToTagged, TaggedToList -- , FieldNames, FieldTypes
+    ( (:::), Cons, Fields, Typ, GFields, ListToTagged, TaggedToList, ListToPairs
     ) where
 
 import           Data.Kind               (Type)
 import           Data.Singletons.Prelude
-import           Data.Tagged             (Tagged)
+import           Data.Tagged             (Tagged (..))
 import           GHC.Generics
+import           GHC.OverloadedLabels    (IsLabel (..))
 import           GHC.TypeLits            (ErrorMessage (..), TypeError)
 
 type (:::) a b = '(a,b)
+
+-- instance IsLabel s (Proxy (ss :: [Symbol]) -> Proxy (s ': ss)) where
+--   fromLabel _ _ = Proxy
+--
+-- pns = Proxy :: Proxy ('[] :: [Symbol])
+--
+-- instance IsLabel s (v -> Tagged (ss :: [Symbol]) vv -> Tagged (s ': ss) (v,vv)) where
+--   fromLabel _ v (Tagged vv) = Tagged (v,vv)
+--
+-- data SN = SN
+--
+-- instance IsLabel s (v -> SN -> Tagged '[s] v) where
+--   fromLabel _ v SN = Tagged v
 
 type Cons a = GCons (Rep a)
 type family GCons (a :: k1) :: Symbol where
@@ -50,3 +64,7 @@ type family TaggedToList (t :: *) :: [(Symbol,*)] where
   TaggedToList (Tagged (n ': n1 ': ns :: [Symbol]) (a,b))
       = '(n,a) ': TaggedToList (Tagged (n1 ': ns) b)
   TaggedToList (Tagged ('[n] :: [Symbol]) a)  = '[ '(n,a)]
+
+type family ListToPairs (t :: [Type]) :: * where
+  ListToPairs '[a] = a
+  ListToPairs (a1 ': a2 ': as) = (a1, ListToPairs (a2 ': as))
