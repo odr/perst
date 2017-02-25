@@ -4,7 +4,8 @@ module Perst.Database.Sqlite
     )
     where
 
-import           Control.Monad.Catch        (SomeException, catch, throwM)
+import           Control.Monad.Catch        (SomeException, catch, finally,
+                                             throwM)
 import           Control.Monad.IO.Class     (MonadIO (..))
 import           Control.Monad.Trans.Reader (ReaderT (..), ask)
 import           Data.ByteString            (ByteString)
@@ -16,7 +17,8 @@ import           Data.Text.Format           (Only (..), format)
 import           Data.Text.Lazy             (toStrict)
 import           Data.Type.Grec             (Convert (..))
 import           Database.SQLite3           (Database, SQLData (..), Statement,
-                                             bind, close, exec, finalize,
+                                             StepResult (..), bind, close,
+                                             columns, exec, finalize,
                                              lastInsertRowId, open, prepare,
                                              reset, step)
 import           Perst.Database.Types       (DBOption (..), DbTypeName)
@@ -77,9 +79,9 @@ instance DBOption Sqlite where
       liftIO $ print "Make Sqlite Connection!"
       conn <- liftIO $ open par
       -- liftIO $ catch (exec conn "PRAGMA foreign_keys = ON;")
-      --             (\(_::SomeException) -> return ()) -- for sqlite3
+      --             (\(_::SomeException) -> return ())
       catch (runReaderT sm (Proxy, conn) <* liftIO (close conn >> print "closed!!!"))
-              (\(e::SomeException) -> liftIO (close conn >> print "closed!!!") >> throwM e)
+            (\(e::SomeException) -> liftIO (close conn >> print "closed!!!") >> throwM e)
     prepareCommand cmd = do
       liftIO $ print $ "prepareCommand: " <> cmd
       ask >>= \(_,conn) -> liftIO (prepare conn $ toStrict cmd)
@@ -92,6 +94,19 @@ instance DBOption Sqlite where
       step stat
       return ()
     finalizePrepared = liftIO . finalize
+    runSelect p ps = liftIO $ do
+      putStrLn "runSelect"
+      print ps
+      reset p
+      bind p ps
+      loop id
+     where
+      loop frs = do
+        res <- step p
+        if res == Done
+          then return (frs [])
+          else fmap (\r -> frs . (r:)) (columns p) >>= loop
+
     getLastKey = ask >>= \(_,conn) -> liftIO (lastInsertRowId conn)
     execCommand cmd = do
       liftIO $ print $ "execCommand: " <> cmd

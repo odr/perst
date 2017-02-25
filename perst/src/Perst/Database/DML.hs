@@ -19,6 +19,10 @@ module Perst.Database.DML
   , deleteByKeyMany
   , deleteByPKMany
   , deleteByPK
+
+  -- * SELECT
+  , selectText
+  , selectMany
   )
   where
 
@@ -66,13 +70,10 @@ insertManyAuto (pt :: Proxy t) (rs :: [r]) = do
   (cmd :: PrepCmd b) <- prepareCommand $ insertText pb pt (Proxy :: Proxy r) False
   finally  (mapM ((>> getLastKey)
                       . runPrepared cmd
-                      . delPos (fromMaybe [] $ posKey pt)
                       . convFromGrec
+                      . (GWO :: r -> GrecWithout (KeyDef t) r)
                       ) rs)
                   (finalizePrepared cmd)
- where
---  delPos :: [Integer] -> [a] -> [a]
-  delPos ns = map snd . filter ((`notElem` ns) . fst) . zip [0..]
 
 insertAuto :: ( MonadIO m, MonadMask m, InsAutoConstr b t r
               ) => Proxy t -> r -> SessionMonad b m [GenKey b]
@@ -83,11 +84,7 @@ insertAuto pt (r :: r) = insertManyAuto pt [r]
 updateByKeyText :: UpdByKeyConstr b t r k
     => Proxy b -> Proxy t -> Proxy r -> Proxy (k :: *) -> Text
 updateByKeyText pb pt pr pk
-  = format "UPDATE {} SET {} WHERE {}"
-    ( tableName pt
-    , rs
-    , ks
-    )
+  = format "UPDATE {} SET {} WHERE {}" (tableName pt, rs, ks)
  where
   (ks, rs)
     = interSnd *** interSnd
@@ -117,7 +114,6 @@ updateByPKMany :: ( MonadIO m, MonadMask m
 updateByPKMany (pt :: Proxy t) (rs :: [r])
     = updateByKeyMany pt
     $ map (\r -> (GW r :: GrecWith (KeyDef t) r, GWO r :: GrecWithout (KeyDef t) r)) rs
-
 
 updateByPK :: ( MonadIO m, MonadMask m
               , UpdByKeyConstr b t (GrecWithout (KeyDef t) r) (GrecWith (KeyDef t) r)
@@ -157,3 +153,25 @@ deleteByPKMany (pt :: Proxy t) (rs :: [r])
 deleteByPK :: ( MonadIO m, MonadMask m, DelByKeyConstr b t (GrecWith (KeyDef t) r)
               ) => Proxy t -> r -> SessionMonad b m ()
 deleteByPK pt = deleteByPKMany pt . (:[])
+
+-- * SELECT
+
+selectText :: SelConstr b t r k =>
+    Proxy (b :: *) -> Proxy t -> Proxy (r :: *) -> Proxy (k :: *) -> Text
+selectText pb pt pr pk
+  = format "SELECT {} FROM {} WHERE {}"
+    ( TL.intercalate "," $ map TL.pack $ fieldNames' pr
+    , tableName pt
+    , TL.intercalate ","
+        $ zipWith (\n s -> format "{} = {}" (s, paramName pb n)) [0..]
+        $ fieldNames' pk
+    )
+
+selectMany :: (MonadIO m, MonadMask m, SelConstr b t r k)
+                => Proxy t -> Proxy r -> [k] -> SessionMonad b m [[r]]
+selectMany (pt :: Proxy t) (pr :: Proxy r) (ks :: [k]) = do
+  (pb :: Proxy b, _) <- ask
+  (cmd :: PrepCmd b) <- prepareCommand
+                      $ selectText pb pt pr (Proxy :: Proxy k)
+  finally (mapM (fmap (map convToGrec) . runSelect cmd . convFromGrec) ks)
+          (finalizePrepared cmd)

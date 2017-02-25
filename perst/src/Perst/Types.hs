@@ -26,14 +26,20 @@ singletons
   [d| isSub :: Eq a => [a] -> [a] -> Bool
       isSub a b = null $ a \\ b
 
-      isSubFst :: Eq a => [a] -> [(a,b)] -> Bool
-      isSubFst a b = isSub a $ map fst b
+      -- isSubFst :: Eq a => [a] -> [(a,b)] -> Bool
+      -- isSubFst a b = isSub a $ map fst b
+      --
+      -- allSubFst :: Eq a => [[a]] -> [(a,b)] -> Bool
+      -- allSubFst ass ps = all (\as -> null $ as \\ map fst ps ) ass
+      --
+      -- checkFK :: Eq a => [([(a,b)],(c,d))] -> [(a,e)] -> Bool
+      -- checkFK fks = allSubFst (map (map fst . fst) fks)
 
-      allSubFst :: Eq a => [[a]] -> [(a,b)] -> Bool
-      allSubFst ass ps = all (\as -> null $ as \\ map fst ps ) ass
+      allIsSub :: Eq a => [[a]] -> [a] -> Bool
+      allIsSub ass ps = all (`isSub` ps) ass
 
-      checkFK :: Eq a => [([(a,b)],(c,d))] -> [(a,e)] -> Bool
-      checkFK fks = allSubFst (map (map fst . fst) fks)
+      checkFK :: Eq a => [([(a,b)],(c,d))] -> [a] -> Bool
+      checkFK fks = allIsSub (map (map fst . fst) fks)
 
       isNub :: Eq a => [a] -> Bool
       isNub xs = xs == nub xs
@@ -53,8 +59,8 @@ singletons
       mandatoryFields :: (c -> (d, Bool)) -> [(b,c)] -> [b]
       mandatoryFields f = map fst . filter (\(b,c) -> not $ snd $ f c)
 
-      subset :: Eq a => [a] -> [a] -> Bool
-      subset as = null . (as \\)
+      -- subset :: Eq a => [a] -> [a] -> Bool
+      -- subset as = null . (as \\)
 
       submap :: Eq a => [a] -> [(a,b)] -> Maybe [b]
       submap as ps = let rs = map (`lookup` ps) as in

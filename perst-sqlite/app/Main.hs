@@ -23,7 +23,7 @@ import           Perst.Database.Types
 -- import           Perst.Types            ((:::))
 
 newtype NInt = NInt Int64 deriving (Show, Eq, Ord, Generic)
-type instance DbTypeName Sqlite NInt = "INTEGER NOT NULL"
+type instance DbTypeName Sqlite NInt = "INTEGER"
 
 data Tab = Rec
   { id   :: Int64
@@ -111,14 +111,14 @@ pOrder = Proxy :: Proxy TOrder
 
 createTab :: TabConstrB Sqlite a => Proxy (a :: DataDef) -> SessionMonad Sqlite IO ()
 createTab (p :: Proxy a) = do
-    catch (dropTable p) (\(_::SomeException) -> return ())
-    createTable sqlite p
+  catch (dropTable p) (\(_::SomeException) -> return ())
+  createTable sqlite p
 
 o1 = Order 0 "1" 1 Nothing
 main :: IO ()
 main = runSession sqlite "test.db" $ do
-  createTab pTab
-  createTab pTab1
+  -- createTab pTab
+  -- createTab pTab1
   createTab pCustomer
   createTab pOrder
   insertMany pCustomer [ Customer 1 "odr" "x"
@@ -144,5 +144,12 @@ main = runSession sqlite "test.db" $ do
   updateByPK pCustomer $ Customer 2 "drodro" "z"
 
   deleteByPK pOrder (Order 3 "3" 1 (Just 1))
+  {-
+-}
+  selectMany pCustomer
+              (Proxy :: Proxy Customer)
+              (map Tagged [1,2] :: [Tagged '["id"] Int64])
+        >>= liftIO . print
+
 
   return ()

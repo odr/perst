@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE ExistentialQuantification #-}
+-- {-# LANGUAGE IncoherentInstances       #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeInType                #-}
@@ -26,7 +27,7 @@ import           Data.Singletons.Prelude.List
 import           Data.Singletons.TH           (singletons)
 import           Data.Tagged                  (Tagged (..), proxy, tagWith,
                                                untag)
-import           Data.Type.Grec.Type
+import           Data.Type.Grec.Type          (Fields, TaggedToList)
 import           GHC.Generics
 import           GHC.TypeLits                 (Symbol)
 
@@ -59,13 +60,13 @@ instance Convert a b => Convert (ConvList a) (Tagged '[bb] b) where
 
 newtype Grec a = Grec { unGrec :: a } deriving (Eq, Show)
 
-type ToGrecConstr a r = (Generic r, GToGrec a (Rep r))
-type FromGrecConstr r a = (Generic r, GFromGrec a (Rep r))
+type ToGrecConstr a r = (GToGrec a (Rep r))
+type FromGrecConstr r a = (GFromGrec a (Rep r))
 
-instance (ToGrecConstr a r) => Convert (ConvList a) (Grec r) where
+instance (ToGrecConstr a r, Generic r) => Convert (ConvList a) (Grec r) where
   convert = Grec . to . snd . gToGrec . unConvList
 
-instance (FromGrecConstr r a) => Convert (Grec r) (ConvList a) where
+instance (FromGrecConstr r a, Generic r) => Convert (Grec r) (ConvList a) where
   convert = ConvList . gFromGrec . from . unGrec
 
 -------------------------------------------------------
@@ -137,28 +138,28 @@ class ConvToGrec a b where
 class ConvFromGrec a b where
   convFromGrec :: a -> b
 
-instance {-# OVERLAPS #-} Convert (Grec r) (ConvList a) => ConvFromGrec r [a] where
+instance {-# OVERLAPPABLE #-} Convert (Grec r) (ConvList a) => ConvFromGrec r [a] where
   convFromGrec = unConvList . convert . Grec
 
-instance {-# OVERLAPS #-} Convert (ConvList a) (Grec r) => ConvToGrec [a] r where
+instance {-# OVERLAPPABLE #-} Convert (ConvList a) (Grec r) => ConvToGrec [a] r where
   convToGrec = unGrec . convert . ConvList
 
-instance Convert (Tagged (ns :: [Symbol]) (b::Type)) (ConvList a)
+instance {-# OVERLAPPING #-} Convert (Tagged (ns :: [Symbol]) (b::Type)) (ConvList a)
       => ConvFromGrec (Tagged (ns :: [Symbol]) (b::Type)) [a] where
   convFromGrec = unConvList . convert
 
-instance Convert (ConvList a) (Tagged (ns :: [Symbol]) (b::Type))
+instance {-# OVERLAPPING #-} Convert (ConvList a) (Tagged (ns :: [Symbol]) (b::Type))
       => ConvToGrec [a] (Tagged (ns :: [Symbol]) (b::Type)) where
   convToGrec = convert . ConvList
 
-instance (SingI ns, SingI (FieldNamesGrec r), ConvFromGrec r [a])
+instance {-# OVERLAPPING #-} (SingI ns, SingI (FieldNamesGrec r), ConvFromGrec r [a])
       => ConvFromGrec (GrecWithout ns r) [a] where
   convFromGrec = map snd . without sns . zip sr . convFromGrec . unGWO
    where
     sns = fromSing (sing :: Sing ns)
     sr = fromSing (sing :: Sing (FieldNamesGrec r))
 
-instance (SingI ns, SingI (FieldNamesGrec r), ConvFromGrec r [a])
+instance {-# OVERLAPPING #-} (SingI ns, SingI (FieldNamesGrec r), ConvFromGrec r [a])
       => ConvFromGrec (GrecWith ns r) [a] where
   convFromGrec = map snd . with sns . zip sr . convFromGrec . unGW
    where
