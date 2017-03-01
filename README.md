@@ -1,6 +1,6 @@
 # Perst
 
-This is an attempt to make a persistent functionality on top of type calculation. I.e. I want to guarantee checking of field names, foreign key constraints and so in compile time.
+This is an attempt to make a persistent functionality on top of type calculation. I.e. I want to guarantee checking of field names, foreign key constraints and so on in the compile time.
 
 There are three packages:
 * grec - Generalised record based on normal Haskell record
