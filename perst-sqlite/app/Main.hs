@@ -16,11 +16,11 @@ import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Proxy             (Proxy (..))
 import           Data.Tagged
 import           GHC.Generics           (Generic)
-import           Perst.Database.DDL
+import           Perst.Database.DDL     as DDL
 import           Perst.Database.DML
 import           Perst.Database.Sqlite
 import           Perst.Database.Types
--- import           Perst.Types            ((:::))
+--  import           Perst.Types            ((:::))
 
 newtype NInt = NInt Int64 deriving (Show, Eq, Ord, Generic)
 type instance DbTypeName Sqlite NInt = "INTEGER"
@@ -109,10 +109,10 @@ pCustomer = Proxy :: Proxy TCustomer
 pOrder = Proxy :: Proxy TOrder
 
 
-createTab :: TabConstrB Sqlite a => Proxy (a :: DataDef) -> SessionMonad Sqlite IO ()
+createTab :: (DDL b a) => Proxy (a :: DataDef) -> SessionMonad b IO ()
 createTab (p :: Proxy a) = do
-  catch (dropTable p) (\(_::SomeException) -> return ())
-  createTable sqlite p
+  catch (DDL.drop p) (\(_::SomeException) -> return ())
+  create p
 
 o1 = Order 0 "1" 1 Nothing
 main :: IO ()
@@ -120,7 +120,7 @@ main = runSession sqlite "test.db" $ do
   -- createTab pTab
   -- createTab pTab1
   createTab pCustomer
-  createTab pOrder
+  createTab  pOrder
   insertMany pCustomer [ Customer 1 "odr" "x"
                        , Customer 2 "dro" "y"
                        , Customer 3 "דוגמה" "דואר"
@@ -144,8 +144,8 @@ main = runSession sqlite "test.db" $ do
   updateByPK pCustomer $ Customer 2 "drodro" "z"
 
   deleteByPK pOrder (Order 3 "3" 1 (Just 1))
-  {-
--}
+{-
+ -}
   selectMany pCustomer
               (Proxy :: Proxy Customer)
               (map Tagged [1,2] :: [Tagged '["id"] Int64])

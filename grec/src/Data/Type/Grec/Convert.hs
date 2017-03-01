@@ -128,7 +128,6 @@ type family FieldsGrec a :: [(Symbol, Type)] where
   FieldsGrec (GrecWith ns a) = With ns (FieldsGrec a)
   FieldsGrec a = Fields a
 
-
 type FieldNamesGrec a = Map FstSym0 (FieldsGrec a)
 type FieldTypesGrec a = Map SndSym0 (FieldsGrec a)
 

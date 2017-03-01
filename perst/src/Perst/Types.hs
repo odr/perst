@@ -24,7 +24,7 @@ import           GHC.TypeLits
 
 singletons
   [d| isSub :: Eq a => [a] -> [a] -> Bool
-      isSub a b = null $ a \\ b
+      isSub as bs = all (`elem` bs) as -- null $ aa \\ bs
 
       -- isSubFst :: Eq a => [a] -> [(a,b)] -> Bool
       -- isSubFst a b = isSub a $ map fst b
@@ -39,7 +39,9 @@ singletons
       allIsSub ass ps = all (`isSub` ps) ass
 
       checkFK :: Eq a => [([(a,b)],(c,d))] -> [a] -> Bool
-      checkFK fks = allIsSub (map (map fst . fst) fks)
+      -- checkFK fks = allIsSub (map (map fst . fst) fks)
+      -- -- checkFK fks = allIsSub (map (fst . unzip) $ fst $ unzip fks)
+      checkFK fks rs = all (\(fs,_) -> all (\(f,_) -> f `elem` rs) fs) fks
 
       isNub :: Eq a => [a] -> Bool
       isNub xs = xs == nub xs
