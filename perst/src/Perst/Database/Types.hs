@@ -9,23 +9,12 @@ module Perst.Database.Types
   -- * Table definition
 
   DeleteConstraint(..)
-  , DataDef(..)
-  , TableLike(..)
+  , DataDef(..), TableD, ViewD
+  , DdName, DdRec, DdKey, DdUniq, DdFrgn, DdUpd
 
   -- * Backend definition
 
   , DBOption(..)
-
-  -- * Constraints required for DDL and DML operations
-
-  , TableConstraint, TabConstr
-  , TableConstraintB, TabConstrB
-  , RecConstr
-  , DDLConstr
-  , InsConstr, InsAutoConstr
-  , UpdConstr, UpdByKeyConstr
-  , DelConstr, DelByKeyConstr
-  , SelConstr
 
   -- * Singletons type machinery
 
@@ -47,6 +36,7 @@ module Perst.Database.Types
   , SessionMonad
   , Subrec
   , FieldNames
+  , FieldTypes
   )
  where
 
@@ -56,22 +46,17 @@ import           Control.Monad.Trans.Reader    (ReaderT)
 import           Data.Kind                     (Type)
 import           Data.Proxy                    (Proxy (..))
 import           Data.Singletons.Prelude
-import           Data.Singletons.Prelude.List  ((:\\))
 import           Data.Singletons.Prelude.Maybe (FromJust)
-import           Data.Singletons.TH            (singletons)
+import           Data.Singletons.TH
 import           Data.Tagged                   (Tagged)
 import           Data.Text.Lazy                (Text)
 import           Data.Type.Grec
-import           GHC.Exts                      (Constraint)
 import           GHC.Generics                  (Generic)
 import           GHC.Prim                      (Proxy#, proxy#)
 -- import           GHC.TypeLits                  (ErrorMessage (..), TypeError)
 import           GHC.TypeLits                  (KnownSymbol, SomeSymbol (..),
                                                 Symbol (..), symbolVal')
-import           Perst.Types                   (AllIsNub, AllIsSub, BackTypes,
-                                                CheckFK, FkIsNub, IsNub, IsSub,
-                                                MandatoryFields, PosList,
-                                                Submap)
+import           Perst.Types                   (BackTypes, Submap)
 
 singletons [d|
   data DeleteConstraint = DCCascade
@@ -80,6 +65,52 @@ singletons [d|
       deriving (Show, Eq, Ord)
   |]
 
+promote [d|
+  data DataDef
+    = TableDef
+      { ddn  :: Symbol
+      -- , ddVal   :: Type
+      , ddr   :: [(Symbol,Type)]
+      , ddk   :: [Symbol]
+      , ddu  :: [[Symbol]]
+      , ddf  :: [([(Symbol,Symbol)],(Symbol,DeleteConstraint))]
+      }
+    | ViewDef
+      { ddn  :: Symbol
+      -- , ddVal   :: Type
+      , ddr   :: [(Symbol,Type)]
+      , ddSql   :: Maybe Symbol
+      , ddup   :: [Symbol]
+      , ddk   :: [Symbol]
+      , ddu  :: [[Symbol]]
+      , ddf    :: [([(Symbol,Symbol)],(Symbol,DeleteConstraint))]
+      }
+    | JoinByKey
+      -- { ddVal   :: Type
+      { ddr   :: [(Symbol,Type)]
+      , ddList  :: [DataDef]
+      }
+  ddUpd :: DataDef -> [Symbol]
+  ddUpd (TableDef _ r _ _ _)    = map fst r
+  ddUpd (ViewDef _ _ _ u _ _ _) = u
+  ddName (TableDef n _ _ _ _)    = n
+  ddName (ViewDef n _ _ _ _ _ _) = n
+  ddRec (TableDef _ r _ _ _)    = r
+  ddRec (ViewDef _ r _ _ _ _ _) = r
+  ddRec (JoinByKey r _)         = r
+  ddKey (TableDef _ _ p _ _)    = p
+  ddKey (ViewDef _ _ _ _ p _ _) = p
+  ddUniq (TableDef _ _ _ u _)    = u
+  ddUniq (ViewDef _ _ _ _ _ u _) = u
+  ddFrgn (TableDef _ _ _ _ f)    = f
+  ddFrgn (ViewDef _ _ _ _ _ _ f) = f
+  |]
+
+type TableD v p u f = TableDef (Typ v) (FieldsGrec v) p u f
+type ViewD v s upd p u f = ViewDef (Typ v) (FieldsGrec v) s upd p u f
+
+-- type DdRec (dd :: DataDef)= FieldsGrec (DdVal dd)
+{-
 data DataDef
   = TableDef
     { rec :: Type
@@ -95,8 +126,11 @@ data DataDef
     , uk  :: [[Symbol]]
     , fk  :: [([(Symbol,Symbol)],(Symbol,DeleteConstraint))]
     }
-
-type IsCheck = 'False
+  | JoinByKey
+    { rec :: Type
+    , dds :: [DataDef]
+    }
+--  |]
 
 class TableLike (a::DataDef) where
   type TabName    a :: Symbol
@@ -126,158 +160,30 @@ instance TableLike (ViewDef r s upd p u f :: DataDef) where
   type UniqDef    (ViewDef r sql upd p u f) = u
   type FKDef      (ViewDef r sql upd p u f) = f
 
-type FieldNames t = Map FstSym0 (RecordDef t)
-type FieldNames' r = FieldNamesGrec r
-type FieldTypes t = Map SndSym0 (RecordDef t)
-type FieldTypes' r = FieldTypesGrec r
+-- data RecordDefSym0 (l0 :: TyFun DataDef [(Symbol,Type)] ) where
+--   RecordDefSym0KindInference ::
+--     forall (l0 :: TyFun DataDef [(Symbol,Type)] ) (arg0 :: DataDef).
+--       KindOf (Apply RecordDefSym0 arg0) ~ KindOf (RecordDefSym1 arg0)
+--     => RecordDefSym0 l0
+-- type instance Apply RecordDefSym0 l0 = RecordDefSym1 l0
+-- type RecordDefSym1 a = RecordDef a
+--
+instance TableLike (JoinByKey r dds :: DataDef) where
+  type TabName    (JoinByKey r dds) = Typ r
+  type RecordDef  (JoinByKey r dds) = Fields r -- ConcatMap RecordDefSym0 dds
+  type Record     (JoinByKey r dds) = r
+  type Updatable  (JoinByKey r dds) = '[]
+  type KeyDef     (JoinByKey r dds) = '[]
+  type UniqDef    (JoinByKey r dds) = '[]
+  type FKDef      (JoinByKey r dds) = '[]
+-}
 
-type TableConstraint t fn p u f
-  = ( SingI fn, SingI p, SingI u, SingI f
-    , KnownSymbol (TabName t)
-    )
+type FieldNames t = Map FstSym0 (DdRec t)
+-- type FieldNames' r = FieldNamesGrec r
+type FieldTypes t = Map SndSym0 (DdRec t)
+-- type FieldTypes' r = FieldTypesGrec r
 
-type TableConstraintB b t rd p u f =
-  ( DBOption b
-  , TableConstraint t (Map FstSym0 rd) p u f
-  , SingI (BackTypes b NullableSym0 DbTypeNameSym0 rd)
-  )
-
-type DDLConstraint b t rd fn p u f =
-  ( TableConstraintB b t rd p u f
-  , CheckIf IsCheck
-    ( CheckFK f fn ~ True
-    , IsNub p ~ True
-    , AllIsNub u ~ True
-    , FkIsNub f ~ True
-    , IsSub p fn ~ True
-    , AllIsSub u fn ~ True
-    )
-  )
-
-type RecordConstraint b t rd p u f fnr ftr =
-  ( TableConstraintB b t rd p u f
-  -- record is subrecord from table record
-  , CheckIf IsCheck (Submap fnr rd ~ Just ftr)
-  , SingI fnr
-  )
-
-type InsertConstraint b t rd upd p u f fnr ftr =
-  ( RecordConstraint b t rd p u f fnr ftr
-  , CheckIf IsCheck
-    ( IsSub fnr upd ~ True
-    -- inserted record contains all mandatory fields
-    , IsSub (Mandatory rd) fnr ~ True
-    )
-  )
-
-type InsertAutoConstraint b t rd upd p u f fnr ftr =
-  ( RecordConstraint b t rd p u f fnr ftr
-  , CheckIf IsCheck
-    ( IsSub fnr upd ~ True
-    -- inserted record contains all mandatory fields except primary key
-    , IsSub (Mandatory rd :\\ p) fnr ~ True
-    -- primary key is a single field with the same type as generated by backend
-    , Submap p rd ~ Just '[GenKey b]
-    )
-  )
-
-type SelectConstraint b t rd p u f fnr ftr fnk ftk =
-  ( RecordConstraint b t rd p u f fnr ftr
-  -- key is subrecord from table record
-  , CheckIf IsCheck (Submap fnk rd ~ Just ftk)
-  , SingI fnk
-  )
-
-type UpdateConstraint b t rd upd p u f fnr ftr fnk ftk =
-  ( SelectConstraint b t rd p u f fnr ftr fnk ftk
-  , CheckIf IsCheck (IsSub fnr upd ~ True)
-  )
-
-type UpdateByKeyConstraint b t rd upd p u f fnr ftr fnk ftk =
-  ( UpdateConstraint b t rd upd p u f fnr ftr fnk ftk
-  -- Perhaps we need Sort all keys to check it without counting of field's order
-  -- but it can slow down compile time and profit is not obvious.
-  -- I refuse it taking into account that we also can't make case insensitive comparing.
-  -- So keys are both case and order sensitive.
-  , CheckIf IsCheck (Elem fnk (p ': u) ~ True)
-  )
-
-type DeleteByKeyConstraint b t rd p u f fnk ftk =
-  ( RecordConstraint b t rd p u f fnk ftk
-  , CheckIf IsCheck (Elem fnk (p ': u) ~ True)
-  )
-
-type TabConstr (t :: DataDef) =
-  ( TableConstraint t (FieldNames t) (KeyDef t) (UniqDef t) (FKDef t)
-  )
-
-type TabConstrB (b :: Type) (t::DataDef) =
-  ( TableConstraintB b t (RecordDef t) (KeyDef t) (UniqDef t) (FKDef t)
-  )
-
-type DDLConstr' b t rd p u f =
-  ( DDLConstraint b t rd (Map FstSym0 rd) p u f
-  )
-
-type DDLConstr (b :: Type) (t::DataDef) =
-  ( DDLConstr' b t (RecordDef t) (KeyDef t) (UniqDef t) (FKDef t)
-  )
-
-type Mandatory rd = MandatoryFields NullableSym0 rd
-
-type RecConstr (b :: Type) (t :: DataDef) (r :: Type) =
-  ( RecordConstraint b t (RecordDef t) (KeyDef t) (UniqDef t)
-                      (FKDef t) (FieldNames' r) (FieldTypes' r)
-  )
-
-type InsConstr b t r =
-  ( InsertConstraint b t (RecordDef t) (Updatable t) (KeyDef t) (UniqDef t)
-                      (FKDef t) (FieldNames' r) (FieldTypes' r)
-  , ConvFromGrec r [FieldDB b]
-  )
-
-type InsAutoConstr b t r =
-  ( InsertAutoConstraint b t (RecordDef t) (Updatable t) (KeyDef t) (UniqDef t)
-                      (FKDef t) (FieldNames' r) (FieldTypes' r)
-  , ConvFromGrec r [FieldDB b]
-  )
-
-type Subrec t ns = Tagged ns (ListToPairs (FromJust (Submap ns (RecordDef t))))
-
-type UpdConstr b t r k =
-  ( UpdateConstraint b t (RecordDef t) (Updatable t) (KeyDef t) (UniqDef t)
-                      (FKDef t) (FieldNames' r) (FieldTypes' r)
-                      (FieldNames' k) (FieldTypes' k)
-  , ConvFromGrec r [FieldDB b]
-  , ConvFromGrec k [FieldDB b]
-  )
-
-type UpdByKeyConstr b t r (k :: Type) =
-  ( UpdateByKeyConstraint b t (RecordDef t) (Updatable t) (KeyDef t) (UniqDef t)
-                          (FKDef t) (FieldNames' r) (FieldTypes' r)
-                          (FieldNames' k) (FieldTypes' k)
-  , ConvFromGrec r [FieldDB b]
-  , ConvFromGrec k [FieldDB b]
-  )
-
-type DelConstr b t k =
-  ( RecConstr b t k
-  , ConvFromGrec k [FieldDB b]
-  )
-
-type DelByKeyConstr b t (k :: Type) =
-  ( DeleteByKeyConstraint b t (RecordDef t) (KeyDef t) (UniqDef t)
-                          (FKDef t) (FieldNames' k) (FieldTypes' k)
-  , ConvFromGrec k [FieldDB b]
-  )
-
-type SelConstr b t r (k :: Type) =
-  ( SelectConstraint b t (RecordDef t) (KeyDef t) (UniqDef t)
-                      (FKDef t) (FieldNames' r) (FieldTypes' r)
-                      (FieldNames' k) (FieldTypes' k)
-  , ConvToGrec [FieldDB b] r
-  , ConvFromGrec k [FieldDB b]
-  )
+type Subrec t ns = Tagged ns (ListToPairs (FromJust (Submap ns (DdRec t))))
 
 type family Nullable a :: (Type, Bool) where
   Nullable (Maybe x) = x ::: True
@@ -290,40 +196,40 @@ data NullableSym0 (l0 :: TyFun Type (Type, Bool) ) where
 type instance Apply NullableSym0 l0 = NullableSym1 l0
 type NullableSym1 a = Nullable a
 
-tableName :: KnownSymbol (TabName t) => Proxy t -> String
-tableName (_ :: Proxy t) = fromSing (sing :: Sing (TabName t))
+tableName :: KnownSymbol (DdName t) => Proxy t -> String
+tableName (_ :: Proxy t) = fromSing (sing :: Sing (DdName t))
 
 fieldNames :: SingI (FieldNames t) => Proxy t -> [String]
 fieldNames (_ :: Proxy t) = fromSing (sing :: Sing (FieldNames t))
 
-fieldNames' :: SingI (FieldNames' r) => Proxy r -> [String]
-fieldNames' (_ :: Proxy r) = fromSing (sing :: Sing (FieldNames' r))
+fieldNames' :: SingI (FieldNamesGrec r) => Proxy r -> [String]
+fieldNames' (_ :: Proxy r) = fromSing (sing :: Sing (FieldNamesGrec r))
 
-dbTypeNames :: SingI (BackTypes b NullableSym0 DbTypeNameSym0 (RecordDef t))
+dbTypeNames :: SingI (BackTypes b NullableSym0 DbTypeNameSym0 (DdRec t))
             => Proxy (b :: Type) -> Proxy t -> [(String, Bool)]
 dbTypeNames (_ :: Proxy b) (_ :: Proxy t)
-  = fromSing (sing :: Sing (BackTypes b NullableSym0 DbTypeNameSym0 (RecordDef t)))
+  = fromSing (sing :: Sing (BackTypes b NullableSym0 DbTypeNameSym0 (DdRec t)))
 
-dbTypeNames' :: SingI (BackTypes b NullableSym0 DbTypeNameSym0 (Fields r))
+dbTypeNames' :: SingI (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsGrec r))
             => Proxy (b :: Type) -> Proxy r -> [(String, Bool)]
 dbTypeNames' (_ :: Proxy b) (_ :: Proxy r)
-  = fromSing (sing :: Sing (BackTypes b NullableSym0 DbTypeNameSym0 (Fields r)))
+  = fromSing (sing :: Sing (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsGrec r)))
 
-primaryKey :: SingI (KeyDef t) => Proxy t -> [String]
-primaryKey (_ :: Proxy t) = getSymbols (Proxy :: Proxy (KeyDef t))
+primaryKey :: SingI (DdKey t) => Proxy t -> [String]
+primaryKey (_ :: Proxy t) = getSymbols (Proxy :: Proxy (DdKey t))
 
 -- posKey :: SingI (PosKey t) => Proxy t -> Maybe [Integer]
 -- posKey (_ :: Proxy t) = fromSing (sing :: Sing (PosKey t))
 
-uniqKeys :: SingI (UniqDef t) => Proxy t -> [[String]]
-uniqKeys (_ :: Proxy t) = fromSing (sing :: Sing (UniqDef t))
+uniqKeys :: SingI (DdUniq t) => Proxy t -> [[String]]
+uniqKeys (_ :: Proxy t) = fromSing (sing :: Sing (DdUniq t))
 
 getSymbols  :: SingI k => Proxy (k::[Symbol]) -> [String]
 getSymbols (_ :: Proxy k) = fromSing (sing :: Sing k)
 
-foreignKeys :: SingI (FKDef t)
+foreignKeys :: SingI (DdFrgn t)
             => Proxy t -> [([(String, String)], (String, DeleteConstraint))]
-foreignKeys (_ :: Proxy t) = fromSing (sing :: Sing (FKDef t))
+foreignKeys (_ :: Proxy t) = fromSing (sing :: Sing (DdFrgn t))
 
 -- | Options for backend
 class DBOption (back :: Type) where
@@ -379,8 +285,3 @@ type instance Apply (DbTypeNameSym1 l0) l1 = DbTypeNameSym2 l0 l1
 type DbTypeNameSym2 a b = DbTypeName a b
 
 type SessionMonad b m = ReaderT (Proxy b, Conn b) m
-
-type CheckIf (a :: Bool) (b :: Constraint) = If a b (() :: Constraint)
--- type family CheckIf (a :: Bool) (b :: Constraint) :: Constraint where
---   CheckIf IsCheck False b = ()
---   CheckIf IsCheck True b  = b

@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Perst.Database.Types
+                      , Perst.Database.Constraints
                       , Perst.Types
                       , Perst.Database.DDL
                       , Perst.Database.DML

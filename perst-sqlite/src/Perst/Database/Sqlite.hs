@@ -21,6 +21,7 @@ import           Database.SQLite3           (Database, SQLData (..), Statement,
                                              columns, exec, finalize,
                                              lastInsertRowId, open, prepare,
                                              reset, step)
+import           Perst.Database.Constraints
 import           Perst.Database.Types       (DBOption (..), DbTypeName)
 
 data Sqlite

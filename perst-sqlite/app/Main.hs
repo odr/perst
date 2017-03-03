@@ -78,12 +78,12 @@ data Tab1 = Rec1
   -- , v40 :: Double
   } deriving (Eq, Show, Generic)
 
-type TTab = TableDef Tab '["id"] '[ '["name"]] '[]
+type TTab = TableD Tab '["id"] '[ '["name"]] '[]
 
 pTab :: Proxy TTab
 pTab = Proxy
 
-type TTab1 = TableDef Tab1 '["id"] '[] '[]
+type TTab1 = TableD Tab1 '["id"] '[] '[]
 
 pTab1 :: Proxy TTab1
 pTab1 = Proxy
@@ -100,8 +100,8 @@ data Orders = Order -- name ORDER is disbled in sqlite!
   , customerId   :: Int64
   , coCustomerId :: Maybe Int64
   } deriving (Show, Generic)
-type TCustomer = TableDef Customer '["id"] '[ '["name"]] '[]
-type TOrder = TableDef Orders '["id"] '[ '["customerId", "num"]]
+type TCustomer = TableD Customer '["id"] '[ '["name"]] '[]
+type TOrder = TableD Orders '["id"] '[ '["customerId", "num"]]
     '[ '( '[ '("customerId", "id")], '("Customer", DCCascade))
      , '( '[ '("coCustomerId", "id")], '("Customer", DCSetNull))
      ]

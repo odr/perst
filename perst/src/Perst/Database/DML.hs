@@ -37,6 +37,7 @@ import           Data.Text.Format           (format)
 import           Data.Text.Lazy             (Text)
 import qualified Data.Text.Lazy             as TL
 import           Data.Type.Grec
+import           Perst.Database.Constraints
 import           Perst.Database.Types
 
 insertText :: RecConstr b t r
@@ -71,7 +72,7 @@ insertManyAuto (pt :: Proxy t) (rs :: [r]) = do
   finally  (mapM ((>> getLastKey)
                       . runPrepared cmd
                       . convFromGrec
-                      . (GWO :: r -> GrecWithout (KeyDef t) r)
+                      . (GWO :: r -> GrecWithout (DdKey t) r)
                       ) rs)
                   (finalizePrepared cmd)
 
@@ -109,14 +110,14 @@ updateByKey :: (MonadIO m, MonadMask m, UpdByKeyConstr b t r k)
 updateByKey pt = updateByKeyMany pt . (:[])
 
 updateByPKMany :: ( MonadIO m, MonadMask m
-                  , UpdByKeyConstr b t (GrecWithout (KeyDef t) r) (GrecWith (KeyDef t) r)
+                  , UpdByKeyConstr b t (GrecWithout (DdKey t) r) (GrecWith (DdKey t) r)
                   ) => Proxy t -> [r] -> SessionMonad b m ()
 updateByPKMany (pt :: Proxy t) (rs :: [r])
     = updateByKeyMany pt
-    $ map (\r -> (GW r :: GrecWith (KeyDef t) r, GWO r :: GrecWithout (KeyDef t) r)) rs
+    $ map (\r -> (GW r :: GrecWith (DdKey t) r, GWO r :: GrecWithout (DdKey t) r)) rs
 
 updateByPK :: ( MonadIO m, MonadMask m
-              , UpdByKeyConstr b t (GrecWithout (KeyDef t) r) (GrecWith (KeyDef t) r)
+              , UpdByKeyConstr b t (GrecWithout (DdKey t) r) (GrecWith (DdKey t) r)
               ) => Proxy t -> r -> SessionMonad b m ()
 updateByPK pt = updateByPKMany pt . (:[])
 
@@ -144,13 +145,13 @@ deleteByKey :: (MonadIO m, MonadMask m, DelByKeyConstr b t k)
             => Proxy t -> k -> SessionMonad b m ()
 deleteByKey pt = deleteByKeyMany pt . (:[])
 
-deleteByPKMany :: ( MonadIO m, MonadMask m, DelByKeyConstr b t (GrecWith (KeyDef t) r)
+deleteByPKMany :: ( MonadIO m, MonadMask m, DelByKeyConstr b t (GrecWith (DdKey t) r)
                   ) => Proxy t -> [r] -> SessionMonad b m ()
 deleteByPKMany (pt :: Proxy t) (rs :: [r])
     = deleteByKeyMany pt
-    $ map (\r -> GW r :: GrecWith (KeyDef t) r) rs
+    $ map (\r -> GW r :: GrecWith (DdKey t) r) rs
 
-deleteByPK :: ( MonadIO m, MonadMask m, DelByKeyConstr b t (GrecWith (KeyDef t) r)
+deleteByPK :: ( MonadIO m, MonadMask m, DelByKeyConstr b t (GrecWith (DdKey t) r)
               ) => Proxy t -> r -> SessionMonad b m ()
 deleteByPK pt = deleteByPKMany pt . (:[])
 
