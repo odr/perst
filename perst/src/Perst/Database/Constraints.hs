@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeInType #-}
 module Perst.Database.Constraints
     (
     -- * Constraints required for DDL and DML operations
@@ -10,6 +11,7 @@ module Perst.Database.Constraints
     , UpdConstr, UpdByKeyConstr
     , DelConstr, DelByKeyConstr
     , SelConstr
+    , ddProxy
 
     ) where
 
@@ -107,6 +109,8 @@ type DeleteByKeyConstraint b t rd p u f fnk ftk =
 type TabConstr (t :: DataDef) =
   ( TableConstraint t (FieldNames t) (DdKey t) (DdUniq t) (DdFrgn t)
   )
+ddProxy :: TabConstr t => Proxy t -> Proxy t
+ddProxy = id
 
 type TabConstrB (b :: Type) (t::DataDef) =
   ( TableConstraintB b t (DdRec t) (DdKey t) (DdUniq t) (DdFrgn t)

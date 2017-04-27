@@ -20,6 +20,7 @@ library
                       , Perst.Types
                       , Perst.Database.DDL
                       , Perst.Database.DML
+                      , Perst.Database.Join
 
   extensions:           DataKinds
                       , TypeOperators
@@ -43,6 +44,7 @@ library
                       , text-format
                       , singletons
                       , tagged
+                      , containers
   default-language:    Haskell2010
 
 executable perst-exe

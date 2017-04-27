@@ -5,4 +5,4 @@ packages:
 - perst
 - perst-sqlite
 extra-deps:
-resolver: lts-8.0
+resolver: lts-8.7

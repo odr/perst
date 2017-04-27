@@ -12,19 +12,6 @@ import           GHC.TypeLits            (ErrorMessage (..), TypeError)
 
 type (:::) a b = '(a,b)
 
--- instance IsLabel s (Proxy (ss :: [Symbol]) -> Proxy (s ': ss)) where
---   fromLabel _ _ = Proxy
---
--- pns = Proxy :: Proxy ('[] :: [Symbol])
---
--- instance IsLabel s (v -> Tagged (ss :: [Symbol]) vv -> Tagged (s ': ss) (v,vv)) where
---   fromLabel _ v (Tagged vv) = Tagged (v,vv)
---
--- data SN = SN
---
--- instance IsLabel s (v -> SN -> Tagged '[s] v) where
---   fromLabel _ v SN = Tagged v
-
 type Cons a = GCons (Rep a)
 type family GCons (a :: k1) :: Symbol where
   GCons (D1 _ (C1 (MetaCons s _ _) _)) = s

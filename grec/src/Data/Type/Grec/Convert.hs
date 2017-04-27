@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE ExistentialQuantification #-}
 -- {-# LANGUAGE IncoherentInstances       #-}
+{-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeInType                #-}
@@ -10,12 +11,15 @@ module Data.Type.Grec.Convert(
     , ConvList(..)
     , Convert(..)
     , FieldsGrec
+    , FieldsGrecSym0
     , ConvToGrec(..)
     , ConvFromGrec(..)
     , GrecWithout(..)
     , GrecWith(..)
     , FieldNamesGrec
     , FieldTypesGrec
+    , FieldNamesGrecSym0
+    , FieldTypesGrecSym0
   ) where
 
 import           Control.Arrow                ((***))
@@ -24,7 +28,7 @@ import           Data.List                    (partition)
 import           Data.Proxy                   (Proxy (..))
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
-import           Data.Singletons.TH           (singletons)
+import           Data.Singletons.TH           (genDefunSymbols, singletons)
 import           Data.Tagged                  (Tagged (..), proxy, tagWith,
                                                untag)
 import           Data.Type.Grec.Type          (Fields, TaggedToList)
@@ -128,8 +132,13 @@ type family FieldsGrec a :: [(Symbol, Type)] where
   FieldsGrec (GrecWith ns a) = With ns (FieldsGrec a)
   FieldsGrec a = Fields a
 
-type FieldNamesGrec a = Map FstSym0 (FieldsGrec a)
-type FieldTypesGrec a = Map SndSym0 (FieldsGrec a)
+type family FieldNamesGrec a where
+   FieldNamesGrec a = Map FstSym0 (FieldsGrec a)
+
+type family FieldTypesGrec a where
+  FieldTypesGrec a = Map SndSym0 (FieldsGrec a)
+
+genDefunSymbols [''FieldsGrec, ''FieldNamesGrec, ''FieldTypesGrec]
 
 class ConvToGrec a b where
   convToGrec :: a -> b

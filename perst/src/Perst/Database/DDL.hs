@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeInType           #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Perst.Database.DDL
     ( DDL (..)

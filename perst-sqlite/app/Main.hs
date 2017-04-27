@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeInType            #-}
 
 module Main where
 
@@ -16,6 +17,7 @@ import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Proxy             (Proxy (..))
 import           Data.Tagged
 import           GHC.Generics           (Generic)
+-- import           Perst.Database.Constraints
 import           Perst.Database.DDL     as DDL
 import           Perst.Database.DML
 import           Perst.Database.Sqlite
@@ -106,7 +108,7 @@ type TOrder = TableD Orders '["id"] '[ '["customerId", "num"]]
      , '( '[ '("coCustomerId", "id")], '("Customer", DCSetNull))
      ]
 pCustomer = Proxy :: Proxy TCustomer
-pOrder = Proxy :: Proxy TOrder
+pOrder    = Proxy :: Proxy TOrder
 
 
 createTab :: (DDL b a) => Proxy (a :: DataDef) -> SessionMonad b IO ()
