@@ -9,19 +9,20 @@
 
 module Main where
 
-import           Data.Int               (Int64)
-import qualified Data.Text              as T
+import           Data.Int                (Int64)
+import qualified Data.Text               as T
 
-import           Control.Monad.Catch    (SomeException, catch)
-import           Control.Monad.IO.Class (MonadIO (..))
-import           Data.Proxy             (Proxy (..))
-import           Data.Tagged
-import           GHC.Generics           (Generic)
--- import           Perst.Database.Constraints
-import           Perst.Database.DDL     as DDL
+import           Control.Monad.Catch     (SomeException, catch)
+import           Control.Monad.IO.Class  (MonadIO (..))
+import           Data.Proxy              (Proxy (..))
+import           Data.Tagged             (Tagged (..))
+import           GHC.Generics            (Generic)
+import           Perst.Database.DataDef  (DelCons (..), Subrec, TableD)
+import           Perst.Database.DbOption (DbOption (..), DbTypeName,
+                                          SessionMonad)
+import           Perst.Database.DDL      as DDL
 import           Perst.Database.DML
 import           Perst.Database.Sqlite
-import           Perst.Database.Types
 --  import           Perst.Types            ((:::))
 
 newtype NInt = NInt Int64 deriving (Show, Eq, Ord, Generic)
@@ -104,14 +105,14 @@ data Orders = Order -- name ORDER is disbled in sqlite!
   } deriving (Show, Generic)
 type TCustomer = TableD Customer '["id"] '[ '["name"]] '[]
 type TOrder = TableD Orders '["id"] '[ '["customerId", "num"]]
-    '[ '( '[ '("customerId", "id")], '("Customer", DCCascade))
-     , '( '[ '("coCustomerId", "id")], '("Customer", DCSetNull))
+    '[ '( '[ '("customerId", "id")], '("Customer", DcCascade))
+     , '( '[ '("coCustomerId", "id")], '("Customer", DcSetNull))
      ]
 pCustomer = Proxy :: Proxy TCustomer
 pOrder    = Proxy :: Proxy TOrder
 
 
-createTab :: (DDL b a) => Proxy (a :: DataDef) -> SessionMonad b IO ()
+createTab :: (DDL b a) => Proxy a -> SessionMonad b IO ()
 createTab (p :: Proxy a) = do
   catch (DDL.drop p) (\(_::SomeException) -> return ())
   create p
@@ -136,10 +137,12 @@ main = runSession sqlite "test.db" $ do
              , Order (rs!!1) "z2" 2 Nothing
              ]
   updateByPKMany pOrder ords
-  updateByKey pCustomer (Tagged "dro" :: Tagged '["name"] T.Text, Tagged "numnum" :: Tagged '["email"] T.Text)
+  updateByKey pCustomer ( Tagged "dro"    :: Tagged '["name"]  T.Text
+                        , Tagged "numnum" :: Tagged '["email"] T.Text
+                        )
 
   updateByKey pCustomer
-              (Tagged "odr" :: Subrec TCustomer '["name"]
+              ( Tagged "odr"             :: Subrec TCustomer '["name"]
               , Tagged ("zu",(4,"odr1")) :: Subrec TCustomer '["email","id","name"]
               )
 
@@ -147,11 +150,11 @@ main = runSession sqlite "test.db" $ do
 
   deleteByPK pOrder (Order 3 "3" 1 (Just 1))
 {-
- -}
+
+-}
   selectMany pCustomer
               (Proxy :: Proxy Customer)
               (map Tagged [1,2] :: [Tagged '["id"] Int64])
         >>= liftIO . print
-
 
   return ()

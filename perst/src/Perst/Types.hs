@@ -55,3 +55,7 @@ singletonsOnly
       posList as xs = let rs = map (`elemIndex` xs) as in
         if any_ isNothing rs then Nothing else Just (map fromJust rs)
   |]
+
+-- type family OrC (a::Constraint) (b::Constraint) :: Constraint where
+--   OrC () b  = ()
+--   OrC a ()  = ()

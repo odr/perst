@@ -16,6 +16,9 @@ import           GHC.TypeLits            (Symbol)
 import           Perst.Database.Types
 import           Perst.Types
 
+
+
+{-
 promoteOnly
   [d|
     -- data Join t = Join
@@ -153,3 +156,4 @@ joinByKey = undefined
 -- --     rest = iter f g (a : as1) as2
 -- --   iter _ _ as1 [] = []
 -- --
+-}

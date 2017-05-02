@@ -22,7 +22,7 @@ import           Database.SQLite3           (Database, SQLData (..), Statement,
                                              lastInsertRowId, open, prepare,
                                              reset, step)
 import           Perst.Database.Constraints
-import           Perst.Database.Types       (DBOption (..), DbTypeName)
+import           Perst.Database.DbOption    (DbOption (..), DbTypeName)
 
 data Sqlite
 
@@ -66,7 +66,7 @@ instance Convert SQLData a => Convert SQLData (Maybe a) where
   convert SQLNull = Nothing
   convert x       = Just $ convert x
 
-instance DBOption Sqlite where
+instance DbOption Sqlite where
     type SessionParams Sqlite   = Text
     type Conn Sqlite            = Database
     type FieldDB Sqlite         = SQLData

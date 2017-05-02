@@ -13,8 +13,8 @@ module Perst.Database.Types
   , DataDef'(..), DataDef
   -- , DataDef(..)
   , TableD, ViewD
-  , DdName, DdRec, DdKey, DdUniq, DdFrgn, DdUpd
-  , DdNameSym0, DdRecSym0, DdKeySym0, DdUniqSym0, DdFrgnSym0, DdUpdSym0
+  , DdName, DdRec, DdKey, DdUniq, DdUpd, DdFrgn
+  , DdNameSym0, DdRecSym0, DdKeySym0, DdUniqSym0, DdUpdSym0, DdFrgnSym0
 
   -- * Backend definition
 
@@ -29,8 +29,8 @@ module Perst.Database.Types
 
   , tableName, fieldNames, dbTypeNames
   , fieldNames', dbTypeNames'
-  , getSymbols, primaryKey, uniqKeys
-  , foreignKeys
+  , primaryKey, uniqKeys
+  -- , foreignKeys
 
   -- * Utilities
 
@@ -71,7 +71,6 @@ singletons [d|
       deriving (Show, Eq, Ord)
   |]
 
-type FK = ([(Symbol,Symbol)],(Symbol,DeleteConstraint))
 singletons [d|
   data DataDef' s t
     = TableDef
@@ -90,12 +89,6 @@ singletons [d|
       , ddu   :: [[s]] -- [[Symbol]]
       , ddf   :: [([(s,s)],(s,DeleteConstraint))] -- [FK]
       }
-    -- | JoinByKey
-    --   { ddr   :: [(Symbol,Type)]
-    --   , ddk   :: [Symbol]
-    --   , ddf   :: [FK]
-    --   , dds   :: [DataDef]
-    --   }
   -- ddUpd :: DataDef' s t -> [s] -- [Symbol]
   ddUpd (TableDef _ r _ _ _)    = map fst r
   ddUpd (ViewDef _ _ _ u _ _ _) = u
@@ -103,15 +96,12 @@ singletons [d|
   ddName (ViewDef n _ _ _ _ _ _) = n
   ddRec (TableDef _ r _ _ _)    = r
   ddRec (ViewDef _ r _ _ _ _ _) = r
-  -- ddRec (JoinByKey r _ _ _)     = r
   ddKey (TableDef _ _ p _ _)    = p
   ddKey (ViewDef _ _ _ _ p _ _) = p
-  -- ddKey (JoinByKey _ p _ _)     = p
   ddUniq (TableDef _ _ _ u _)    = u
   ddUniq (ViewDef _ _ _ _ _ u _) = u
   ddFrgn (TableDef _ _ _ _ f)    = f
   ddFrgn (ViewDef _ _ _ _ _ _ f) = f
-  -- ddFrgn (JoinByKey _ _ f _)     = f
   |]
 singletonsOnly
   [d|
@@ -121,10 +111,10 @@ singletonsOnly
 
 type DataDef = DataDef' Symbol Type
 
-type family TableD v p u f where
-  TableD v p u f = TableDef (Typ v) (FieldsGrec v) p u f
-type family ViewD v s upd p u f where
-  ViewD v s upd p u f = ViewDef (Typ v) (FieldsGrec v) s upd p u f
+type family TableD v p u where
+  TableD v p u = TableDef (Typ v) (FieldsGrec v) p u
+type family ViewD v s upd p u where
+  ViewD v s upd p u = ViewDef (Typ v) (FieldsGrec v) s upd p u
 
 type family Subrec t ns where
   Subrec t ns = Tagged ns (ListToPairs (FromJust (Submap ns (DdRec t))))
@@ -158,7 +148,7 @@ dbTypeNames' (_ :: Proxy b) (_ :: Proxy r)
   = fromSing (sing :: Sing (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsGrec r)))
 
 primaryKey :: SingI (DdKey t) => Proxy (t :: DataDef) -> [String]
-primaryKey (_ :: Proxy t) = getSymbols (Proxy :: Proxy (DdKey t))
+primaryKey (_ :: Proxy t) = fromSing (sing :: Sing (DdKey t))
 
 -- posKey :: SingI (PosKey t) => Proxy t -> Maybe [Integer]
 -- posKey (_ :: Proxy t) = fromSing (sing :: Sing (PosKey t))
@@ -166,8 +156,8 @@ primaryKey (_ :: Proxy t) = getSymbols (Proxy :: Proxy (DdKey t))
 uniqKeys :: SingI (DdUniq t) => Proxy (t :: DataDef) -> [[String]]
 uniqKeys (_ :: Proxy t) = fromSing (sing :: Sing (DdUniq t))
 
-getSymbols  :: SingI k => Proxy (k::[Symbol]) -> [String]
-getSymbols (_ :: Proxy k) = fromSing (sing :: Sing k)
+-- getSymbols  :: SingI k => Proxy (k::[Symbol]) -> [String]
+-- getSymbols (_ :: Proxy k) = fromSing (sing :: Sing k)
 
 foreignKeys :: SingI (DdFrgn t)
             => Proxy (t :: DataDef) -> [([(String, String)], (String, DeleteConstraint))]

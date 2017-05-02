@@ -15,12 +15,13 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Perst.Database.Types
+  exposed-modules:     Perst.Database.DataDef
+                      , Perst.Database.DbOption
                       , Perst.Database.Constraints
                       , Perst.Types
                       , Perst.Database.DDL
                       , Perst.Database.DML
-                      , Perst.Database.Join
+                      -- , Perst.Database.Join
 
   extensions:           DataKinds
                       , TypeOperators

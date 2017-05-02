@@ -26,22 +26,25 @@ module Perst.Database.DML
   )
   where
 
-import           Control.Arrow              ((***))
 import           Control.Monad.Catch        (MonadMask, finally)
 import           Control.Monad.IO.Class     (MonadIO (..))
 import           Control.Monad.Trans.Reader (ask)
-import           Data.List                  (intercalate, partition, (\\))
-import           Data.Maybe                 (fromMaybe)
+import           Data.Bifunctor             (bimap)
+import           Data.List                  (intercalate, (\\))
 import           Data.Proxy                 (Proxy (..))
 import           Data.Text.Format           (format)
-import           Data.Text.Lazy             (Text)
 import qualified Data.Text.Lazy             as TL
-import           Data.Type.Grec
-import           Perst.Database.Constraints
-import           Perst.Database.Types
+import           Data.Type.Grec             (ConvFromGrec (..), ConvToGrec (..),
+                                             GrecWith (..), GrecWithout (..))
+import           Perst.Database.Constraints (DelByKeyConstr, InsAutoConstr,
+                                             InsConstr, RecConstr, SelConstr,
+                                             UpdByKeyConstr, UpdConstr)
+import           Perst.Database.DataDef     (DdKey, fieldNames', primaryKey,
+                                             tableName)
+import           Perst.Database.DbOption    (DbOption (..), SessionMonad)
 
 insertText :: RecConstr b t r
-            => Proxy b -> Proxy t -> Proxy r -> Bool -> Text
+            => Proxy b -> Proxy t -> Proxy r -> Bool -> TL.Text
 insertText pb pt pr withPK
   = format "INSERT INTO {}({}) VALUES({})"
     ( tableName pt
@@ -83,12 +86,12 @@ insertAuto pt (r :: r) = insertManyAuto pt [r]
 -- * UPDATE
 
 updateByKeyText :: UpdByKeyConstr b t r k
-    => Proxy b -> Proxy t -> Proxy r -> Proxy (k :: *) -> Text
+    => Proxy b -> Proxy t -> Proxy r -> Proxy (k :: *) -> TL.Text
 updateByKeyText pb pt pr pk
   = format "UPDATE {} SET {} WHERE {}" (tableName pt, rs, ks)
  where
   (ks, rs)
-    = interSnd *** interSnd
+    = bimap interSnd interSnd
     $ splitAt (length keyNames)
     $ zipWith (\n s -> (s, format "{} = {}" (s, paramName pb n))) [0..]
     $ keyNames ++ fieldNames' pr
@@ -102,7 +105,7 @@ updateByKeyMany (pt :: Proxy t) (rs :: [(k,r)]) = do
   (pb :: Proxy b, _) <- ask
   (cmd :: PrepCmd b) <- prepareCommand
                       $ updateByKeyText pb pt (Proxy :: Proxy r) (Proxy :: Proxy k)
-  finally (mapM_ (runPrepared cmd . uncurry (++) . (convFromGrec *** convFromGrec)) rs)
+  finally (mapM_ (runPrepared cmd . uncurry (++) . bimap convFromGrec convFromGrec) rs)
           (finalizePrepared cmd)
 
 updateByKey :: (MonadIO m, MonadMask m, UpdByKeyConstr b t r k)
@@ -124,7 +127,7 @@ updateByPK pt = updateByPKMany pt . (:[])
 -- * DELETE
 
 deleteByKeyText :: DelByKeyConstr b t k
-    => Proxy b -> Proxy t -> Proxy (k :: *) -> Text
+    => Proxy b -> Proxy t -> Proxy (k :: *) -> TL.Text
 deleteByKeyText pb pt pk
   = format "DELETE FROM {} WHERE {}"
     ( tableName pt
@@ -158,7 +161,7 @@ deleteByPK pt = deleteByPKMany pt . (:[])
 -- * SELECT
 
 selectText :: SelConstr b t r k =>
-    Proxy (b :: *) -> Proxy t -> Proxy (r :: *) -> Proxy (k :: *) -> Text
+    Proxy (b :: *) -> Proxy t -> Proxy (r :: *) -> Proxy (k :: *) -> TL.Text
 selectText pb pt pr pk
   = format "SELECT {} FROM {} WHERE {}"
     ( TL.intercalate "," $ map TL.pack $ fieldNames' pr
