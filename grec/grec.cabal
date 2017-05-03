@@ -19,11 +19,14 @@ library
                       -- , Data.Type.Grec.Lens
   other-modules:        Data.Type.Grec.ConvGrec
                       , Data.Type.Grec.ConvList
+                      , Data.Type.Grec.ConvTree
                       , Data.Type.Grec.Convert
                       , Data.Type.Grec.FieldsGrec
                       , Data.Type.Grec.Grec
                       , Data.Type.Grec.Lens
                       , Data.Type.Grec.Type
+                      , Data.Type.Grec.Internal.GGrecList
+                      , Data.Type.Grec.Internal.GGrecTree
 
 
   default-extensions:   DataKinds
@@ -44,6 +47,7 @@ library
                       , singletons
                       , ghc-prim
                       , microlens
+                      , containers
   default-language:    Haskell2010
 
 executable grec-exe

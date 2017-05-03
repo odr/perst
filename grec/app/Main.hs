@@ -32,7 +32,7 @@ vr2213 = vr2 ^. #f22
 gpe = Refl :: FieldsGrec Dat2
           :~: FieldsGrec (Tagged ["f21","f22","f23"] (Int,(Char,(Int,String))))
 
-data X = XInt Int | XChar Char | XIS (Int,String) deriving (Eq,Show)
+data X = XInt Int | XChar Char | XIS (Int,String) | XS String deriving (Eq,Show)
 
 instance Convert X Int where
   convert (XInt x) = x
@@ -41,6 +41,10 @@ instance Convert X Int where
 instance Convert X Char where
   convert (XChar x) = x
   convert _         = error "not converted"
+
+instance Convert X String where
+  convert (XS x) = x
+  convert _      = error "not converted"
 
 instance Convert X (Int,String) where
   convert (XIS x) = x
@@ -52,11 +56,14 @@ instance Convert Int X where
 instance Convert Char X where
   convert = XChar
 
+instance Convert String X where
+  convert = XS
+
 instance Convert (Int,String) X where
   convert = XIS
 
--- vr2' = listToGrec [XInt 5, XChar 'z', XIS (7,"odr")] :: Grec Dat2
--- x2 = grecToList vr2' :: [X]
+vr2' = convToGrec [XInt 5, XChar 'z', XIS (7,"odr")] :: Dat2
+x2 = convFromGrec vr2' :: [X]
 
 newtype Nt1 = Nt1 { unNt1 :: Dat2 } deriving (Show, Eq, Generic)
 vnt1 = Refl :: Fields Nt1 :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
@@ -66,7 +73,7 @@ nt11 = Nt1 vr2 ^. #f23
 -- x1 = grecToList nt1 :: [X]
 
 data DatS = Rd1 Int | Rd2 deriving (Show, Eq, Generic)
--- vd5 = Refl :: Fields DatS) :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
+-- vd5 = Refl :: Fields DatS :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
 
 data DatBig = RecBig
     { fb1 :: Int
@@ -126,3 +133,19 @@ o1 = Order 1 "x" 2 Nothing
 --
 {-
 -}
+
+data DD0 = DD0 { d01 :: Int, d02 :: Char }
+  deriving (Show, Generic)
+data DD1 = DD1 { d11 :: Int, d12 :: [DD0], d13 :: Char, d14 :: Int }
+  deriving (Show, Generic)
+data DD2 = DD2 { d21 :: Int, d22 :: String, d23 :: [DD1], d24 :: [DD0]}
+  deriving (Show, Generic)
+
+dd2 = DD2 1 "'x'"
+    [ DD1 2 [DD0 3 'a', DD0 4 'b'] 'c' 6
+    , DD1 4 [] 'd' 7
+    ]
+    [ DD0 5 'e']
+
+ctdd2 = convert dd2 :: ConvTree X
+dd2' = convert ctdd2 :: DD2
