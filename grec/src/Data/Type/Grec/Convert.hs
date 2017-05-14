@@ -5,5 +5,5 @@ module Data.Type.Grec.Convert(
 class Convert a b where
   convert :: a -> b
 
-instance Convert a a where
-  convert = id
+-- instance Convert a a where
+--   convert = id

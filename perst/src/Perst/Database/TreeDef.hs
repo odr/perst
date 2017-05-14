@@ -24,8 +24,8 @@ import qualified Data.Text.Lazy             as TL
 
 import           Data.Type.Grec             (ConvFromGrec (..), ConvToGrec (..),
                                              ConvTree (..), Convert (..),
-                                             FieldsTree, TreeChilds, TreeRec,
-                                             TreeT, TreeT' (..))
+                                             FieldsTree, Grec (..), TreeChilds,
+                                             TreeRec, TreeT, TreeT' (..))
 
 import           Perst.Database.Constraints
 import           Perst.Database.DataDef
@@ -52,19 +52,19 @@ type FieldsTree a = GFieldsTree (Rep a) -- :: TreeT
 
 data ConvTree a = ConvTree [a] [[ConvTree a]] deriving (Eq, Show)
 
+selectMany' :: (MonadIO m, MonadMask m, DelConstr b t k)
+            => Proxy t -> [TL.Text] -> [k] -> SessionMonad b m [[[FieldDB b]]]
 -}
--- selectMany' :: (MonadIO m, MonadMask m, DelConstr b t k)
---             => Proxy t -> [TL.Text] -> [k] -> SessionMonad b m [[[FieldDB b]]]
 
--- class ProcessProxy a b c where
---   processProxy :: Proxy a -> (Proxy b -> c) -> c
---
--- instance (Monoid c, ProcessProxy as) => ProcessProxy (a ': as) a  c where
---   processProxy _ f = f (Proxy :: Proxy a) <> processProxy (Proxy :: Proxy as) f
+getProxies :: SingI (Map FstSym0 (TreeRec r))
+  => Proxy (t :: TreeDef) -> Proxy (r :: TreeT) ->
+  (Proxy (TreeChilds r), Proxy (TdChilds t), Proxy (TdData t), [TL.Text])
+getProxies (pt :: Proxy t) (pr :: Proxy r) = (Proxy, Proxy, Proxy
+    , map TL.pack $ showProxy (Proxy :: Proxy (Map FstSym0 (TreeRec r))))
 
 selectTreeMany
   :: (MonadIO m, MonadMask m
-     , Convert (ConvTree (FieldDB b)) r
+     , Convert (ConvTree (FieldDB b)) (Grec r)
      , SingI (Map FstSym0 (TreeRec (FieldsTree r)))
      , DelConstr b (TdData t) k
      , ProcessChilds b (TdChilds t) (TreeChilds (FieldsTree r))
@@ -73,12 +73,13 @@ selectTreeMany
      )
   => Proxy (t :: TreeDef) -> Proxy (r :: Type) -> [k] -> SessionMonad b m [[r]]
 selectTreeMany (pt :: Proxy t) (pr :: Proxy r) (ks :: [k])
-  = map (map convert) <$> selectTreeMany' pt
-                                (Proxy :: Proxy (FieldsTree r))
-                                (fieldNamesT (Proxy :: Proxy k))
-                                (map convFromGrec ks)
+  = map (map (unGrec . convert))
+  <$> selectTreeMany' pt
+                      (Proxy :: Proxy (FieldsTree r))
+                      (fieldNamesT (Proxy :: Proxy k))
+                      (map convFromGrec ks)
 
-selectTreeMany' :: (MonadIO m, MonadMask m , DbOptionConstr b (TdData t)
+selectTreeMany' :: ( MonadIO m, MonadMask m , DbOptionConstr b (TdData t)
                    , SingI (Map FstSym0 (TreeRec r))
                    , SingI (ParentKeyNames t)
                    , ProcessChilds b (TdChilds t) (TreeChilds r)
@@ -88,29 +89,13 @@ selectTreeMany' :: (MonadIO m, MonadMask m , DbOptionConstr b (TdData t)
                 -> [TL.Text] -> [[FieldDB b]]
                 -> SessionMonad b m [[ConvTree (FieldDB b)]]
 selectTreeMany' (pt :: Proxy t) (pr :: Proxy r) keyNames keys
-  = -- do
-    -- liftIO $ putStrLn "========== selectTreeMany' ==========="
-    -- liftIO $ putStrLn $ "keyNames: " ++ show keyNames
-    -- liftIO $ putStrLn $ "keys: " ++ show keys
-    -- (r, parentKeys) <- unzip . map (unzip . map recAndKeys)
-    --                 <$> selectMany' ptd fldNames keyNames keys
-
-    selectMany' ptd fldNames keyNames keys
+  = selectMany' ptd fldNames keyNames keys
       >>= mapM (mapM $ fmap (uncurry ConvTree)
                      . sequence
-                     . second (processChilds ptc prc)
+                     . second (selectChilds ptc prc)
                      . recAndKeys)
-
-    -- liftIO $ putStrLn $ "r: " ++ show r
-    -- liftIO $ putStrLn $ "parentKeys: " ++ show parentKeys
-    -- chs <- processChilds ptc prc parentKeys
-    -- liftIO $ putStrLn $ "chs: " ++ show chs
-    -- let res = zipWith ({- by result -} zipWith ConvTree) r chs
-    -- liftIO $ putStrLn $ "res: " ++ show res
-    -- liftIO $ putStrLn "========== end ==========="
-    -- return res
  where
-  recNames = map TL.pack $ showProxy (Proxy :: Proxy (Map FstSym0 (TreeRec r)))
+  (prc,ptc,ptd,recNames) = getProxies pt pr
   parentKeyNames  = map (map TL.pack)
                   $ showProxy (Proxy :: Proxy (ParentKeyNames t))
   fldNames = recNames `mappend` mconcat parentKeyNames
@@ -119,24 +104,46 @@ selectTreeMany' (pt :: Proxy t) (pr :: Proxy r) keyNames keys
   recAndKeys rs = (r1, splitByCnt rs1 parentKeyLens)
    where
     (r1,rs1) = splitAt recLen rs
-  prc = Proxy :: Proxy (TreeChilds r)
-  ptc = Proxy :: Proxy (TdChilds t)
-  ptd = Proxy :: Proxy (TdData t)
+  splitByCnt xs = reverse . fst
+      . foldl'(\(res, rest) l ->
+          let (rn, rsn) = splitAt l rest in (rn : res, rsn)
+        ) ([], xs)
 
-splitByCnt :: [a] -> [Int] -> [[a]]
-splitByCnt xs = reverse . fst
-    . foldl'(\(res, rest) l ->
-        let (rn, rsn) = splitAt l rest in (rn : res, rsn)
-      ) ([], xs)
+insertTreeMany
+  ::  (MonadIO m, MonadMask m , DbOptionConstr b (TdData t)
+      , SingI (Map FstSym0 (TreeRec (FieldsTree r)))
+      , ProcessChilds b (TdChilds t) (TreeChilds (FieldsTree r))
+      , Convert (Grec r) (ConvTree (FieldDB b))
+      )
+  => Proxy (t :: TreeDef) -> [r] -> SessionMonad b m ()
+insertTreeMany (pt :: Proxy t) (rs :: [r])
+  = insertTreeMany' pt (Proxy :: Proxy (FieldsTree r)) (map (convert . Grec) rs)
+
+insertTreeMany'
+  :: ( MonadIO m, MonadMask m , DbOptionConstr b (TdData t)
+     , SingI (Map FstSym0 (TreeRec r))
+     , ProcessChilds b (TdChilds t) (TreeChilds r)
+     )
+  => Proxy (t :: TreeDef) -> Proxy (r :: TreeT) -> [ConvTree (FieldDB b)]
+  -> SessionMonad b m ()
+insertTreeMany' (pt :: Proxy t) (pr :: Proxy r) cts = do
+  insertMany' ptd recNames $ map ctRec cts
+  insertChilds ptc prc $ concatMap ctChilds cts
+ where
+  (prc,ptc,ptd,recNames) = getProxies pt pr
 
 class ProcessChilds b (t :: [(TreeDef, [(Symbol,Symbol)])])
                       (r :: [(Symbol, TreeT)]) where
-  processChilds :: (MonadIO m, MonadMask m)
+  selectChilds :: (MonadIO m, MonadMask m)
                 => Proxy t -> Proxy r -> [[FieldDB b]]
                 -> SessionMonad b m [[ConvTree (FieldDB b)]]
+  insertChilds :: (MonadIO m, MonadMask m)
+               => Proxy t -> Proxy r -> [[ConvTree (FieldDB b)]]
+               -> SessionMonad b m ()
 
 instance ProcessChilds b '[] '[] where
-  processChilds _ _ _ = return []
+  selectChilds _ _ _ = return []
+  insertChilds _ _ _ = return ()
 
 instance (ProcessChilds b ts rs, DbOptionConstr b (TdData t1)
     , SingI (ParentKeyNames t1), SingI (Map FstSym0 (TreeRec r2))
@@ -146,49 +153,14 @@ instance (ProcessChilds b ts rs, DbOptionConstr b (TdData t1)
     )
     => ProcessChilds b ('(t1,t2) ': ts) ('(r1,r2) ': rs)
  where
-  processChilds _ _ ks
+  selectChilds _ _ ks
     = liftM2 (:)
         (concat <$> selectTreeMany' (Proxy :: Proxy t1)
                         (Proxy :: Proxy r2) keyNames (take 1 ks))
-        (processChilds (Proxy :: Proxy ts) (Proxy :: Proxy rs) (tail ks))
+        (selectChilds (Proxy :: Proxy ts) (Proxy :: Proxy rs) (tail ks))
    where
     keyNames = map TL.pack $ showProxy (Proxy :: Proxy (Map SndSym0 t2))
 
-
--- class ProcessChilds b (t :: [(TreeDef, [(Symbol,Symbol)])])
---                       (r :: [(Symbol, TreeT)]) where
---   processChilds :: (MonadIO m, MonadMask m)
---                 => Proxy t -> Proxy r -> [[[[FieldDB b]]]]
---                 -> SessionMonad b m [[[[ConvTree (FieldDB b)]]]]
---
--- instance ProcessChilds b '[] '[] where
---   processChilds _ _ _ = return []
---
--- instance (ProcessChilds b ts rs, DbOptionConstr b (TdData t1)
---     , SingI (ParentKeyNames t1), SingI (Map FstSym0 (TreeRec r2))
---     , ProcessChilds b (TdChilds t1) (TreeChilds r2)
---     , SingI (Map SndSym0 t2)
---     , Show (FieldDB b)
---     )
---     => ProcessChilds b ('(t1,t2) ': ts) ('(r1,r2) ': rs)
---  where
---   processChilds _ _ ks = do
---     selectTreeMany'
---     -- liftIO $ putStrLn "processChilds"
---     -- liftIO $ putStrLn $ "keys: " ++ show ks
---     -- liftIO $ putStrLn $ "keyNames: " ++ show keyNames
---     -- liftIO $ putStrLn $ "keysLen: " ++ show keysLen
---     -- liftIO $ putStrLn $ "ksh: " ++ show ksh
---     -- liftIO $ putStrLn $ "kst: " ++ show kst
---     child <- flip splitByCnt keysLen
---           <$> selectTreeMany' (Proxy :: Proxy t1) (Proxy :: Proxy r2)
---                               keyNames (concat ksh)
---     rest <- processChilds (Proxy :: Proxy ts) (Proxy :: Proxy rs) kst
---     -- liftIO $ putStrLn $ "child: " ++ show child
---     -- liftIO $ putStrLn $ "rest: " ++ show rest
---     return $ zipWith (zipWith (:)) child rest
---    where
---     keyNames = map TL.pack $ showProxy (Proxy :: Proxy (Map SndSym0 t2))
---     (ksh,kst) = unzip -- $ filter (\x -> case x of { ([],[]) -> False; _ -> True })
---               $ map (unzip . map (head &&& tail) {- . filter (not . null) -}) ks
---     keysLen = map length ksh
+  insertChilds _ _ ctss = do
+    insertTreeMany' (Proxy :: Proxy t1) (Proxy :: Proxy r2) (head ctss)
+    insertChilds    (Proxy :: Proxy ts) (Proxy :: Proxy rs) (tail ctss)

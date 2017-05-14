@@ -147,8 +147,8 @@ dd2 = DD2 1 "'x'"
     ]
     [ DD0 5 'e']
 
-ctdd2 = convert dd2 :: ConvTree X
-dd2' = convert ctdd2 :: DD2
+ctdd2 = convert (Grec dd2) :: ConvTree X
+dd2' = convert ctdd2 :: Grec DD2
 
 ttre = Refl :: FieldsTree DD2 :~:
   'TreeTC '[ '("d21", Int), '("d22", String)]
