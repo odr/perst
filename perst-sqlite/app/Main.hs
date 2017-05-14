@@ -9,21 +9,26 @@
 
 module Main where
 
-import           Data.Int                (Int64)
-import qualified Data.Text               as T
+import           Data.Int                     (Int64)
+import qualified Data.Text                    as T
 
-import           Control.Monad.Catch     (SomeException, catch)
-import           Control.Monad.IO.Class  (MonadIO (..))
-import           Data.Proxy              (Proxy (..))
-import           Data.Tagged             (Tagged (..))
-import           GHC.Generics            (Generic)
-import           Perst.Database.DataDef  (DelCons (..), Subrec, TableD)
-import           Perst.Database.DbOption (DbOption (..), DbTypeName,
-                                          SessionMonad)
-import           Perst.Database.DDL      as DDL
+import           Control.Monad.Catch          (SomeException, catch)
+import           Control.Monad.IO.Class       (MonadIO (..))
+import           Data.List                    (sort)
+import           Data.Proxy                   (Proxy (..))
+import           Data.Singletons.Prelude
+import           Data.Singletons.Prelude.List
+import           Data.Tagged                  (Tagged (..))
+import           GHC.Generics                 (Generic)
+
+import           Data.Type.Grec               (Grec (..))
+import           Perst.Database.DataDef       (DelCons (..), Subrec, TableD)
+import           Perst.Database.DbOption      (DbOption (..), DbTypeName,
+                                               SessionMonad)
+import           Perst.Database.DDL           as DDL
 import           Perst.Database.DML
 import           Perst.Database.Sqlite
---  import           Perst.Types            ((:::))
+import           Perst.Database.TreeDef
 
 newtype NInt = NInt Int64 deriving (Show, Eq, Ord, Generic)
 type instance DbTypeName Sqlite NInt = "INTEGER"
@@ -36,60 +41,10 @@ data Tab = Rec
   , z    :: NInt
   } deriving (Show, Eq, Generic)
 
-data Tab1 = Rec1
-  { id :: Int64
-  , v0 :: Double
-  , v1 :: Double
-  , v2 :: Double
-  , v3 :: Double
-  , v4 :: Double
-  , v5 :: Double
-  -- , v6  :: Double
-  -- , v7  :: Double
-  -- , v8  :: Double
-  -- , v9  :: Double
-  -- , v10 :: Double
-  -- , v11 :: Double
-  -- , v12 :: Double
-  -- , v13 :: Double
-  -- , v14 :: Double
-  -- , v15 :: Double
-  -- , v16 :: Double
-  -- , v17 :: Double
-  -- , v18 :: Double
-  -- , v19 :: Double
-  -- , v20 :: Double
-  -- , v21 :: Double
-  -- , v22 :: Double
-  -- , v23 :: Double
-  -- , v24 :: Double
-  -- , v25 :: Double
-  -- , v26 :: Double
-  -- , v27 :: Double
-  -- , v28 :: Double
-  -- , v29 :: Double
-  -- , v30 :: Double
-  -- , v31 :: Double
-  -- , v32 :: Double
-  -- , v33 :: Double
-  -- , v34 :: Double
-  -- , v35 :: Double
-  -- , v36 :: Double
-  -- , v37 :: Double
-  -- , v38 :: Double
-  -- , v39 :: Double
-  -- , v40 :: Double
-  } deriving (Eq, Show, Generic)
-
 type TTab = TableD Tab '["id"] '[ '["name"]] '[]
 
 pTab :: Proxy TTab
 pTab = Proxy
-
-type TTab1 = TableD Tab1 '["id"] '[] '[]
-
-pTab1 :: Proxy TTab1
-pTab1 = Proxy
 
 data Customer = Customer
   { id    :: Int64
@@ -103,14 +58,67 @@ data Orders = Order -- name ORDER is disbled in sqlite!
   , customerId   :: Int64
   , coCustomerId :: Maybe Int64
   } deriving (Show, Generic)
+
+data Article = Article
+  { id    :: Int64
+  , name  :: T.Text
+  , price :: Double
+  } deriving (Show, Generic)
+
+data OrderPosition = OrderPosition
+  { orderId   :: Int64
+  , articleId :: Int64
+  , quantity  :: Int64
+  , cost      :: Double
+  } deriving (Show, Generic, Eq, Ord)
+
+data Address = Address
+  { id         :: Int64
+  , customerId :: Int64
+  , street     :: T.Text
+  } deriving (Show, Generic, Eq, Ord)
+
+data CustomerTree = CustomerTree
+  { id      :: Int64
+  , name    :: T.Text
+  , orders  :: [OrderTree]
+  , address :: [Address]
+  } deriving (Show, Generic, Eq, Ord)
+
+data OrderTree = OrderTree
+  { id        :: Int64
+  , num       :: T.Text
+  , positions :: [OrderPosition]
+  } deriving (Show, Generic, Eq, Ord)
+
 type TCustomer = TableD Customer '["id"] '[ '["name"]] '[]
 type TOrder = TableD Orders '["id"] '[ '["customerId", "num"]]
     '[ '( '[ '("customerId", "id")], '("Customer", DcCascade))
      , '( '[ '("coCustomerId", "id")], '("Customer", DcSetNull))
      ]
+type TArticle = TableD Article '["id"] '[ '["name"]] '[]
+type TOrderPosition = TableD OrderPosition '["orderId","articleId"] '[]
+    '[ '( '[ '("orderId","id")], '("Customer",DcCascade))
+     , '( '[ '("articleId","id")], '("Article",DcRestrict))
+     ]
+type TAddress = TableD Address '["id"] '[]
+    '[ '( '[ '("customerId", "id")], '("Customer", DcCascade))]
+
 pCustomer = Proxy :: Proxy TCustomer
 pOrder    = Proxy :: Proxy TOrder
+pArticle  = Proxy :: Proxy TArticle
+pOrderPosition = Proxy :: Proxy TOrderPosition
+pAddress  = Proxy :: Proxy TAddress
 
+type TCustomerTree
+    = TreeDefC TCustomer
+        '[ '(TreeDefC TOrder
+              '[ '(TreeDefC TOrderPosition '[], '[ '("id","orderId") ]) ]
+            , '[ '("id","customerId") ])
+         , '(TreeDefC TAddress '[], '[ '("id","customerId") ])
+         ]
+
+pCustomerTree = Proxy :: Proxy TCustomerTree
 
 createTab :: (DDL b a) => Proxy a -> SessionMonad b IO ()
 createTab (p :: Proxy a) = do
@@ -120,21 +128,63 @@ createTab (p :: Proxy a) = do
 o1 = Order 0 "1" 1 Nothing
 main :: IO ()
 main = runSession sqlite "test.db" $ do
-  -- createTab pTab
-  -- createTab pTab1
+  createTab pTab
   createTab pCustomer
-  createTab  pOrder
-  insertMany pCustomer [ Customer 1 "odr" "x"
-                       , Customer 2 "dro" "y"
-                       , Customer 3 "דוגמה" "דואר"
+  createTab pOrder
+  createTab pArticle
+  createTab pOrderPosition
+  createTab pAddress
+
+  insertMany pCustomer [ Grec $ Customer 1 "odr" "x"
+                       , Grec $ Customer 2 "dro" "y"
+                       , Grec $ Customer 3 "דוגמה" "דואר"
                        ]
-  rs <- insertManyAuto pOrder [ Order 0 "1" 1 Nothing
-                              , Order 0 "2" 1 (Just 2)
-                              , Order 0 "3" 1 (Just 1)
-                              , Order 0 "1" 2 (Just 3)
-                              ]
-  let ords = [ Order (rs!!3) "z4" 3 (Just 1)
-             , Order (rs!!1) "z2" 2 Nothing
+  rs <- insertManyAuto pOrder
+        $ map Grec  [ Order 0 "1" 1 Nothing
+                    , Order 0 "2" 1 (Just 2)
+                    , Order 0 "3" 1 (Just 1)
+                    , Order 0 "1" 2 (Just 3)
+                    ]
+  insertMany pArticle
+        $ map Grec  [ Article 1 "art1" 12.22
+                    , Article 2 "art2" 3.14
+                    ]
+  insertMany pOrderPosition
+        $ map Grec  [ OrderPosition 1 2 5 12.22
+                    , OrderPosition 1 1 2 11.11
+                    , OrderPosition 2 1 1 5
+                    ]
+  insertMany pAddress
+        $ map Grec  [ Address 1 1 "My street"
+                    , Address 2 1 "My second street"
+                    , Address 3 2 "Some street"
+                    ]
+  let ct = [  [ CustomerTree 1 "odr"
+                [ OrderTree 1 "1"
+                  [ OrderPosition 1 1 2 11.11
+                  , OrderPosition 1 2 5 12.22
+                  ]
+                , OrderTree 2 "2" [ OrderPosition 2 1 1 5.0 ]
+                , OrderTree 3 "3" []
+                ]
+                [ Address 1 1 "My street"
+                , Address 2 1 "My second street"
+                ]
+              ]
+            , [ CustomerTree 2 "dro"
+                [ OrderTree 4 "1" [] ]
+                [ Address 3 2 "Some street"] ]
+            , [ CustomerTree 3 "\1491\1493\1490\1502\1492" [] []]
+          ]
+
+  selectTreeMany pCustomerTree
+                (Proxy :: Proxy CustomerTree)
+                (map Tagged [1..3] :: [Tagged '["id"] Int64])
+        >>= liftIO . putStrLn . ("Check CustomerTree: " ++) . show . (== ct) . sort
+
+{-
+  let ords = [ Grec $ Order (rs!!3) "z4" 3 (Just 1)
+             , Grec $ Order (rs!!1) "z2" 2 Nothing
              ]
   updateByPKMany pOrder ords
   updateByKey pCustomer ( Tagged "dro"    :: Tagged '["name"]  T.Text
@@ -146,15 +196,16 @@ main = runSession sqlite "test.db" $ do
               , Tagged ("zu",(4,"odr1")) :: Subrec TCustomer '["email","id","name"]
               )
 
-  updateByPK pCustomer $ Customer 2 "drodro" "z"
+  updateByPK pCustomer $ Grec $ Customer 2 "drodro" "z"
 
-  deleteByPK pOrder (Order 3 "3" 1 (Just 1))
+  deleteByPK pOrder (Grec $ Order 3 "3" 1 (Just 1))
 {-
 
 -}
   selectMany pCustomer
-              (Proxy :: Proxy Customer)
-              (map Tagged [1,2] :: [Tagged '["id"] Int64])
+              (Proxy :: Proxy (Grec Customer))
+              (map Tagged [2,3] :: [Tagged '["id"] Int64])
         >>= liftIO . print
 
+-}
   return ()

@@ -29,7 +29,7 @@ vd2 = Refl :: Fields Dat2 :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String
 -- vr221 = vr2 ^. nlens (FieldName :: FieldName "f21")
 -- vr2212 = vr2 ^. nlens (fromLabel (proxy# :: Proxy# "f21") :: Proxy "f21")
 vr2213 = vr2 ^. #f22
-gpe = Refl :: FieldsGrec Dat2
+gpe = Refl :: FieldsGrec (Grec Dat2)
           :~: FieldsGrec (Tagged ["f21","f22","f23"] (Int,(Char,(Int,String))))
 
 data X = XInt Int | XChar Char | XIS (Int,String) | XS String deriving (Eq,Show)
@@ -62,7 +62,7 @@ instance Convert String X where
 instance Convert (Int,String) X where
   convert = XIS
 
-vr2' = convToGrec [XInt 5, XChar 'z', XIS (7,"odr")] :: Dat2
+vr2' = convToGrec [XInt 5, XChar 'z', XIS (7,"odr")] :: Grec Dat2
 x2 = convFromGrec vr2' :: [X]
 
 newtype Nt1 = Nt1 { unNt1 :: Dat2 } deriving (Show, Eq, Generic)
@@ -149,3 +149,12 @@ dd2 = DD2 1 "'x'"
 
 ctdd2 = convert dd2 :: ConvTree X
 dd2' = convert ctdd2 :: DD2
+
+ttre = Refl :: FieldsTree DD2 :~:
+  'TreeTC '[ '("d21", Int), '("d22", String)]
+        '[ '("d23",
+            'TreeTC '[ '("d11", Int), '("d13", Char), '("d14", Int)]
+                  '[ '("d12",
+                      'TreeTC '[ '("d01", Int), '("d02", Char)] '[])]),
+          '("d24",
+            'TreeTC '[ '("d01", Int), '("d02", Char)] '[])]

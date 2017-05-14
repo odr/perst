@@ -21,6 +21,7 @@ library
                       , Perst.Types
                       , Perst.Database.DDL
                       , Perst.Database.DML
+                      , Perst.Database.TreeDef
                       -- , Perst.Database.Join
 
   extensions:           DataKinds

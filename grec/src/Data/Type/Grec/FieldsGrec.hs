@@ -21,6 +21,7 @@ import           Data.Singletons.TH           (genDefunSymbols, singletons)
 import           Data.Tagged                  (Tagged (..))
 
 import           Data.Type.Grec.ConvGrec      (ConvFromGrec (..))
+import           Data.Type.Grec.Grec          (Grec (..))
 import           Data.Type.Grec.Type          (Fields, TaggedToList)
 
 newtype GrecWithout (ns :: [Symbol]) a = GWO { unGWO :: a }
@@ -54,11 +55,12 @@ instance {-# OVERLAPPING #-}
     sr = fromSing (sing :: Sing (FieldNamesGrec r))
 
 type family FieldsGrec a :: [(Symbol, Type)] where
+  -- FieldsGrec (Proxy (ns :: [(Symbol,Type)])) = ns
   FieldsGrec (Tagged (ns :: [Symbol]) (b::Type))
     = TaggedToList (Tagged (ns :: [Symbol]) (b::Type))
   FieldsGrec (GrecWithout ns a) = Without ns (FieldsGrec a)
   FieldsGrec (GrecWith ns a) = With ns (FieldsGrec a)
-  FieldsGrec a = Fields a
+  FieldsGrec (Grec a) = Fields a
 
 type FieldNamesGrec a = Map FstSym0 (FieldsGrec a)
 

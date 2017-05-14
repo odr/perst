@@ -16,10 +16,11 @@ module Perst.Database.DataDef
   , DataDefConstr
   -- * Good functions to take table info in runtime
   , tableName, fieldNames
-  , fieldNames'
+  , fieldNames', fieldNamesT
   , primaryKey, uniqKeys, foreignKeys
   -- * Some other stuffs
   , Subrec
+  , showProxy
   )
   where
 
@@ -31,13 +32,15 @@ import           Data.Singletons.Prelude.Maybe (FromJust)
 import           Data.Singletons.TH            (genDefunSymbols, promoteOnly,
                                                 singletons, singletonsOnly)
 import           Data.Tagged                   (Tagged)
+import qualified Data.Text.Lazy                as TL
 import           Data.Type.Grec                (FieldNamesGrec, FieldsGrec,
-                                                ListToPairs, Typ)
+                                                Grec, ListToPairs, Typ)
 import           GHC.Generics                  (Generic)
 import           GHC.TypeLits                  (ErrorMessage (..), KnownSymbol,
                                                 TypeError)
-import           Perst.Types                   (AllIsNub, AllIsSub, IsNub,
-                                                IsSub, IsSubSym0, Submap, FkIsNub, CheckFK)
+import           Perst.Types                   (AllIsNub, AllIsSub, CheckFK,
+                                                FkIsNub, IsNub, IsSub,
+                                                IsSubSym0, Submap)
 
 singletons [d|
   data DelCons = DcRestrict | DcCascade | DcSetNull
@@ -121,17 +124,17 @@ promoteOnly [d|
 
 type DataDef = DataDef' Symbol Type
 
-type TableD v p u = TableD' (Typ v) (FieldsGrec v) p u
+type TableD v p u = TableD' (Typ v) (FieldsGrec (Grec v)) p u
 
 type family TableD' n r p u where
   TableD' n r p u = TableDef n r (Map FstSym0 r) p u
 
-type ViewD v s upd p u = ViewD' (Typ v) (FieldsGrec v) s upd p u
+type ViewD v s upd p u = ViewD' (Typ v) (FieldsGrec (Grec v)) s upd p u
 
 type family ViewD' n r s upd p u where
   ViewD' n r s upd p u = ViewDef n r (Map FstSym0 r) s upd p u
 
-type ProjD v dd = ProjD' (FieldsGrec v) dd
+type ProjD v dd = ProjD' (FieldsGrec (Grec v)) dd
 
 type family ProjD' r dd where
   ProjD' r dd = ProjDef r (Map FstSym0 r) dd
@@ -165,6 +168,9 @@ fieldNames (_ :: Proxy t) = fromSing (sing :: Sing (DdFlds t))
 fieldNames' :: SingI (FieldNamesGrec r) => Proxy r -> [String]
 fieldNames' (_ :: Proxy r) = fromSing (sing :: Sing (FieldNamesGrec r))
 
+fieldNamesT :: SingI (FieldNamesGrec r) => Proxy r -> [TL.Text]
+fieldNamesT = map TL.pack . fieldNames'
+
 primaryKey :: SingI (DdKey t) => Proxy (t :: DataDef) -> [String]
 primaryKey (_ :: Proxy t) = fromSing (sing :: Sing (DdKey t))
 
@@ -174,3 +180,6 @@ uniqKeys (_ :: Proxy t) = fromSing (sing :: Sing (DdUniq t))
 foreignKeys :: SingI (DdFrgn t)
             => Proxy (t :: DataDef) -> [([(String, String)], (String, DelCons))]
 foreignKeys (_ :: Proxy t) = fromSing (sing :: Sing (DdFrgn t))
+
+showProxy :: (SingI t, SingKind k) => Proxy (t :: k) -> DemoteRep k
+showProxy (_ :: Proxy t) = fromSing (sing :: Sing t)

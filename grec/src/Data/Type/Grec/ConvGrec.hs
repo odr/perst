@@ -19,12 +19,12 @@ class ConvFromGrec a b where
   convFromGrec :: a -> b
 
 instance {-# OVERLAPPABLE #-} Convert (Grec r) (ConvList a)
-      => ConvFromGrec r [a] where
-  convFromGrec = unConvList . convert . Grec
+      => ConvFromGrec (Grec r) [a] where
+  convFromGrec = unConvList . convert -- . Grec
 
 instance {-# OVERLAPPABLE #-} Convert (ConvList a) (Grec r)
-      => ConvToGrec [a] r where
-  convToGrec = unGrec . convert . ConvList
+      => ConvToGrec [a] (Grec r) where
+  convToGrec = {- unGrec . -} convert . ConvList
 
 instance {-# OVERLAPPING #-}
       Convert (Tagged (ns :: [Symbol]) (b::Type)) (ConvList a)

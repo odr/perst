@@ -22,6 +22,7 @@ module Perst.Database.DML
 
   -- * SELECT
   , selectText
+  , selectMany'
   , selectMany
   )
   where
@@ -36,12 +37,14 @@ import           Data.Text.Format           (format)
 import qualified Data.Text.Lazy             as TL
 import           Data.Type.Grec             (ConvFromGrec (..), ConvToGrec (..),
                                              GrecWith (..), GrecWithout (..))
-import           Perst.Database.Constraints (DelByKeyConstr, InsAutoConstr,
-                                             InsConstr, RecConstr, SelConstr,
+import           Perst.Database.Constraints (DelByKeyConstr, DelConstr,
+                                             InsAutoConstr, InsConstr,
+                                             RecConstr, SelConstr,
                                              UpdByKeyConstr, UpdConstr)
-import           Perst.Database.DataDef     (DdKey, fieldNames', primaryKey,
-                                             tableName)
-import           Perst.Database.DbOption    (DbOption (..), SessionMonad)
+import           Perst.Database.DataDef     (DdKey, fieldNames', fieldNamesT,
+                                             primaryKey, tableName)
+import           Perst.Database.DbOption    (DbOption (..), DbOptionConstr,
+                                             SessionMonad)
 
 insertText :: RecConstr b t r
             => Proxy b -> Proxy t -> Proxy r -> Bool -> TL.Text
@@ -160,22 +163,33 @@ deleteByPK pt = deleteByPKMany pt . (:[])
 
 -- * SELECT
 
-selectText :: SelConstr b t r k =>
-    Proxy (b :: *) -> Proxy t -> Proxy (r :: *) -> Proxy (k :: *) -> TL.Text
-selectText pb pt pr pk
+selectText' :: DbOptionConstr b t
+  => Proxy (b :: *) -> Proxy t -> [TL.Text] -> [TL.Text] -> TL.Text
+selectText' pb pt fldNames keyNames
   = format "SELECT {} FROM {} WHERE {}"
-    ( TL.intercalate "," $ map TL.pack $ fieldNames' pr
+    ( TL.intercalate "," fldNames
     , tableName pt
     , TL.intercalate ","
-        $ zipWith (\n s -> format "{} = {}" (s, paramName pb n)) [0..]
-        $ fieldNames' pk
+        $ zipWith (\n s -> format "{} = {}" (s, paramName pb n))
+                  [0..] keyNames
     )
+selectText :: SelConstr b t r k
+  => Proxy (b :: *) -> Proxy t -> Proxy (r :: *) -> Proxy (k :: *) -> TL.Text
+selectText pb pt pr pk = selectText' pb pt (fieldNamesT pr) (fieldNamesT pk)
+
+selectMany' :: (MonadIO m, MonadMask m, DbOptionConstr b t)
+            => Proxy t -> [TL.Text] -> [TL.Text] -> [[FieldDB b]]
+            -> SessionMonad b m [[[FieldDB b]]]
+selectMany' (pt :: Proxy t) fldNames keyNames keys = do
+  (pb :: Proxy b, _) <- ask
+  (cmd :: PrepCmd b) <- prepareCommand $ selectText' pb pt fldNames keyNames
+  finally (mapM (runSelect cmd) keys) (finalizePrepared cmd)
 
 selectMany :: (MonadIO m, MonadMask m, SelConstr b t r k)
                 => Proxy t -> Proxy r -> [k] -> SessionMonad b m [[r]]
-selectMany (pt :: Proxy t) (pr :: Proxy r) (ks :: [k]) = do
-  (pb :: Proxy b, _) <- ask
-  (cmd :: PrepCmd b) <- prepareCommand
-                      $ selectText pb pt pr (Proxy :: Proxy k)
-  finally (mapM (fmap (map convToGrec) . runSelect cmd . convFromGrec) ks)
-          (finalizePrepared cmd)
+selectMany (pt :: Proxy t) (pr :: Proxy r) (ks :: [k])
+  = map (map convToGrec)
+  <$> selectMany' pt
+                  (fieldNamesT pr)
+                  (fieldNamesT (Proxy :: Proxy k))
+                  (map convFromGrec ks)

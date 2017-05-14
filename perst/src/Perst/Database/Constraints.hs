@@ -108,8 +108,7 @@ type DelConstr b t k =
   )
 
 type DelByKeyConstr b t (k :: Type) =
-  ( RecConstr b t k
-  , ConvFromGrec k [FieldDB b]
+  ( DelConstr b t k
   , Elem (FieldNamesGrec k) (AllKeys t) ~ True
   )
 
@@ -117,13 +116,7 @@ type SelConstr b t r (k :: Type) =
   ( RecConstr b t r
   , ConvToGrec [FieldDB b] r
   , ConvFromGrec k [FieldDB b]
-  , SelConstr' t (FieldNamesGrec k) (FieldTypesGrec k)
+  , RecConstr' t (FieldNamesGrec k) (FieldTypesGrec k)
   )
-
-type family SelConstr' t fnk ftk where
-  SelConstr' t fnk ftk =
-    ( Submap fnk (DdRec t) ~ Just ftk
-    , SingI fnk
-    )
 
 -- type CheckIf (a :: Bool) (b :: Constraint) = If a b (() :: Constraint)
