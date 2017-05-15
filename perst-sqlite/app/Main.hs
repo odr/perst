@@ -135,30 +135,26 @@ main = runSession sqlite "test.db" $ do
   createTab pOrderPosition
   createTab pAddress
 
-  insertMany pCustomer [ Grec $ Customer 1 "odr" "x"
-                       , Grec $ Customer 2 "dro" "y"
-                       , Grec $ Customer 3 "דוגמה" "דואר"
-                       ]
-  rs <- insertManyAuto pOrder
-        $ map Grec  [ Order 0 "1" 1 Nothing
-                    , Order 0 "2" 1 (Just 2)
-                    , Order 0 "3" 1 (Just 1)
-                    , Order 0 "1" 2 (Just 3)
-                    ]
-  insertMany pArticle
-        $ map Grec  [ Article 1 "art1" 12.22
-                    , Article 2 "art2" 3.14
-                    ]
-  insertMany pOrderPosition
-        $ map Grec  [ OrderPosition 1 2 5 12.22
-                    , OrderPosition 1 1 2 11.11
-                    , OrderPosition 2 1 1 5
-                    ]
-  insertMany pAddress
-        $ map Grec  [ Address 1 1 "My street"
-                    , Address 2 1 "My second street"
-                    , Address 3 2 "Some street"
-                    ]
+  insertManyR pCustomer [ Customer 1 "odr" "x"
+                        , Customer 2 "dro" "y"
+                        , Customer 3 "דוגמה" "דואר"
+                        ]
+  rs <- insertManyAutoR pOrder  [ Order 0 "1" 1 Nothing
+                                , Order 0 "2" 1 (Just 2)
+                                , Order 0 "3" 1 (Just 1)
+                                , Order 0 "1" 2 (Just 3)
+                                ]
+  insertManyR pArticle  [ Article 1 "art1" 12.22
+                        , Article 2 "art2" 3.14
+                        ]
+  insertManyR pOrderPosition  [ OrderPosition 1 2 5 12.22
+                              , OrderPosition 1 1 2 11.11
+                              , OrderPosition 2 1 1 5
+                              ]
+  insertManyR pAddress  [ Address 1 1 "My street"
+                        , Address 2 1 "My second street"
+                        , Address 3 2 "Some street"
+                        ]
   let ct = [  [ CustomerTree 1 "odr"
                 [ OrderTree 1 "1"
                   [ OrderPosition 1 1 2 11.11
@@ -183,10 +179,10 @@ main = runSession sqlite "test.db" $ do
         >>= liftIO . putStrLn . ("Check CustomerTree: " ++) . show . (== ct) . sort
 
 {-
-  let ords = [ Grec $ Order (rs!!3) "z4" 3 (Just 1)
-             , Grec $ Order (rs!!1) "z2" 2 Nothing
+  let ords = [ Order (rs!!3) "z4" 3 (Just 1)
+             , Order (rs!!1) "z2" 2 Nothing
              ]
-  updateByPKMany pOrder ords
+  updateByPKManyR pOrder ords
   updateByKey pCustomer ( Tagged "dro"    :: Tagged '["name"]  T.Text
                         , Tagged "numnum" :: Tagged '["email"] T.Text
                         )
@@ -196,14 +192,14 @@ main = runSession sqlite "test.db" $ do
               , Tagged ("zu",(4,"odr1")) :: Subrec TCustomer '["email","id","name"]
               )
 
-  updateByPK pCustomer $ Grec $ Customer 2 "drodro" "z"
+  updateByPKR pCustomer $ Customer 2 "drodro" "z"
 
-  deleteByPK pOrder (Grec $ Order 3 "3" 1 (Just 1))
+  deleteByPKR pOrder (Order 3 "3" 1 $ Just 1)
 {-
 
 -}
-  selectMany pCustomer
-              (Proxy :: Proxy (Grec Customer))
+  selectManyR pCustomer
+              (Proxy :: Proxy Customer)
               (map Tagged [2,3] :: [Tagged '["id"] Int64])
         >>= liftIO . print
 

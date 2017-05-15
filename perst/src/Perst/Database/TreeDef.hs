@@ -5,8 +5,9 @@
 {-# OPTIONS_GHC -fprint-explicit-kinds #-}
 
 module Perst.Database.TreeDef
-    -- (
-    -- )
+    ( TreeDef'(..), TreeDef --, TdData, TdChilds, ParentKeyNames
+    , selectTreeMany, insertTreeMany
+    )
     where
 
 import           Control.Applicative        (ZipList (..))
@@ -17,7 +18,6 @@ import           Control.Monad.IO.Class     (MonadIO (..))
 import           Data.Bifunctor             (second)
 import           Data.Kind                  (Type)
 import           Data.List                  (foldl')
-import           Data.Maybe                 (catMaybes, isJust)
 import           Data.Singletons.Prelude
 import           Data.Singletons.TH
 import qualified Data.Text.Lazy             as TL
@@ -27,10 +27,11 @@ import           Data.Type.Grec             (ConvFromGrec (..), ConvToGrec (..),
                                              FieldsTree, Grec (..), TreeChilds,
                                              TreeRec, TreeT, TreeT' (..))
 
-import           Perst.Database.Constraints
-import           Perst.Database.DataDef
-import           Perst.Database.DbOption
-import           Perst.Database.DML
+import           Perst.Database.Constraints (DelConstr)
+import           Perst.Database.DataDef     (DataDef', fieldNamesT, showProxy)
+import           Perst.Database.DbOption    (DbOptionConstr, FieldDB,
+                                             SessionMonad)
+import           Perst.Database.DML         (insertMany', selectMany')
 
 singletons [d|
   data TreeDef' s t = TreeDefC (DataDef' s t) [(TreeDef' s t, [(s,s)])]
