@@ -11,9 +11,10 @@ module Perst.Database.DataDef
   , DataDef'(..), DataDef
   , TableD, ViewD
   , DdName, DdRec, DdFlds, DdKey, DdUniq, DdUpd, AllKeys, DdFrgn, DdData
-  , DdNameSym0, DdRecSym0, DdKeySym0, DdUniqSym0, DdUpdSym0, DdFrgnSym0
+  , DdNameSym0, DdRecSym0, DdKeySym0, DdUniqSym0, DdUpdSym0, DdFrgnSym0, DdFldsSym0
   , IsProj
   , DataDefConstr
+  , ddFlds, sDdFlds, ddRec, sDdRec
   -- * Good functions to take table info in runtime
   , tableName, fieldNames
   , fieldNames', fieldNamesT

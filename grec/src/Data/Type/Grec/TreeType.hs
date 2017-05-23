@@ -15,7 +15,7 @@ singletons [d|
   data TreeT' s t = TreeTC [(s,t)] [(s, TreeT' s t)]
   treeRec     (TreeTC r _) = r
   treeChilds  (TreeTC _ c) = c
-  concatTreeT (TreeTC a1 b1) (TreeTC a2 b2) = TreeTC (a1 ++ a2) (b1 ++ b2)
+  appendTreeT (TreeTC a1 b1) (TreeTC a2 b2) = TreeTC (a1 ++ a2) (b1 ++ b2)
   |]
 type TreeT = TreeT' Symbol Type
 
@@ -28,7 +28,7 @@ type family GFieldsTree (a :: k1) :: TreeT where
   GFieldsTree (S1 (MetaSel ('Just s) _ _ _) (Rec0 v))
       = 'TreeTC '[ '(s, v)] '[]
   GFieldsTree (C1 _ s) = GFieldsTree s
-  GFieldsTree (a :*: b) = ConcatTreeT (GFieldsTree a) (GFieldsTree b)
+  GFieldsTree (a :*: b) = AppendTreeT (GFieldsTree a) (GFieldsTree b)
   -- data
   GFieldsTree (D1 (MetaData _ _ _ 'False) (C1 _ s)) = GFieldsTree s
   -- newtype

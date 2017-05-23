@@ -47,9 +47,10 @@ pTab :: Proxy TTab
 pTab = Proxy
 
 data Customer = Customer
-  { id    :: Int64
-  , name  :: T.Text
-  , email :: T.Text
+  { id        :: Int64
+  , name      :: T.Text
+  , shortname :: Maybe T.Text
+  , email     :: T.Text
   } deriving (Show, Generic)
 
 data Orders = Order -- name ORDER is disbled in sqlite!
@@ -57,6 +58,7 @@ data Orders = Order -- name ORDER is disbled in sqlite!
   , num          :: T.Text
   , customerId   :: Int64
   , coCustomerId :: Maybe Int64
+  , date         :: T.Text
   } deriving (Show, Generic)
 
 data Article = Article
@@ -79,15 +81,17 @@ data Address = Address
   } deriving (Show, Generic, Eq, Ord)
 
 data CustomerTree = CustomerTree
-  { id      :: Int64
-  , name    :: T.Text
-  , orders  :: [OrderTree]
-  , address :: [Address]
+  { id        :: Int64
+  , name      :: T.Text
+  , shortname :: Maybe T.Text
+  , orders    :: [OrderTree]
+  , address   :: [Address]
   } deriving (Show, Generic, Eq, Ord)
 
 data OrderTree = OrderTree
   { id        :: Int64
   , num       :: T.Text
+  , date      :: T.Text
   , positions :: [OrderPosition]
   } deriving (Show, Generic, Eq, Ord)
 
@@ -111,12 +115,24 @@ pOrderPosition = Proxy :: Proxy TOrderPosition
 pAddress  = Proxy :: Proxy TAddress
 
 type TCustomerTree
-    = TreeDefC TCustomer
-        '[ '(TreeDefC TOrder
-              '[ '(TreeDefC TOrderPosition '[], '[ '("id","orderId") ]) ]
-            , '[ '("id","customerId") ])
-         , '(TreeDefC TAddress '[], '[ '("id","customerId") ])
-         ]
+  = TreeDefC TCustomer
+    '[ '( "orders"
+        , '( TreeDefC TOrder
+            '[ '("positions"
+                , '( TreeDefC TOrderPosition '[]
+                  , '[ '("id","orderId") ]
+                  )
+                )
+            ]
+          , '[ '("id","customerId") ]
+          )
+        )
+     , '( "address"
+        , '( TreeDefC TAddress '[]
+          , '[ '("id","customerId") ]
+          )
+        )
+     ]
 
 pCustomerTree = Proxy :: Proxy TCustomerTree
 
@@ -135,14 +151,14 @@ main = runSession sqlite "test.db" $ do
   createTab pOrderPosition
   createTab pAddress
 
-  insertManyR pCustomer [ Customer 1 "odr" "x"
-                        , Customer 2 "dro" "y"
-                        , Customer 3 "דוגמה" "דואר"
+  insertManyR pCustomer [ Customer 1 "odr" (Just "odr") "x"
+                        , Customer 2 "dro" Nothing "y"
+                        , Customer 3 "zev" Nothing "z"
                         ]
-  rs <- insertManyAutoR pOrder  [ Order 0 "1" 1 Nothing
-                                , Order 0 "2" 1 (Just 2)
-                                , Order 0 "3" 1 (Just 1)
-                                , Order 0 "1" 2 (Just 3)
+  rs <- insertManyAutoR pOrder  [ Order 0 "1" 1 Nothing  "01.01.2017"
+                                , Order 0 "2" 1 (Just 2) "01.02.2017"
+                                , Order 0 "3" 1 (Just 1) "01.03.2017"
+                                , Order 0 "1" 2 (Just 3) "01.04.2017"
                                 ]
   insertManyR pArticle  [ Article 1 "art1" 12.22
                         , Article 2 "art2" 3.14
@@ -155,22 +171,22 @@ main = runSession sqlite "test.db" $ do
                         , Address 2 1 "My second street"
                         , Address 3 2 "Some street"
                         ]
-  let ct = [  [ CustomerTree 1 "odr"
-                [ OrderTree 1 "1"
+  let ct = [  [ CustomerTree 1 "odr" (Just "odr")
+                [ OrderTree 1 "1" "01.01.2017"
                   [ OrderPosition 1 1 2 11.11
                   , OrderPosition 1 2 5 12.22
                   ]
-                , OrderTree 2 "2" [ OrderPosition 2 1 1 5.0 ]
-                , OrderTree 3 "3" []
+                , OrderTree 2 "2" "01.02.2017" [ OrderPosition 2 1 1 5.0 ]
+                , OrderTree 3 "3" "01.03.2017" []
                 ]
                 [ Address 1 1 "My street"
                 , Address 2 1 "My second street"
                 ]
               ]
-            , [ CustomerTree 2 "dro"
-                [ OrderTree 4 "1" [] ]
+            , [ CustomerTree 2 "dro" Nothing
+                [ OrderTree 4 "1" "01.04.2017" [] ]
                 [ Address 3 2 "Some street"] ]
-            , [ CustomerTree 3 "\1491\1493\1490\1502\1492" [] []]
+            , [ CustomerTree 3 "zev" Nothing [] []]
           ]
 
   selectTreeMany pCustomerTree

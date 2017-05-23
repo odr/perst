@@ -56,6 +56,13 @@ singletonsOnly
         if any_ isNothing rs then Nothing else Just (map fromJust rs)
   |]
 
+type Contain a b = Submap (Map FstSym0 b) a ~ Just (Map SndSym0 b)
+genDefunSymbols [''Contain]
+
+type family FromConsList (a::[Constraint]) :: Constraint where
+  FromConsList '[] = ()
+  FromConsList (a ': b) = (a,FromConsList b)
+
 -- type family OrC (a::Constraint) (b::Constraint) :: Constraint where
 --   OrC () b  = ()
 --   OrC a ()  = ()
