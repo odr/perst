@@ -24,7 +24,7 @@ data Dat2 = Rec2
     , f23 :: (Int,String)
     } deriving (Show, Eq, Generic)
 --instance Lensed Dat2
-vr2 = Rec2 1 'x' (2,"test")
+vr2 = Rec2 1 'x' (2,"test") :: Dat2
 vd2 = Refl :: Fields Dat2 :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
 -- vr221 = vr2 ^. nlens (FieldName :: FieldName "f21")
 -- vr2212 = vr2 ^. nlens (fromLabel (proxy# :: Proxy# "f21") :: Proxy "f21")
@@ -61,6 +61,11 @@ instance Convert String X where
 
 instance Convert (Int,String) X where
   convert = XIS
+
+-- zz = convert
+--     (Tagged ([XInt 5, XChar 'z', XIS (7,"odr")], Rec2)
+--       :: Tagged (FieldTypesGrec (Grec Dat2)) ([X], Int -> Char -> (Int,String) -> Dat2))
+--     :: Dat2
 
 vr2' = convToGrec [XInt 5, XChar 'z', XIS (7,"odr")] :: Grec Dat2
 x2 = convFromGrec vr2' :: [X]

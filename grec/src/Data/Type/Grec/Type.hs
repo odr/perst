@@ -43,15 +43,15 @@ type family GFields (a :: k1) :: [(Symbol,Type)] where
       :$$: Text "Checked type is " :<>: ShowType a
       )
 
-type family ListToTagged (t :: [(Symbol,*)]) :: * where
+type family ListToTagged (t :: [(Symbol,Type)]) :: Type where
   ListToTagged '[ '(a,b)] = Tagged a b
   ListToTagged ( '(n,a) ': b ': c) = (Tagged n a, ListToTagged (b ': c))
 
-type family TaggedToList (t :: *) :: [(Symbol,*)] where
+type family TaggedToList (t :: Type) :: [(Symbol,Type)] where
   TaggedToList (Tagged (n ': n1 ': ns :: [Symbol]) (a,b))
       = '(n,a) ': TaggedToList (Tagged (n1 ': ns) b)
   TaggedToList (Tagged ('[n] :: [Symbol]) a)  = '[ '(n,a)]
 
-type family ListToPairs (t :: [Type]) :: * where
+type family ListToPairs (t :: [Type]) :: Type where
   ListToPairs '[a] = a
   ListToPairs (a1 ': a2 ': as) = (a1, ListToPairs (a2 ': as))

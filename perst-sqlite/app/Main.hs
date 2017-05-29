@@ -142,6 +142,26 @@ createTab (p :: Proxy a) = do
   create p
 
 o1 = Order 0 "1" 1 Nothing
+
+ct = [ CustomerTree 1 "odr" (Just "odr")
+        [ OrderTree 1 "1" "01.01.2017"
+          [ OrderPosition 1 1 2 11.11
+          , OrderPosition 1 2 5 12.22
+          ]
+        , OrderTree 2 "2" "01.02.2017" [ OrderPosition 2 1 1 5.0 ]
+        , OrderTree 3 "3" "01.03.2017" []
+        ]
+        [ Address 1 1 "My street"
+        , Address 2 1 "My second street"
+        ]
+    , CustomerTree 2 "dro" Nothing
+        [ OrderTree 4 "1" "01.04.2017" [] ]
+        [ Address 3 2 "Some street"]
+    , CustomerTree 3 "zev" Nothing [] []
+    ]
+-- pct = Proxy :: Proxy (FieldsTree r)
+
+
 main :: IO ()
 main = runSession sqlite "test.db" $ do
   createTab pTab
@@ -151,7 +171,7 @@ main = runSession sqlite "test.db" $ do
   createTab pOrderPosition
   createTab pAddress
 
-  insertManyR pCustomer [ Customer 1 "odr" (Just "odr") "x"
+{-  insertManyR pCustomer [ Customer 1 "odr" (Just "odr") "x"
                         , Customer 2 "dro" Nothing "y"
                         , Customer 3 "zev" Nothing "z"
                         ]
@@ -171,28 +191,14 @@ main = runSession sqlite "test.db" $ do
                         , Address 2 1 "My second street"
                         , Address 3 2 "Some street"
                         ]
-  let ct = [  [ CustomerTree 1 "odr" (Just "odr")
-                [ OrderTree 1 "1" "01.01.2017"
-                  [ OrderPosition 1 1 2 11.11
-                  , OrderPosition 1 2 5 12.22
-                  ]
-                , OrderTree 2 "2" "01.02.2017" [ OrderPosition 2 1 1 5.0 ]
-                , OrderTree 3 "3" "01.03.2017" []
-                ]
-                [ Address 1 1 "My street"
-                , Address 2 1 "My second street"
-                ]
-              ]
-            , [ CustomerTree 2 "dro" Nothing
-                [ OrderTree 4 "1" "01.04.2017" [] ]
-                [ Address 3 2 "Some street"] ]
-            , [ CustomerTree 3 "zev" Nothing [] []]
-          ]
+-}
+  insertTreeMany pCustomerTree ct
 
   selectTreeMany pCustomerTree
                 (Proxy :: Proxy CustomerTree)
                 (map Tagged [1..3] :: [Tagged '["id"] Int64])
-        >>= liftIO . putStrLn . ("Check CustomerTree: " ++) . show . (== ct) . sort
+        >>= liftIO . putStrLn . ("Check CustomerTree: " ++) . show
+                   . (== map (:[]) ct) . sort
 
 {-
   let ords = [ Order (rs!!3) "z4" 3 (Just 1)
