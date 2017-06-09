@@ -34,7 +34,7 @@ import           Data.Singletons.TH            (genDefunSymbols, promoteOnly,
                                                 singletons, singletonsOnly)
 import           Data.Tagged                   (Tagged)
 import qualified Data.Text.Lazy                as TL
-import           Data.Type.Grec                (FieldNamesGrec, FieldsGrec,
+import           Data.Type.Grec                (FieldNamesConvGrec, FieldsGrec,
                                                 Grec, ListToPairs, Typ)
 import           GHC.Generics                  (Generic)
 import           GHC.TypeLits                  (ErrorMessage (..), KnownSymbol,
@@ -58,12 +58,12 @@ singletons [d|
 
   data DataDef' s t
     = TableDef
-      { ddn :: s -- Symbol
-      , ddr :: [(s,t)] -- [(Symbol,Type)]
-      , ddfn :: [s] -- [Symbol]
-      , ddk :: [s] -- [Symbol]
-      , ddu :: [[s]] --[[Symbol]]
-      , ddf :: [FK s]  -- [([(s,s)],(s,DeleteConstraint))] --[FK]
+      { ddn   :: s -- Symbol
+      , ddr   :: [(s,t)] -- [(Symbol,Type)]
+      , ddfn  :: [s] -- [Symbol]
+      , ddk   :: [s] -- [Symbol]
+      , ddu   :: [[s]] --[[Symbol]]
+      , ddf   :: [FK s]  -- [([(s,s)],(s,DeleteConstraint))] --[FK]
       }
     | ViewDef
       { ddn   :: s -- Symbol
@@ -166,10 +166,10 @@ tableName (_ :: Proxy t) = fromSing (sing :: Sing (DdName t))
 fieldNames :: SingI (DdFlds t) => Proxy (t :: DataDef) -> [String]
 fieldNames (_ :: Proxy t) = fromSing (sing :: Sing (DdFlds t))
 
-fieldNames' :: SingI (FieldNamesGrec r) => Proxy r -> [String]
-fieldNames' (_ :: Proxy r) = fromSing (sing :: Sing (FieldNamesGrec r))
+fieldNames' :: SingI (FieldNamesConvGrec r) => Proxy r -> [String]
+fieldNames' (_ :: Proxy r) = fromSing (sing :: Sing (FieldNamesConvGrec r))
 
-fieldNamesT :: SingI (FieldNamesGrec r) => Proxy r -> [TL.Text]
+fieldNamesT :: SingI (FieldNamesConvGrec r) => Proxy r -> [TL.Text]
 fieldNamesT = map TL.pack . fieldNames'
 
 primaryKey :: SingI (DdKey t) => Proxy (t :: DataDef) -> [String]

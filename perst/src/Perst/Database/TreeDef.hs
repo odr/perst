@@ -1,9 +1,8 @@
 module Perst.Database.TreeDef
-    ( TreeDef'(..), TreeDef --, TdData, TdChilds, ParentKeyNames
-    , selectTreeMany, insertTreeMany
+    ( module TD
     )
     where
 
-import           Perst.Database.Tree.Def
-import           Perst.Database.Tree.Insert
-import           Perst.Database.Tree.Select
+import           Perst.Database.Tree.Def    as TD
+-- import           Perst.Database.Tree.Insert
+import           Perst.Database.Tree.Select as TD

@@ -12,14 +12,11 @@ import           Data.Singletons.Prelude.Maybe
 import           Data.Singletons.TH
 import           GHC.Exts                      (Constraint)
 import           GHC.Prim                      (Proxy#, proxy#)
-import           GHC.TypeLits
+import           GHC.TypeLits                  (Nat)
 
 singletons
   [d| isSub :: Eq a => [a] -> [a] -> Bool
       isSub as bs = all (`elem` bs) as -- null $ aa \\ bs
-
-      -- data Test a b = Test1 a (Test a b)
-      --               | Test2 b
 
       allIsSub :: Eq a => [[a]] -> [a] -> Bool
       allIsSub ass ps = all (`isSub` ps) ass
@@ -48,8 +45,12 @@ singletons
       submap :: Eq a => [a] -> [(a,b)] -> Maybe [b]
       submap as ps = let rs = map (`lookup` ps) as in
         if any_ isNothing rs then Nothing else Just (map fromJust rs)
-  |]
 
+      submap2 :: Eq a => [a] -> [(a,b)] -> Maybe [(a,b)]
+      submap2 as ps = case submap as ps of
+        Nothing -> Nothing
+        Just rs -> Just (zip as rs)
+  |]
 singletonsOnly
   [d| posList :: Eq a => [a] -> [a] -> Maybe [Nat]
       posList as xs = let rs = map (`elemIndex` xs) as in

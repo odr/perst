@@ -1,24 +1,26 @@
 {-# LANGUAGE TypeInType           #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Perst.Database.Constraints
-    (
-    -- * Constraints required for DDL and DML operations
-
-      RecConstr
-    , DDLConstr
-    , InsConstr, InsAutoConstr
-    , UpdConstr, UpdByKeyConstr
-    , DelConstr, DelByKeyConstr
-    , SelConstr
-    -- , ddProxy
-
-    ) where
+    -- (
+    -- -- * Constraints required for DDL and DML operations
+    --
+    --   RecConstr
+    -- , DDLConstr
+    -- , InsConstr, InsAutoConstr
+    -- , UpdConstr, UpdByKeyConstr
+    -- , DelConstr, DelByKeyConstr
+    -- , SelConstr
+    -- -- , ddProxy
+    --
+    -- )
+    where
 
 import           Data.Kind                    (Constraint, Type)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List ((:\\))
 import           Data.Type.Grec               (ConvFromGrec, ConvToGrec,
-                                               FieldNamesGrec, FieldTypesGrec)
+                                               FieldNamesConvGrec,
+                                               FieldTypesConvGrec)
 import           GHC.TypeLits                 (KnownSymbol, SomeSymbol (..),
                                                Symbol (..), symbolVal')
 import           Perst.Database.DataDef
@@ -39,7 +41,7 @@ type Mandatory rd = MandatoryFields NullableSym0 rd
 
 type RecConstr (b :: Type) (t :: DataDef) (r :: Type) =
   ( DbOptionConstr b t
-  , RecConstr' t (FieldNamesGrec r) (FieldTypesGrec r)
+  , RecConstr' t (FieldNamesConvGrec r) (FieldTypesConvGrec r)
   )
 
 type family RecConstr' t fnr ftr where
@@ -50,7 +52,7 @@ type family RecConstr' t fnr ftr where
 
 type InsConstr b t r =
   ( DbOptionConstr b t
-  , InsConstr' t (FieldNamesGrec r) (FieldTypesGrec r)
+  , InsConstr' t (FieldNamesConvGrec r) (FieldTypesConvGrec r)
   , ConvFromGrec r [FieldDB b]
   , If (IsProj t)
       (IsSub (Mandatory (DdRec (DdData t))) (DdFlds t) ~ True)
@@ -66,7 +68,7 @@ type family InsConstr' t fnr ftr where
 
 type InsAutoConstr b t r =
   ( DbOptionConstr b t
-  , InsAutoConstr' b t (FieldNamesGrec r) (FieldTypesGrec r)
+  , InsAutoConstr' b t (FieldNamesConvGrec r) (FieldTypesConvGrec r)
   , ConvFromGrec r [FieldDB b]
   , If (IsProj t)
       (IsSub (Mandatory (DdRec (DdData t))) (DdFlds t) ~ True)
@@ -85,8 +87,8 @@ type family InsAutoConstr' b t fnr ftr where
 
 type UpdConstr b t r k =
   ( RecConstr b t r
-  , UpdConstr' t (FieldNamesGrec r) (FieldTypesGrec r)
-                 (FieldNamesGrec k) (FieldTypesGrec k)
+  , UpdConstr' t (FieldNamesConvGrec r) (FieldTypesConvGrec r)
+                 (FieldNamesConvGrec k) (FieldTypesConvGrec k)
   , ConvFromGrec r [FieldDB b]
   , ConvFromGrec k [FieldDB b]
   )
@@ -99,7 +101,7 @@ type family UpdConstr' t fnr ftr fnk ftk where
 
 type UpdByKeyConstr b t r (k :: Type) =
   ( UpdConstr b t r k
-  , Elem (FieldNamesGrec k) (AllKeys t) ~ True
+  , Elem (FieldNamesConvGrec k) (AllKeys t) ~ True
   )
 
 type DelConstr b t k =
@@ -109,14 +111,14 @@ type DelConstr b t k =
 
 type DelByKeyConstr b t (k :: Type) =
   ( DelConstr b t k
-  , Elem (FieldNamesGrec k) (AllKeys t) ~ True
+  , Elem (FieldNamesConvGrec k) (AllKeys t) ~ True
   )
 
 type SelConstr b t r (k :: Type) =
   ( RecConstr b t r
   , ConvToGrec [FieldDB b] r
   , ConvFromGrec k [FieldDB b]
-  , RecConstr' t (FieldNamesGrec k) (FieldTypesGrec k)
+  , RecConstr' t (FieldNamesConvGrec k) (FieldTypesConvGrec k)
   )
 
 -- type CheckIf (a :: Bool) (b :: Constraint) = If a b (() :: Constraint)

@@ -9,26 +9,29 @@
 
 module Main where
 
-import           Data.Int                     (Int64)
-import qualified Data.Text                    as T
+import           Data.Int                      (Int64)
+import qualified Data.Text                     as T
 
-import           Control.Monad.Catch          (SomeException, catch)
-import           Control.Monad.IO.Class       (MonadIO (..))
-import           Data.List                    (sort)
-import           Data.Proxy                   (Proxy (..))
+import           Control.Applicative
+import           Control.Monad.Catch           (SomeException, catch)
+import           Control.Monad.IO.Class        (MonadIO (..))
+import           Data.List                     (sort)
+import           Data.Proxy                    (Proxy (..))
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
-import           Data.Tagged                  (Tagged (..))
-import           GHC.Generics                 (Generic)
+import           Data.Singletons.Prelude.Maybe
+import           Data.Tagged                   (Tagged (..))
+import           GHC.Generics                  (Generic)
 
-import           Data.Type.Grec               (Grec (..))
-import           Perst.Database.DataDef       (DelCons (..), Subrec, TableD)
-import           Perst.Database.DbOption      (DbOption (..), DbTypeName,
-                                               SessionMonad)
-import           Perst.Database.DDL           as DDL
+import           Data.Type.Grec
+import           Perst.Database.DataDef        (DelCons (..), Subrec, TableD)
+import           Perst.Database.DbOption       (DbOption (..), DbTypeName,
+                                                SessionMonad)
+import           Perst.Database.DDL            as DDL
 import           Perst.Database.DML
 import           Perst.Database.Sqlite
 import           Perst.Database.TreeDef
+import           Perst.Types
 
 newtype NInt = NInt Int64 deriving (Show, Eq, Ord, Generic)
 type instance DbTypeName Sqlite NInt = "INTEGER"
@@ -120,16 +123,16 @@ type TCustomerTree
         , '( TreeDefC TOrder
             '[ '("positions"
                 , '( TreeDefC TOrderPosition '[]
-                  , '[ '("id","orderId") ]
+                  , '[ '("orderId", "id") ]
                   )
                 )
             ]
-          , '[ '("id","customerId") ]
+          , '[ '("customerId","id") ]
           )
         )
      , '( "address"
         , '( TreeDefC TAddress '[]
-          , '[ '("id","customerId") ]
+          , '[ '("customerId","id") ]
           )
         )
      ]
@@ -171,7 +174,8 @@ main = runSession sqlite "test.db" $ do
   createTab pOrderPosition
   createTab pAddress
 
-{-  insertManyR pCustomer [ Customer 1 "odr" (Just "odr") "x"
+-- {-
+  insertManyR pCustomer [ Customer 1 "odr" (Just "odr") "x"
                         , Customer 2 "dro" Nothing "y"
                         , Customer 3 "zev" Nothing "z"
                         ]
@@ -191,14 +195,18 @@ main = runSession sqlite "test.db" $ do
                         , Address 2 1 "My second street"
                         , Address 3 2 "Some street"
                         ]
--}
-  insertTreeMany pCustomerTree ct
+-- -}
+  -- insertTreeMany pCustomerTree ct
 
-  selectTreeMany pCustomerTree
+  ct' <- selectTreeMany pCustomerTree
                 (Proxy :: Proxy CustomerTree)
                 (map Tagged [1..3] :: [Tagged '["id"] Int64])
-        >>= liftIO . putStrLn . ("Check CustomerTree: " ++) . show
-                   . (== map (:[]) ct) . sort
+        -- >>= liftIO . putStrLn . ("Check CustomerTree: " ++) . show
+                   -- . (== map (:[]) ct) . sort
+  liftIO $ putStrLn $ "Check CustomerTree: " ++
+    if ct' == map (:[]) ct
+      then "Checked"
+      else "ct' = " ++ show ct'
 
 {-
   let ords = [ Order (rs!!3) "z4" 3 (Just 1)

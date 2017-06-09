@@ -23,9 +23,10 @@ module Perst.Database.DML
   , deleteByPK, deleteByPKR
 
   -- * SELECT
-  , selectText
-  , selectMany'
+  -- , selectText
+  -- , selectMany'
   , selectMany, selectManyR
+
   )
   where
 
@@ -37,6 +38,7 @@ import           Data.List                  (intercalate, (\\))
 import           Data.Proxy                 (Proxy (..))
 import           Data.Text.Format           (format)
 import qualified Data.Text.Lazy             as TL
+import           Data.Traversable           (Traversable (..))
 import           Data.Type.Grec             (ConvFromGrec (..), ConvToGrec (..),
                                              Grec (..), GrecWith (..),
                                              GrecWithout (..))
@@ -251,24 +253,24 @@ selectText :: SelConstr b t r k
   => Proxy (b :: *) -> Proxy t -> Proxy (r :: *) -> Proxy (k :: *) -> TL.Text
 selectText pb pt pr pk = selectText' pb pt (fieldNamesT pr) (fieldNamesT pk)
 
-selectMany' :: (MonadIO m, MonadMask m, DbOptionConstr b t)
-            => Proxy t -> [TL.Text] -> [TL.Text] -> [[FieldDB b]]
-            -> SessionMonad b m [[[FieldDB b]]]
+selectMany' :: (MonadIO m, MonadMask m, DbOptionConstr b t, Traversable f)
+            => Proxy t -> [TL.Text] -> [TL.Text] -> f [FieldDB b]
+            -> SessionMonad b m (f [[FieldDB b]])
 selectMany' (pt :: Proxy t) fldNames keyNames keys = do
   (pb :: Proxy b, _) <- ask
   (cmd :: PrepCmd b) <- prepareCommand $ selectText' pb pt fldNames keyNames
   finally (mapM (runSelect cmd) keys) (finalizePrepared cmd)
 
-selectMany :: (MonadIO m, MonadMask m, SelConstr b t r k)
-            => Proxy t -> Proxy r -> [k] -> SessionMonad b m [[r]]
-selectMany (pt :: Proxy t) (pr :: Proxy r) (ks :: [k])
-  = map (map convToGrec)
+selectMany :: (MonadIO m, MonadMask m, SelConstr b t r k, Traversable f)
+            => Proxy t -> Proxy r -> f k -> SessionMonad b m (f [r])
+selectMany (pt :: Proxy t) (pr :: Proxy r) (ks :: f k)
+  = fmap (fmap convToGrec)
   <$> selectMany' pt
                   (fieldNamesT pr)
                   (fieldNamesT (Proxy :: Proxy k))
-                  (map convFromGrec ks)
+                  (fmap convFromGrec ks)
 
-selectManyR :: (MonadIO m, MonadMask m, SelConstr b t (Grec r) k)
-            => Proxy t -> Proxy r -> [k] -> SessionMonad b m [[r]]
+selectManyR :: (MonadIO m, MonadMask m, SelConstr b t (Grec r) k, Traversable f)
+            => Proxy t -> Proxy r -> f k -> SessionMonad b m (f [r])
 selectManyR pt (pr :: Proxy r)
-  = fmap (map $ map unGrec) . selectMany pt (Proxy :: Proxy (Grec r))
+  = fmap (fmap $ map unGrec) . selectMany pt (Proxy :: Proxy (Grec r))

@@ -1,6 +1,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Type.Grec.Type
     ( (:::), Cons, Fields, Typ, GFields, ListToTagged, TaggedToList, ListToPairs
+    , ListToTaggedPairs
     ) where
 
 import           Data.Kind               (Type)
@@ -51,7 +52,11 @@ type family TaggedToList (t :: Type) :: [(Symbol,Type)] where
   TaggedToList (Tagged (n ': n1 ': ns :: [Symbol]) (a,b))
       = '(n,a) ': TaggedToList (Tagged (n1 ': ns) b)
   TaggedToList (Tagged ('[n] :: [Symbol]) a)  = '[ '(n,a)]
+  TaggedToList (Tagged ('[] :: [Symbol]) a)  = '[ ]
 
 type family ListToPairs (t :: [Type]) :: Type where
+  ListToPairs '[] = ()
   ListToPairs '[a] = a
   ListToPairs (a1 ': a2 ': as) = (a1, ListToPairs (a2 ': as))
+
+type ListToTaggedPairs t = Tagged (Map FstSym0 t) (ListToPairs (Map SndSym0 t))

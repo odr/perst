@@ -62,6 +62,8 @@ instance Convert String X where
 instance Convert (Int,String) X where
   convert = XIS
 
+pair = convToGrec [XInt 1, XInt 2, XChar 'x', XIS (4,"xxx")] :: (Tagged '["x"] Int, Grec Dat2)
+
 -- zz = convert
 --     (Tagged ([XInt 5, XChar 'z', XIS (7,"odr")], Rec2)
 --       :: Tagged (FieldTypesGrec (Grec Dat2)) ([X], Int -> Char -> (Int,String) -> Dat2))
@@ -152,14 +154,14 @@ dd2 = DD2 1 "'x'"
     ]
     [ DD0 5 'e']
 
-ctdd2 = convert (Grec dd2) :: ConvTree X
-dd2' = convert ctdd2 :: Grec DD2
-
-ttre = Refl :: FieldsTree DD2 :~:
-  'TreeTC '[ '("d21", Int), '("d22", String)]
-        '[ '("d23",
-            'TreeTC '[ '("d11", Int), '("d13", Char), '("d14", Int)]
-                  '[ '("d12",
-                      'TreeTC '[ '("d01", Int), '("d02", Char)] '[])]),
-          '("d24",
-            'TreeTC '[ '("d01", Int), '("d02", Char)] '[])]
+-- ctdd2 = convert (Grec dd2) :: ConvTree X
+-- dd2' = convert ctdd2 :: Grec DD2
+--
+-- ttre = Refl :: FieldsTree DD2 :~:
+--   'TreeTC '[ '("d21", Int), '("d22", String)]
+--         '[ '("d23",
+--             'TreeTC '[ '("d11", Int), '("d13", Char), '("d14", Int)]
+--                   '[ '("d12",
+--                       'TreeTC '[ '("d01", Int), '("d02", Char)] '[])]),
+--           '("d24",
+--             'TreeTC '[ '("d01", Int), '("d02", Char)] '[])]

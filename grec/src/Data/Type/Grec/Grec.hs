@@ -1,11 +1,11 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Type.Grec.Grec( Grec(..)) where
 
-import           Data.Semigroup                    ((<>))
+import           Data.Bifunctor                    (bimap)
+-- import           Data.Semigroup                    ((<>))
 import           Data.Type.Grec.Convert            (Convert (..))
 import           Data.Type.Grec.ConvList           (ConvList (..))
-import           Data.Type.Grec.ConvTree           (ConvTree (..))
-import           GHC.Generics
+import           GHC.Generics                      (Generic, Rep, from, to)
 
 import           Data.Type.Grec.Internal.GGrecList (GListFromGrec (..),
                                                     GListToGrec (..))
@@ -20,6 +20,13 @@ instance (GListToGrec a (Rep r), Generic r) => Convert (ConvList a) (Grec r) whe
 instance (GListFromGrec a (Rep r), Generic r) => Convert (Grec r) (ConvList a) where
   convert = ConvList . gListFromGrec . from . unGrec
 
+instance (GListToGrec a (Rep r), Generic r)
+    => Convert (ConvList a) (ConvList a, Grec r) where
+  convert = bimap ConvList (Grec . to) . gListToGrec . unConvList
+
+instance (GListFromGrec a (Rep r), Generic r) => Convert (ConvList a, Grec r) (ConvList a) where
+  convert (x,y)= x `mappend` ConvList (gListFromGrec $ from $ unGrec y)
+{-
 instance (GTreeToGrec a (Rep r), Generic r) => Convert (ConvTree a) (Grec r) where
   convert = Grec . to . snd . gTreeToGrec
 
@@ -93,3 +100,4 @@ instance (Generic b, GTreeFromGrec a (Rep b))
     where
       -- newtype => convert internal type
   gTreeFromGrec (M1 (M1 (M1 (K1 b)))) = gTreeFromGrec $ from b
+-}

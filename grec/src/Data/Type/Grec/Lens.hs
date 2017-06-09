@@ -1,5 +1,6 @@
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Data.Type.Grec.Lens(nlens, FieldName(..)) where
+module Data.Type.Grec.Lens(nlens, FieldName(..), LensedConstraint) where
 
 import           Data.Maybe                    (isJust)
 import           Data.Singletons.Prelude
@@ -9,16 +10,16 @@ import           GHC.Generics
 import           GHC.OverloadedLabels          (IsLabel (..))
 import           GHC.TypeLits                  (ErrorMessage (..), TypeError)
 
+type LensedConstraint r n t
+  = (Generic r, GLensed n t (Rep r), Lookup n (Fields r) ~ Just t)
+
 data FieldName (n::Symbol) = FieldName
-instance (Generic b, GLensed n a (Rep b)
-         , Functor f, Lookup n (GFields (Rep b)) ~ Just a
-         ) => IsLabel n ((a -> f a) -> b -> f b) where
+instance (LensedConstraint b n a, Functor f)
+    => IsLabel n ((a -> f a) -> b -> f b) where
   fromLabel _ = nlens (FieldName :: FieldName n)
 
-nlens :: (Generic b, GLensed n a (Rep b)
-         , Functor f, Lookup n (GFields (Rep b)) ~ Just a
-         )
-        => FieldName n -> (a -> f a) -> b -> f b
+nlens :: (LensedConstraint b n a, Functor f)
+      => FieldName n -> (a -> f a) -> b -> f b
 nlens p f b = to <$> gnlens p f (from b)
 
 class Lookup n (GFields g) ~ Just a

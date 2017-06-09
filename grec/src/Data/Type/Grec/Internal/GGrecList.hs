@@ -5,13 +5,8 @@ module Data.Type.Grec.Internal.GGrecList
   ) where
 
 import           Data.Tagged            (Tagged (..), untag)
-import           Data.Type.Grec.Convert (Convert (..))
+import           Data.Type.Grec.Convert (Convert (..), IsConv)
 import           GHC.Generics
-
-type family IsConv a :: Bool where
-  IsConv String = True
-  IsConv [a]    = False
-  IsConv _      = True
 
 -- GListToGrec and GListFromGrec are devided into two classes
 -- (instead of class with two functions)
