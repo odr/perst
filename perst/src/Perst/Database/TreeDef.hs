@@ -4,5 +4,5 @@ module Perst.Database.TreeDef
     where
 
 import           Perst.Database.Tree.Def    as TD
--- import           Perst.Database.Tree.Insert
+import           Perst.Database.Tree.Insert
 import           Perst.Database.Tree.Select as TD

@@ -25,7 +25,7 @@ library
 
   other-modules:        Perst.Database.Tree.Def
                       , Perst.Database.Tree.Select
-                      -- , Perst.Database.Tree.Insert
+                      , Perst.Database.Tree.Insert
 
   extensions:           DataKinds
                       , TypeOperators

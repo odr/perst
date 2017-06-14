@@ -3,10 +3,8 @@ module Perst.Database.DML
   -- * INSERT
     insertText
   , insertMany, insertManyR
-  , insertMany'
   , insert, insertR
   , insertManyAuto, insertManyAutoR
-  , insertManyAuto'
   , insertAuto, insertAutoR
 
   -- * UPDATE
@@ -23,8 +21,7 @@ module Perst.Database.DML
   , deleteByPK, deleteByPKR
 
   -- * SELECT
-  -- , selectText
-  -- , selectMany'
+  , selectText
   , selectMany, selectManyR
 
   )
@@ -51,38 +48,33 @@ import           Perst.Database.DataDef     (DdKey, fieldNames', fieldNamesT,
 import           Perst.Database.DbOption    (DbOption (..), DbOptionConstr,
                                              SessionMonad)
 
-insertText' :: DbOptionConstr b t
-            => Proxy b -> Proxy t -> [TL.Text] -> Bool -> TL.Text
-insertText' pb pt fields withPK
-  = format "INSERT INTO {}({}) VALUES({})"
-    ( tableName pt
-    , TL.intercalate "," fns
-    , TL.intercalate "," $ zipWith (const $ paramName pb) fns [0..]
-    )
- where
-  fns = fields \\ if withPK then [] else map TL.pack (primaryKey pt)
-
 insertText :: RecConstr b t r
             => Proxy b -> Proxy t -> Proxy r -> Bool -> TL.Text
-insertText pb pt = insertText' pb pt . map TL.pack . fieldNames'
+insertText pb pt pr withPK  -- = insertText' pb pt . map TL.pack . fieldNames'
+  = format "INSERT INTO {}({}) VALUES({})"
+  ( tableName pt
+  , TL.intercalate "," fns
+  , TL.intercalate "," $ zipWith (const $ paramName pb) fns [0..]
+  )
+ where
+  fns = map TL.pack (fieldNames' pr)
+      \\ if withPK then [] else map TL.pack (primaryKey pt)
 
-insertMany'  :: (MonadIO m, MonadMask m, DbOptionConstr b t)
-            => Proxy t -> [TL.Text] -> [[FieldDB b]] -> SessionMonad b m ()
-insertMany' pt fields rs = do
+insertMany  :: ( MonadIO m, MonadMask m, Traversable f
+               , InsConstr b t r
+               )
+            => Proxy t -> f r -> SessionMonad b m ()
+insertMany pt (rs :: f r) = do
   (pb :: Proxy b, _) <- ask
-  (cmd :: PrepCmd b) <- prepareCommand $ insertText' pb pt fields True
-  finally  (mapM_ (runPrepared cmd) rs)
+  (cmd :: PrepCmd b) <- prepareCommand $ insertText pb pt (Proxy :: Proxy r) True
+  finally  (mapM_ (runPrepared cmd) $ fmap convFromGrec rs)
                   (finalizePrepared cmd)
 
-insertMany  :: (MonadIO m, MonadMask m, InsConstr b t r)
-            => Proxy t -> [r] -> SessionMonad b m ()
-insertMany pt (rs :: [r])
-  = insertMany' pt (map TL.pack $ fieldNames' (Proxy :: Proxy r))
-  $ map convFromGrec rs
-
-insertManyR  :: (MonadIO m, MonadMask m, InsConstr b t (Grec r))
-            => Proxy t -> [r] -> SessionMonad b m ()
-insertManyR pt = insertMany pt . map Grec
+insertManyR  :: ( MonadIO m, MonadMask m, Traversable f
+                , InsConstr b t (Grec r)
+                )
+            => Proxy t -> f r -> SessionMonad b m ()
+insertManyR pt = insertMany pt . fmap Grec
 
 insert :: (MonadIO m, MonadMask m, InsConstr b t r)
             => Proxy t -> r -> SessionMonad b m ()
@@ -92,26 +84,22 @@ insertR :: (MonadIO m, MonadMask m, InsConstr b t (Grec r))
             => Proxy t -> r -> SessionMonad b m ()
 insertR pt = insert pt . Grec
 
-insertManyAuto' :: (MonadIO m, MonadMask m, DbOptionConstr b t)
-    => Proxy t -> [TL.Text] -> [[FieldDB b]] -> SessionMonad b m [GenKey b]
-insertManyAuto' (pt :: Proxy t) fields rs = do
+insertManyAuto :: ( MonadIO m, MonadMask m, Traversable f
+                  , InsAutoConstr b t r
+                  ) => Proxy t -> f r -> SessionMonad b m (f (GenKey b))
+insertManyAuto (pt :: Proxy t) (rs :: f r) = do
   (pb :: Proxy b, _) <- ask
   preRunInAuto
-  (cmd :: PrepCmd b) <- prepareCommand $ insertText' pb pt fields False
-  finally  (mapM ((>> getLastKey)
-                      . runPrepared cmd
-                      ) rs)
-                  (finalizePrepared cmd)
+  (cmd :: PrepCmd b) <- prepareCommand $ insertText pb pt (Proxy :: Proxy r) False
+  finally (mapM ((>> getLastKey) . runPrepared cmd)
+                $ fmap (convFromGrec . (GWO :: r -> GrecWithout (DdKey t) r)) rs
+          )
+          (finalizePrepared cmd)
 
-insertManyAuto :: ( MonadIO m, MonadMask m, InsAutoConstr b t r
-                  ) => Proxy t -> [r] -> SessionMonad b m [GenKey b]
-insertManyAuto (pt :: Proxy t) (rs :: [r])
-  = insertManyAuto' pt (map TL.pack $ fieldNames' (Proxy :: Proxy r))
-  $ map (convFromGrec . (GWO :: r -> GrecWithout (DdKey t) r)) rs
-
-insertManyAutoR :: ( MonadIO m, MonadMask m, InsAutoConstr b t (Grec r)
-                   ) => Proxy t -> [r] -> SessionMonad b m [GenKey b]
-insertManyAutoR pt = insertManyAuto pt . map Grec
+insertManyAutoR :: ( MonadIO m, MonadMask m, Traversable f
+                   , InsAutoConstr b t (Grec r)
+                   ) => Proxy t -> f r -> SessionMonad b m (f (GenKey b))
+insertManyAutoR pt = insertManyAuto pt . fmap Grec
 
 insertAuto :: ( MonadIO m, MonadMask m, InsAutoConstr b t r
               ) => Proxy t -> r -> SessionMonad b m [GenKey b]
@@ -238,37 +226,25 @@ deleteByPKR pt = deleteByPK pt . Grec
 
 -- * SELECT
 
-selectText' :: DbOptionConstr b t
-  => Proxy (b :: *) -> Proxy t -> [TL.Text] -> [TL.Text] -> TL.Text
-selectText' pb pt fldNames keyNames
+selectText :: SelConstr b t r k
+  => Proxy (b :: *) -> Proxy t -> Proxy (r :: *) -> Proxy (k :: *) -> TL.Text
+selectText pb pt pr pk
   = format "SELECT {} FROM {} WHERE {}"
-    ( TL.intercalate "," fldNames
+    ( TL.intercalate "," $ fieldNamesT pr
     , tableName pt
     , TL.intercalate ","
         $ zipWith (\n s -> format "{} = {}" (s, paramName pb n))
-                  [0..] keyNames
+                  [0..] $ fieldNamesT pk
     )
-
-selectText :: SelConstr b t r k
-  => Proxy (b :: *) -> Proxy t -> Proxy (r :: *) -> Proxy (k :: *) -> TL.Text
-selectText pb pt pr pk = selectText' pb pt (fieldNamesT pr) (fieldNamesT pk)
-
-selectMany' :: (MonadIO m, MonadMask m, DbOptionConstr b t, Traversable f)
-            => Proxy t -> [TL.Text] -> [TL.Text] -> f [FieldDB b]
-            -> SessionMonad b m (f [[FieldDB b]])
-selectMany' (pt :: Proxy t) fldNames keyNames keys = do
-  (pb :: Proxy b, _) <- ask
-  (cmd :: PrepCmd b) <- prepareCommand $ selectText' pb pt fldNames keyNames
-  finally (mapM (runSelect cmd) keys) (finalizePrepared cmd)
 
 selectMany :: (MonadIO m, MonadMask m, SelConstr b t r k, Traversable f)
             => Proxy t -> Proxy r -> f k -> SessionMonad b m (f [r])
 selectMany (pt :: Proxy t) (pr :: Proxy r) (ks :: f k)
-  = fmap (fmap convToGrec)
-  <$> selectMany' pt
-                  (fieldNamesT pr)
-                  (fieldNamesT (Proxy :: Proxy k))
-                  (fmap convFromGrec ks)
+  = do
+    (pb :: Proxy b, _) <- ask
+    (cmd :: PrepCmd b) <- prepareCommand $ selectText pb pt pr (Proxy :: Proxy k)
+    finally (fmap (fmap convToGrec) <$> mapM (runSelect cmd) (fmap convFromGrec ks))
+            (finalizePrepared cmd)
 
 selectManyR :: (MonadIO m, MonadMask m, SelConstr b t (Grec r) k, Traversable f)
             => Proxy t -> Proxy r -> f k -> SessionMonad b m (f [r])

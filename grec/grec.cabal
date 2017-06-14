@@ -16,17 +16,14 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:      Data.Type.Grec
-                      -- , Data.Type.Grec.Lens
   other-modules:        Data.Type.Grec.ConvGrec
                       , Data.Type.Grec.ConvList
-                      -- , Data.Type.Grec.ConvTree
                       , Data.Type.Grec.Convert
                       , Data.Type.Grec.FieldsGrec
                       , Data.Type.Grec.Grec
                       , Data.Type.Grec.Lens
                       , Data.Type.Grec.Type
                       , Data.Type.Grec.Internal.GGrecList
-                      -- , Data.Type.Grec.TreeType
 
 
   default-extensions:   DataKinds

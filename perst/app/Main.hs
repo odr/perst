@@ -73,7 +73,7 @@ data Address = Address
 data CustomerTree = CustomerTree
   { id        :: Int64
   , name      :: T.Text
-  , shortname :: Maybe T.Text
+  -- , shortname :: Maybe T.Text
   , orders    :: [OrderTree]
   , address   :: [Address ]
   } deriving (Show, Generic, Eq, Ord)
@@ -123,7 +123,7 @@ createTab (p :: Proxy a) = do
 
 o1 = Order 0 "1" 1 Nothing
 
-ct = [ CustomerTree 1 "odr" (Just "odr")
+ct = [ CustomerTree 1 "odr" -- (Just "odr")
         [ OrderTree 1 "1" "01.01.2017"
           [ OrderPosition 1 1 2 11
           , OrderPosition 1 2 5 12
@@ -134,10 +134,11 @@ ct = [ CustomerTree 1 "odr" (Just "odr")
         [ Address 1 1 "My street"
         , Address 2 1 "My second street"
         ]
-    , CustomerTree 2 "dro" Nothing
+    , CustomerTree 2 "dro" -- Nothing
         [ OrderTree 4 "1" "01.04.2017" [] ]
         [ Address 3 2 "Some street"]
-    , CustomerTree 3 "zev" Nothing [] []
+    , CustomerTree 3 "zev" -- Nothing
+        [] []
     ]
 -- pct = Proxy :: Proxy (FieldsTree r)
 
