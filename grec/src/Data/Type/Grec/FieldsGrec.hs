@@ -73,19 +73,11 @@ instance -- {-# OVERLAPPING #-}
     sns = fromSing (sing :: Sing ns)
     sr = fromSing (sing :: Sing (FieldNamesConvGrec r))
 
--- newtype GrecPair a b  = GP a b
--- instance (ConvFromGrec a c, ConvFromGrec b c, Monoid c)
---     => ConvFromGrec (GrecPair a b) c where
---   convFromGrec (GP a b) = convFromGrec a `mappend` convFromGrec b
---
--- instance ConvToGrec (GrecPair a b) c where
-
-
 
 type family FieldsGrec a :: [(Symbol, Type)] where
   -- FieldsGrec (Proxy (ns :: [(Symbol,Type)])) = ns
   FieldsGrec (Tagged (ns :: [Symbol]) (b::Type))
-    = TaggedToList (Tagged (ns :: [Symbol]) (b::Type))
+    = TaggedToList (Tagged ns b)
   FieldsGrec (GrecWithout ns a) = Without ns (FieldsGrec a)
   FieldsGrec (GrecWith ns a) = With ns (FieldsGrec a)
   FieldsGrec (Grec a) = Fields a

@@ -20,17 +20,6 @@ import           Data.Type.Grec                (FieldNamesNotConvGrec, Fields,
 import           Perst.Database.DataDef        (DataDef', DdFldsSym0, DdRecSym0)
 import           Perst.Types                   (IsSubSym0, Submap2, Submap2Sym0)
 
-{-
-data TreeT' s t = TreeTC [(s,t)] [(s, TreeT' s t)]
-type TreeT = TreeT' Symbol Type
-type FieldsTree a = GFieldsTree (Rep a) -- :: TreeT
-
-data ConvTree a = ConvTree [a] [[ConvTree a]] deriving (Eq, Show)
-
-selectMany' :: (MonadIO m, MonadMask m, DelConstr b t k)
-            => Proxy t -> [TL.Text] -> [k] -> SessionMonad b m [[[FieldDB b]]]
--}
-
 singletons [d|
   data TreeDef' s t = TreeDefC (DataDef' s t) [(s, (TreeDef' s t, [(s,s)]))]
 

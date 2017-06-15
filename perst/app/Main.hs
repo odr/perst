@@ -71,11 +71,11 @@ data Address = Address
   } deriving (Show, Generic, Eq, Ord)
 
 data CustomerTree = CustomerTree
-  { id        :: Int64
-  , name      :: T.Text
+  { id      :: Int64
+  , name    :: T.Text
   -- , shortname :: Maybe T.Text
-  , orders    :: [OrderTree]
-  , address   :: [Address ]
+  , orders  :: [OrderTree]
+  , address :: [Address ]
   } deriving (Show, Generic, Eq, Ord)
 
 data OrderTree = OrderTree

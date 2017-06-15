@@ -53,6 +53,16 @@ type family TaggedToList (t :: Type) :: [(Symbol,Type)] where
       = '(n,a) ': TaggedToList (Tagged (n1 ': ns) b)
   TaggedToList (Tagged ('[n] :: [Symbol]) a)  = '[ '(n,a)]
   TaggedToList (Tagged ('[] :: [Symbol]) a)  = '[ ]
+  TaggedToList (Tagged (ns :: [Symbol]) (v1,v2,v3))
+      = TaggedToList (Tagged ns (v1,(v2,v3)))
+  TaggedToList (Tagged (ns :: [Symbol]) (v1,v2,v3,v4))
+      = TaggedToList (Tagged ns (v1,(v2,(v3,v4))))
+  TaggedToList (Tagged (ns :: [Symbol]) (v1,v2,v3,v4,v5))
+      = TaggedToList (Tagged ns (v1,(v2,(v3,(v4,v5)))))
+  TaggedToList (Tagged (ns :: [Symbol]) (v1,v2,v3,v4,v5,v6))
+      = TaggedToList (Tagged ns (v1,(v2,(v3,(v4,(v5,v6))))))
+  TaggedToList (Tagged (ns :: [Symbol]) (v1,v2,v3,v4,v5,v6,v7))
+      = TaggedToList (Tagged ns (v1,(v2,(v3,(v4,(v5,(v6,v7)))))))
 
 type family ListToPairs (t :: [Type]) :: Type where
   ListToPairs '[] = ()

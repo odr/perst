@@ -64,6 +64,12 @@ instance Convert (Int,String) X where
 
 pair = convToGrec [XInt 1, XInt 2, XChar 'x', XIS (4,"xxx")] :: (Tagged '["x"] Int, Grec Dat2)
 
+pair2 = convToGrec [XInt 1, XInt 1, XChar '1', XInt 2, XChar 'x', XIS (4,"xxx")]
+      :: (Tagged '["x","y","z"] (Int,Int,Char), Grec Dat2)
+
+pair3 = convToGrec [XInt 1, XInt 1, XIS (1,"x"), XInt 2, XChar 'x', XIS (4,"xxx")]
+      :: (Tagged '["x","y","z"] (Int,Int,(Int,String)), Grec Dat2)
+
 -- zz = convert
 --     (Tagged ([XInt 5, XChar 'z', XIS (7,"odr")], Rec2)
 --       :: Tagged (FieldTypesGrec (Grec Dat2)) ([X], Int -> Char -> (Int,String) -> Dat2))
