@@ -22,10 +22,9 @@ library
                       , Perst.Database.DDL
                       , Perst.Database.DML
                       , Perst.Database.TreeDef
-
-  other-modules:        Perst.Database.Tree.Def
-                      , Perst.Database.Tree.Select
+                      , Perst.Database.Tree.Def
                       , Perst.Database.Tree.Insert
+                      , Perst.Database.Tree.Select
 
   extensions:           DataKinds
                       , TypeOperators

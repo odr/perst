@@ -14,7 +14,7 @@ import           GHC.Exts                      (Constraint)
 import           GHC.Prim                      (Proxy#, proxy#)
 import           GHC.TypeLits                  (Nat)
 
-singletons
+promoteOnly
   [d| isSub :: Eq a => [a] -> [a] -> Bool
       isSub as bs = all (`elem` bs) as -- null $ aa \\ bs
 
@@ -51,11 +51,11 @@ singletons
         Nothing -> Nothing
         Just rs -> Just (zip as rs)
   |]
-singletonsOnly
-  [d| posList :: Eq a => [a] -> [a] -> Maybe [Nat]
-      posList as xs = let rs = map (`elemIndex` xs) as in
-        if any_ isNothing rs then Nothing else Just (map fromJust rs)
-  |]
+-- singletonsOnly
+--   [d| posList :: Eq a => [a] -> [a] -> Maybe [Nat]
+--       posList as xs = let rs = map (`elemIndex` xs) as in
+--         if any_ isNothing rs then Nothing else Just (map fromJust rs)
+--   |]
 
 type Contain a b = Submap (Map FstSym0 b) a ~ Just (Map SndSym0 b)
 genDefunSymbols [''Contain]
@@ -63,7 +63,3 @@ genDefunSymbols [''Contain]
 type family FromConsList (a::[Constraint]) :: Constraint where
   FromConsList '[] = ()
   FromConsList (a ': b) = (a,FromConsList b)
-
--- type family OrC (a::Constraint) (b::Constraint) :: Constraint where
---   OrC () b  = ()
---   OrC a ()  = ()

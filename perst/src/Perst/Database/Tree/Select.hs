@@ -23,8 +23,8 @@ import           Perst.Database.Tree.Def    (ChildByParents, FieldByName,
                                              TdData)
 
 type SelectTreeConstraint m f b t r k =
-  ( MonadIO m, MonadMask m, Applicative f, Traversable f
-  , SelConstr b (TdData t) (TaggedAllParentKeys t, Grec r) k
+  ( Applicative f, Traversable f
+  , SelConstr m b (TdData t) (TaggedAllParentKeys t, Grec r) k
   , SelectChilds m (Compose f ZipList) b (GrecChilds t r) (TaggedAllParentKeys t) r
   )
 

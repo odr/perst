@@ -4,8 +4,8 @@ module Perst.Database.DML
     insertText
   , insertMany, insertManyR
   , insert, insertR
-  , insertManyAuto, insertManyAutoR
-  , insertAuto, insertAutoR
+  -- , insertManyAuto, insertManyAutoR
+  -- , insertAuto, insertAutoR
 
   -- * UPDATE
   , updateByKeyText
@@ -27,6 +27,7 @@ module Perst.Database.DML
   )
   where
 
+import           Control.Monad              (when)
 import           Control.Monad.Catch        (MonadMask, finally)
 import           Control.Monad.IO.Class     (MonadIO (..))
 import           Control.Monad.Trans.Reader (ask)
@@ -40,81 +41,68 @@ import           Data.Type.Grec             (ConvFromGrec (..), ConvToGrec (..),
                                              Grec (..), GrecWith (..),
                                              GrecWithout (..))
 import           Perst.Database.Constraints (DelByKeyConstr, DelConstr,
-                                             InsAutoConstr, InsConstr,
-                                             RecConstr, SelConstr,
+                                             InsConstr, RecConstr, SelConstr,
                                              UpdByKeyConstr, UpdConstr)
-import           Perst.Database.DataDef     (DdKey, fieldNames', fieldNamesT,
-                                             primaryKey, tableName)
+import           Perst.Database.DataDef     (DdAutoIns, DdKey, fieldNames',
+                                             fieldNamesT, primaryKey, showProxy,
+                                             tableName)
 import           Perst.Database.DbOption    (DbOption (..), DbOptionConstr,
                                              SessionMonad)
 
-insertText :: RecConstr b t r
-            => Proxy b -> Proxy t -> Proxy r -> Bool -> TL.Text
-insertText pb pt pr withPK  -- = insertText' pb pt . map TL.pack . fieldNames'
-  = format "INSERT INTO {}({}) VALUES({})"
+insertText :: InsConstr m b t r
+            => Proxy b -> Proxy t -> Proxy r -> SessionMonad b m TL.Text
+insertText pb (pt :: Proxy t) pr
+  = return $ format "INSERT INTO {}({}) VALUES({})"
   ( tableName pt
   , TL.intercalate "," fns
   , TL.intercalate "," $ zipWith (const $ paramName pb) fns [0..]
   )
  where
+  autoIns = showProxy (Proxy :: Proxy (DdAutoIns t))
   fns = map TL.pack (fieldNames' pr)
-      \\ if withPK then [] else map TL.pack (primaryKey pt)
+      \\ if autoIns then map TL.pack (primaryKey pt) else []
 
-insertMany  :: ( MonadIO m, MonadMask m, Traversable f
-               , InsConstr b t r
-               )
-            => Proxy t -> f r -> SessionMonad b m ()
-insertMany pt (rs :: f r) = do
+insertMany  :: (Traversable f, InsConstr m b t r)
+            => Proxy t -> f r -> SessionMonad b m (Maybe (f (GenKey b)))
+insertMany (pt :: Proxy t) (rs :: f r) = do
   (pb :: Proxy b, _) <- ask
-  (cmd :: PrepCmd b) <- prepareCommand $ insertText pb pt (Proxy :: Proxy r) True
-  finally  (mapM_ (runPrepared cmd) $ fmap convFromGrec rs)
-                  (finalizePrepared cmd)
-
-insertManyR  :: ( MonadIO m, MonadMask m, Traversable f
-                , InsConstr b t (Grec r)
-                )
-            => Proxy t -> f r -> SessionMonad b m ()
-insertManyR pt = insertMany pt . fmap Grec
-
-insert :: (MonadIO m, MonadMask m, InsConstr b t r)
-            => Proxy t -> r -> SessionMonad b m ()
-insert pt r = insertMany pt [r]
-
-insertR :: (MonadIO m, MonadMask m, InsConstr b t (Grec r))
-            => Proxy t -> r -> SessionMonad b m ()
-insertR pt = insert pt . Grec
-
-insertManyAuto :: ( MonadIO m, MonadMask m, Traversable f
-                  , InsAutoConstr b t r
-                  ) => Proxy t -> f r -> SessionMonad b m (f (GenKey b))
-insertManyAuto (pt :: Proxy t) (rs :: f r) = do
-  (pb :: Proxy b, _) <- ask
-  preRunInAuto
-  (cmd :: PrepCmd b) <- prepareCommand $ insertText pb pt (Proxy :: Proxy r) False
-  finally (mapM ((>> getLastKey) . runPrepared cmd)
-                $ fmap (convFromGrec . (GWO :: r -> GrecWithout (DdKey t) r)) rs
+  when autoIns preRunInAuto
+  (cmd :: PrepCmd b) <- insertText pb pt pr >>= prepareCommand
+  finally (fmap sequenceA
+              $ mapM (\r -> do
+                      runPrepared cmd r
+                      if autoIns
+                        then Just <$> getLastKey
+                        else return Nothing
+                  ) $ fmap (
+                        if autoIns
+                          then convFromGrec . (GWO :: r -> GrecWithout (DdKey t) r)
+                          else convFromGrec
+                      ) rs
           )
           (finalizePrepared cmd)
+ where
+  pr = Proxy :: Proxy r
+  autoIns = showProxy (Proxy :: Proxy (DdAutoIns t))
 
-insertManyAutoR :: ( MonadIO m, MonadMask m, Traversable f
-                   , InsAutoConstr b t (Grec r)
-                   ) => Proxy t -> f r -> SessionMonad b m (f (GenKey b))
-insertManyAutoR pt = insertManyAuto pt . fmap Grec
+insertManyR  :: (Traversable f, InsConstr m b t (Grec r))
+            => Proxy t -> f r -> SessionMonad b m (Maybe (f (GenKey b)))
+insertManyR pt = insertMany pt . fmap Grec
 
-insertAuto :: ( MonadIO m, MonadMask m, InsAutoConstr b t r
-              ) => Proxy t -> r -> SessionMonad b m [GenKey b]
-insertAuto pt (r :: r) = insertManyAuto pt [r]
+insert  :: InsConstr m b t r
+        => Proxy t -> r -> SessionMonad b m (Maybe (GenKey b))
+insert pt r = fmap head <$> insertMany pt [r]
 
-insertAutoR :: ( MonadIO m, MonadMask m, InsAutoConstr b t (Grec r)
-              ) => Proxy t -> r -> SessionMonad b m [GenKey b]
-insertAutoR pt = insertAuto pt . Grec
+insertR :: InsConstr m b t (Grec r)
+        => Proxy t -> r -> SessionMonad b m (Maybe (GenKey b))
+insertR pt = insert pt . Grec
 
 -- * UPDATE
 
-updateByKeyText :: UpdByKeyConstr b t r k
-    => Proxy b -> Proxy t -> Proxy r -> Proxy (k :: *) -> TL.Text
+updateByKeyText :: UpdByKeyConstr m b t r k
+    => Proxy b -> Proxy t -> Proxy r -> Proxy (k :: *) -> SessionMonad b m TL.Text
 updateByKeyText pb pt pr pk
-  = format "UPDATE {} SET {} WHERE {}" (tableName pt, rs, ks)
+  = return $ format "UPDATE {} SET {} WHERE {}" (tableName pt, rs, ks)
  where
   (ks, rs)
     = bimap interSnd interSnd
@@ -125,111 +113,106 @@ updateByKeyText pb pt pr pk
     keyNames = fieldNames' pk
     interSnd = TL.intercalate "," . map snd
 
-updateByKeyMany  :: (MonadIO m, MonadMask m, UpdByKeyConstr b t r k)
+updateByKeyMany :: UpdByKeyConstr m b t r k
                 => Proxy t -> [(k,r)] -> SessionMonad b m ()
 updateByKeyMany (pt :: Proxy t) (rs :: [(k,r)]) = do
   (pb :: Proxy b, _) <- ask
-  (cmd :: PrepCmd b) <- prepareCommand
-                      $ updateByKeyText pb pt (Proxy :: Proxy r) (Proxy :: Proxy k)
+  (cmd :: PrepCmd b) <- updateByKeyText pb pt pr pk
+                    >>= prepareCommand
   finally (mapM_ ( runPrepared cmd . uncurry (++)
                  . bimap convFromGrec convFromGrec
                  ) rs)
           (finalizePrepared cmd)
+ where
+  (pr,pk) = (Proxy :: Proxy r, Proxy :: Proxy k)
 
-updateByKeyManyR  :: (MonadIO m, MonadMask m, UpdByKeyConstr b t (Grec r) k)
-                => Proxy t -> [(k,r)] -> SessionMonad b m ()
+
+updateByKeyManyR  :: UpdByKeyConstr m b t (Grec r) k
+                  => Proxy t -> [(k,r)] -> SessionMonad b m ()
 updateByKeyManyR pt = updateByKeyMany pt . map (fmap Grec)
 
-updateByKey :: (MonadIO m, MonadMask m, UpdByKeyConstr b t r k)
+updateByKey :: UpdByKeyConstr m b t r k
             => Proxy t -> (k, r) -> SessionMonad b m ()
 updateByKey pt = updateByKeyMany pt . (:[])
 
-updateByKeyR  :: (MonadIO m, MonadMask m, UpdByKeyConstr b t (Grec r) k)
-                => Proxy t -> (k,r) -> SessionMonad b m ()
+updateByKeyR  :: UpdByKeyConstr m b t (Grec r) k
+              => Proxy t -> (k,r) -> SessionMonad b m ()
 updateByKeyR pt = updateByKey pt . fmap Grec
 
 updateByPKMany
-  ::  ( MonadIO m, MonadMask m
-      , UpdByKeyConstr b t (GrecWithout (DdKey t) r) (GrecWith (DdKey t) r)
-      ) => Proxy t -> [r] -> SessionMonad b m ()
+  :: UpdByKeyConstr m b t (GrecWithout (DdKey t) r) (GrecWith (DdKey t) r)
+  => Proxy t -> [r] -> SessionMonad b m ()
 updateByPKMany (pt :: Proxy t) (rs :: [r])
     = updateByKeyMany pt
-    $ map (\r -> ( GW r :: GrecWith (DdKey t) r
+    $ map (\r -> ( GW  r :: GrecWith    (DdKey t) r
                  , GWO r :: GrecWithout (DdKey t) r)
                  ) rs
 
 updateByPKManyR
-  :: ( MonadIO m, MonadMask m
-     , UpdByKeyConstr b t (GrecWithout (DdKey t) (Grec r))
-                          (GrecWith (DdKey t) (Grec r))
-     ) => Proxy t -> [r] -> SessionMonad b m ()
+  :: UpdByKeyConstr m b t (GrecWithout (DdKey t) (Grec r))
+                          (GrecWith    (DdKey t) (Grec r))
+  => Proxy t -> [r] -> SessionMonad b m ()
 updateByPKManyR pt = updateByPKMany pt . map Grec
 
 updateByPK
-  ::  ( MonadIO m, MonadMask m
-      , UpdByKeyConstr b t (GrecWithout (DdKey t) r) (GrecWith (DdKey t) r)
-      ) => Proxy t -> r -> SessionMonad b m ()
+  :: UpdByKeyConstr m b t (GrecWithout (DdKey t) r) (GrecWith (DdKey t) r)
+  => Proxy t -> r -> SessionMonad b m ()
 updateByPK pt = updateByPKMany pt . (:[])
 
 updateByPKR
-  ::  ( MonadIO m, MonadMask m
-      , UpdByKeyConstr b t (GrecWithout (DdKey t) (Grec r))
-                           (GrecWith (DdKey t) (Grec r))
-      ) => Proxy t -> r -> SessionMonad b m ()
+  :: UpdByKeyConstr m b t (GrecWithout (DdKey t) (Grec r))
+                          (GrecWith    (DdKey t) (Grec r))
+  => Proxy t -> r -> SessionMonad b m ()
 updateByPKR pt = updateByPK pt . Grec
 
 -- * DELETE
 
-deleteByKeyText :: DelByKeyConstr b t k
-    => Proxy b -> Proxy t -> Proxy (k :: *) -> TL.Text
+deleteByKeyText :: DelByKeyConstr m b t k
+    => Proxy b -> Proxy t -> Proxy (k :: *) -> SessionMonad b m TL.Text
 deleteByKeyText pb pt pk
-  = format "DELETE FROM {} WHERE {}"
+  = return $ format "DELETE FROM {} WHERE {}"
     ( tableName pt
     , TL.intercalate ","
         $ zipWith (\n s -> format "{} = {}" (s, paramName pb n)) [0..]
         $ fieldNames' pk
     )
 
-deleteByKeyMany :: (MonadIO m, MonadMask m, DelByKeyConstr b t k)
+deleteByKeyMany :: DelByKeyConstr m b t k
                 => Proxy t -> [k] -> SessionMonad b m ()
 deleteByKeyMany pt (ks :: [k]) = do
   (pb :: Proxy b, _) <- ask
-  (cmd :: PrepCmd b) <- prepareCommand
-                      $ deleteByKeyText pb pt (Proxy :: Proxy k)
+  (cmd :: PrepCmd b) <- deleteByKeyText pb pt (Proxy :: Proxy k)
+                    >>= prepareCommand
   finally (mapM_ (runPrepared cmd . convFromGrec) ks) (finalizePrepared cmd)
 
-deleteByKey :: (MonadIO m, MonadMask m, DelByKeyConstr b t k)
-            => Proxy t -> k -> SessionMonad b m ()
+deleteByKey :: DelByKeyConstr m b t k => Proxy t -> k -> SessionMonad b m ()
 deleteByKey pt = deleteByKeyMany pt . (:[])
 
-deleteByPKMany
-  ::  ( MonadIO m, MonadMask m, DelByKeyConstr b t (GrecWith (DdKey t) r)
-      ) => Proxy t -> [r] -> SessionMonad b m ()
+deleteByPKMany  :: DelByKeyConstr m b t (GrecWith (DdKey t) r)
+                => Proxy t -> [r] -> SessionMonad b m ()
 deleteByPKMany (pt :: Proxy t) (rs :: [r])
     = deleteByKeyMany pt
     $ map (\r -> GW r :: GrecWith (DdKey t) r) rs
 
-deleteByPKManyR
-  :: ( MonadIO m, MonadMask m, DelByKeyConstr b t (GrecWith (DdKey t) (Grec r))
-     ) => Proxy t -> [r] -> SessionMonad b m ()
+deleteByPKManyR :: DelByKeyConstr m b t (GrecWith (DdKey t) (Grec r))
+                => Proxy t -> [r] -> SessionMonad b m ()
 deleteByPKManyR pt = deleteByPKMany pt . map Grec
 
-deleteByPK
-  ::  ( MonadIO m, MonadMask m, DelByKeyConstr b t (GrecWith (DdKey t) r)
-      ) => Proxy t -> r -> SessionMonad b m ()
+deleteByPK  :: DelByKeyConstr m b t (GrecWith (DdKey t) r)
+            => Proxy t -> r -> SessionMonad b m ()
 deleteByPK pt = deleteByPKMany pt . (:[])
 
-deleteByPKR
-  ::  ( MonadIO m, MonadMask m, DelByKeyConstr b t (GrecWith (DdKey t) (Grec r))
-      ) => Proxy t -> r -> SessionMonad b m ()
+deleteByPKR :: DelByKeyConstr m b t (GrecWith (DdKey t) (Grec r))
+            => Proxy t -> r -> SessionMonad b m ()
 deleteByPKR pt = deleteByPK pt . Grec
 
 -- * SELECT
 
-selectText :: SelConstr b t r k
-  => Proxy (b :: *) -> Proxy t -> Proxy (r :: *) -> Proxy (k :: *) -> TL.Text
+selectText  :: SelConstr m b t r k
+            => Proxy (b :: *) -> Proxy t -> Proxy (r :: *) -> Proxy (k :: *)
+            -> SessionMonad b m TL.Text
 selectText pb pt pr pk
-  = format "SELECT {} FROM {} WHERE {}"
+  = return $ format "SELECT {} FROM {} WHERE {}"
     ( TL.intercalate "," $ fieldNamesT pr
     , tableName pt
     , TL.intercalate ","
@@ -237,16 +220,19 @@ selectText pb pt pr pk
                   [0..] $ fieldNamesT pk
     )
 
-selectMany :: (MonadIO m, MonadMask m, SelConstr b t r k, Traversable f)
+selectMany :: (SelConstr m b t r k, Traversable f)
             => Proxy t -> Proxy r -> f k -> SessionMonad b m (f [r])
 selectMany (pt :: Proxy t) (pr :: Proxy r) (ks :: f k)
   = do
     (pb :: Proxy b, _) <- ask
-    (cmd :: PrepCmd b) <- prepareCommand $ selectText pb pt pr (Proxy :: Proxy k)
-    finally (fmap (fmap convToGrec) <$> mapM (runSelect cmd) (fmap convFromGrec ks))
+    (cmd :: PrepCmd b) <- selectText pb pt pr (Proxy :: Proxy k)
+                      >>= prepareCommand
+    finally ( fmap (fmap convToGrec)
+              <$> mapM (runSelect cmd) (fmap convFromGrec ks)
+            )
             (finalizePrepared cmd)
 
-selectManyR :: (MonadIO m, MonadMask m, SelConstr b t (Grec r) k, Traversable f)
+selectManyR :: (SelConstr m b t (Grec r) k, Traversable f)
             => Proxy t -> Proxy r -> f k -> SessionMonad b m (f [r])
 selectManyR pt (pr :: Proxy r)
   = fmap (fmap $ map unGrec) . selectMany pt (Proxy :: Proxy (Grec r))

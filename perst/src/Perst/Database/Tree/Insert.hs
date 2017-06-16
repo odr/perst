@@ -6,7 +6,7 @@ import           Control.Applicative        (ZipList (..), liftA2)
 import           Control.Monad.Catch        (MonadMask)
 import           Control.Monad.IO.Class     (MonadIO (..))
 import           Data.Functor.Compose       (Compose (..))
-import           Data.Singletons.Prelude    (Proxy(..))
+import           Data.Singletons.Prelude    (Proxy (..))
 import           Lens.Micro                 ((&), (.~))
 import           Lens.Micro.Extras          (view)
 
@@ -19,8 +19,8 @@ import           Perst.Database.Tree.Def    (FieldByName, GrecChilds, TdData,
                                              TreeDef)
 
 type InsertTreeConstraint m f b t r =
-  ( MonadIO m, MonadMask m, Applicative f, Traversable f
-  , InsConstr b (TdData t) (Grec r)
+  ( Applicative f, Traversable f
+  , InsConstr m b (TdData t) (Grec r)
   , InsertChilds m f b (GrecChilds t r) r
   )
 
@@ -48,7 +48,7 @@ instance  ( InsertTreeConstraint m (Compose f ZipList) b td (FieldByName s r)
           , LensedConstraint r s [FieldByName s r]
           , InsertChilds m f b chs r
           , Applicative f
-          ) => InsertChilds m f b ('(s,'(td,rs)) ': chs) r where
+          ) => InsertChilds m f b ( '(s, '(td,rs)) ': chs) r where
   insertChilds _ rs = do
     rs' <- fmap ( liftA2 (\r r' -> r & nlens fn .~ r') rs
                 . fmap getZipList

@@ -10,9 +10,6 @@ import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List  (FindSym0, LookupSym0, NubSym0)
 import           Data.Singletons.Prelude.Maybe (FromMaybeSym0)
 import           Data.Singletons.TH            (promoteOnly, singletons)
--- import           GHC.TypeLits                  (ErrorMessage (..),
---                                                 TypeError (..))
--- import qualified Data.Text.Lazy                as TL
 
 import           Data.Type.Grec                (FieldNamesNotConvGrec, Fields,
                                                 Grec (..), InternalType,
@@ -23,12 +20,13 @@ import           Perst.Types                   (IsSubSym0, Submap2, Submap2Sym0)
 singletons [d|
   data TreeDef' s t = TreeDefC (DataDef' s t) [(s, (TreeDef' s t, [(s,s)]))]
 
+  |]
+promoteOnly [d|
   tdData    (TreeDefC d _) = d
   tdChilds  (TreeDefC _ c) = c
 
   parentKeyNames t = map (map fst . snd . snd) $ tdChilds t
-  |]
-promoteOnly [d|
+
   allParentKeyNames :: Eq s => TreeDef' s t -> [s]
   allParentKeyNames t = nub $ concatMap (map snd . snd . snd) $ tdChilds t
 

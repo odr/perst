@@ -5,6 +5,7 @@ module Perst.Database.DDL
     ) where
 
 import           Control.Arrow              (first)
+import           Control.Monad              ((>=>))
 import           Control.Monad.IO.Class     (MonadIO)
 import           Data.Kind                  (Type)
 import           Data.List                  (intercalate)
@@ -19,17 +20,18 @@ import           Perst.Database.DataDef     (DataDef, DataDef' (..), fieldNames,
 import           Perst.Database.DbOption    (DbOption (..), SessionMonad,
                                              dbTypeNames)
 
-class DbOption b => DDL b (t :: DataDef) where
-  create :: MonadIO m => Proxy t -> SessionMonad b m ()
-  create = execCommand . createText (Proxy :: Proxy b)
-  drop :: MonadIO m => Proxy t -> SessionMonad b m ()
-  drop   = execCommand . dropText (Proxy :: Proxy b)
-  createText :: Proxy b -> Proxy t -> Text
-  dropText :: Proxy b -> Proxy t -> Text
+class DDLConstr m b t => DDL m b (t :: DataDef) where
+  create      :: Proxy t -> SessionMonad b m ()
+  drop        :: Proxy t -> SessionMonad b m ()
+  createText  :: Proxy b -> Proxy t -> SessionMonad b m Text
+  dropText    :: Proxy b -> Proxy t -> SessionMonad b m Text
+  create = createText (Proxy :: Proxy b) >=> execCommand
+  drop   = dropText (Proxy :: Proxy b) >=> execCommand
 
-instance DDLConstr b (TableDef n r fn p u f) => DDL b (TableDef n r fn p u f) where
+instance DDLConstr m b (TableDef n r fn p u f ai)
+      => DDL m b (TableDef n r fn p u f ai) where
   createText pb pt
-    = format "CREATE TABLE {} {} ({}, PRIMARY KEY ({}) {} {})"
+    = return $ format "CREATE TABLE {} {} ({}, PRIMARY KEY ({}) {} {})"
         ( afterCreateTableText pb
         , tableName pt
         , intercalate ","
@@ -48,14 +50,14 @@ instance DDLConstr b (TableDef n r fn p u f) => DDL b (TableDef n r fn p u f) wh
                   . first unzip
                   ) $ foreignKeys pt
         )
-  dropText _ pt = format "DROP TABLE {}" $ Only (tableName pt :: String)
+  dropText _ pt = return $ format "DROP TABLE {}" $ Only (tableName pt)
 
-instance (DDLConstr b (ViewDef n r fn (Just s) upd p u f), KnownSymbol s)
-        => DDL b (ViewDef n r fn (Just s) upd p u f) where
+instance (DDLConstr m b (ViewDef n r fn (Just s) upd p u f), KnownSymbol s)
+      => DDL m b (ViewDef n r fn (Just s) upd p u f) where
   createText pb pt
-    = format "CREATE VIEW {} {} AS {}"
+    = return $ format "CREATE VIEW {} {} AS {}"
         ( afterCreateTableText pb
         , tableName pt
         , symbolVal (Proxy :: Proxy s)
         )
-  dropText _ pt = format "DROP VIEW {}" $ Only (tableName pt :: String)
+  dropText _ pt = return $ format "DROP VIEW {}" $ Only (tableName pt)

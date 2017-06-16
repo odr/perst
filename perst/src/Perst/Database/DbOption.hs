@@ -22,7 +22,7 @@ module Perst.Database.DbOption
     , runCommand
     ) where
 
-import           Control.Monad.Catch        (MonadCatch)
+import           Control.Monad.Catch        (MonadCatch, MonadMask)
 import           Control.Monad.IO.Class     (MonadIO)
 import           Control.Monad.Trans.Reader (ReaderT)
 import           Data.Kind                  (Type)
@@ -96,8 +96,9 @@ dbTypeNames' :: SingI (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsGrec r))
 dbTypeNames' (_ :: Proxy b) (_ :: Proxy r)
   = fromSing (sing :: Sing (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsGrec r)))
 
-type DbOptionConstr b d =
+type DbOptionConstr m b d =
   ( DbOption b
   , DataDefConstr d
   , SingI (BackTypes b NullableSym0 DbTypeNameSym0 (DdRec d))
+  , MonadIO m, MonadMask m
   )

@@ -1,15 +1,18 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeInType            #-}
+-- {-# LANGUAGE DataKinds             #-}
+-- {-# LANGUAGE DeriveGeneric         #-}
+-- {-# LANGUAGE DuplicateRecordFields #-}
+-- {-# LANGUAGE FlexibleContexts      #-}
+-- {-# LANGUAGE MultiParamTypeClasses #-}
+-- {-# LANGUAGE OverloadedStrings     #-}
+-- {-# LANGUAGE ScopedTypeVariables   #-}
+-- {-# LANGUAGE TypeFamilies          #-}
+-- {-# LANGUAGE TypeInType            #-}
 
 module Main where
 
+main :: IO ()
+main = return ()
+{-
 import           Control.Applicative
 import           Data.Bifunctor
 import           Data.Functor.Compose
@@ -86,17 +89,21 @@ data OrderTree = OrderTree
   } deriving (Show, Generic, Eq, Ord)
 
 type TCustomer = TableD Customer '["id"] '[ '["name"]] '[]
+    'False
 type TOrder = TableD Orders '["id"] '[ '["customerId", "num"]]
     '[ '( '[ '("customerId", "id")], '("Customer", DcCascade))
      , '( '[ '("coCustomerId", "id")], '("Customer", DcSetNull))
      ]
-type TArticle = TableD Article '["id"] '[ '["name"]] '[]
+     'True
+type TArticle = TableD Article '["id"] '[ '["name"]] '[] 'False
 type TOrderPosition = TableD OrderPosition '["orderId","articleId"] '[]
     '[ '( '[ '("orderId","id")], '("Customer",DcCascade))
      , '( '[ '("articleId","id")], '("Article",DcRestrict))
      ]
+     'False
 type TAddress = TableD Address '["id"] '[]
     '[ '( '[ '("customerId", "id")], '("Customer", DcCascade))]
+    'False
 
 pCustomer = Proxy :: Proxy TCustomer
 pOrder    = Proxy :: Proxy TOrder
@@ -116,7 +123,7 @@ type TAddressTree = TreeDefC TAddress '[]
 
 pCustomerTree = Proxy :: Proxy TCustomerTree
 
-createTab :: (DDL b a) => Proxy a -> SessionMonad b IO ()
+createTab :: (DDL IO b a) => Proxy a -> SessionMonad b IO ()
 createTab (p :: Proxy a) = do
   catch (DDL.drop p) (\(_::SomeException) -> return ())
   create p
@@ -194,7 +201,7 @@ main = runSession db "test.db" $ do
                         , Customer 2 "dro" Nothing "y"
                         , Customer 3 "zev" Nothing "z"
                         ]
-  rs <- insertManyAutoR pOrder  [ Order 0 "1" 1 Nothing  "01.01.2017"
+  rs <- insertManyR pOrder  [ Order 0 "1" 1 Nothing  "01.01.2017"
                                 , Order 0 "2" 1 (Just 2) "01.02.2017"
                                 , Order 0 "3" 1 (Just 1) "01.03.2017"
                                 , Order 0 "1" 2 (Just 3) "01.04.2017"
@@ -255,3 +262,4 @@ main = runSession db "test.db" $ do
 
 -}
   return ()
+-}

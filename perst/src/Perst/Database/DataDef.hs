@@ -10,9 +10,9 @@ module Perst.Database.DataDef
   -- * Table definition
   , DataDef'(..), DataDef
   , TableD, ViewD
-  , DdName, DdRec, DdFlds, DdKey, DdUniq, DdUpd, AllKeys, DdFrgn, DdData
+  , DdName, DdRec, DdFlds, DdKey, DdUniq, DdUpd, AllKeys, DdFrgn, DdAutoIns -- , DdData
   , DdNameSym0, DdRecSym0, DdKeySym0, DdUniqSym0, DdUpdSym0, DdFrgnSym0, DdFldsSym0
-  , IsProj
+  -- , IsProj
   , DataDefConstr
   , ddFlds, sDdFlds, ddRec, sDdRec
   -- * Good functions to take table info in runtime
@@ -58,87 +58,81 @@ singletons [d|
 
   data DataDef' s t
     = TableDef
-      { ddn   :: s -- Symbol
-      , ddr   :: [(s,t)] -- [(Symbol,Type)]
-      , ddfn  :: [s] -- [Symbol]
-      , ddk   :: [s] -- [Symbol]
-      , ddu   :: [[s]] --[[Symbol]]
-      , ddf   :: [FK s]  -- [([(s,s)],(s,DeleteConstraint))] --[FK]
+      { ddn  :: s
+      , ddr  :: [(s,t)]
+      , ddfn :: [s]
+      , ddk  :: [s]
+      , ddu  :: [[s]]
+      , ddf  :: [FK s]
+      , ddai :: Bool
       }
     | ViewDef
-      { ddn   :: s -- Symbol
-      , ddr   :: [(s,t)] -- [(Symbol,Type)]
-      , ddfn  :: [s]   -- [Symbol]
-      , ddSql :: Maybe s -- Maybe Symbol
-      , ddup  :: [s] -- [Symbol]
-      , ddk   :: [s] -- [Symbol]
-      , ddu   :: [[s]] -- [[Symbol]]
-      , ddf   :: [FK s] -- [([(s,s)],(s,DeleteConstraint))] -- [FK]
-      }
-    | ProjDef
-      { ddr   :: [(s,t)]
+      { ddn   :: s
+      , ddr   :: [(s,t)]
       , ddfn  :: [s]
-      , ddd   :: DataDef' s t
+      , ddSql :: Maybe s
+      , ddup  :: [s]
+      , ddk   :: [s]
+      , ddu   :: [[s]]
+      , ddf   :: [FK s]
       }
-    -- | TreeDef
-    --   { ddData    :: DataDef' s t
-    --   , ddChilds  :: [(DataDef' s t, [(s,s)])]
-    --   , ddrChilds :: [(s,t)]
-    --   , ddfChilds :: [s]
+    --  ProjDef
+    --   { ddr   :: [(s,t)]
+    --   , ddfn  :: [s]
+    --   , ddd   :: DataDef' s t
     --   }
 
-  ddName  (TableDef n _ _ _ _ _)     = n
+  ddName  (TableDef n _ _ _ _ _ _)   = n
   ddName  (ViewDef  n _ _ _ _ _ _ _) = n
-  ddName  (ProjDef  _ _ dd)          = ddName dd
-  ddRec   (TableDef _ r _ _ _ _)     = r
+  -- ddName  (ProjDef  _ _ dd)          = ddName dd
+  ddRec   (TableDef _ r _ _ _ _ _)   = r
   ddRec   (ViewDef  _ r _ _ _ _ _ _) = r
-  ddRec   (ProjDef  r _ _)           = r
-  ddFlds  (TableDef _ _ fn _ _ _)     = fn
+  -- ddRec   (ProjDef  r _ _)           = r
+  ddFlds  (TableDef _ _ fn _ _ _ _)   = fn
   ddFlds  (ViewDef  _ _ fn _ _ _ _ _) = fn
-  ddFlds  (ProjDef  _ fn _)           = fn
-  ddUpd   (TableDef _ _ fn _ _ _)    = fn
+  -- ddFlds  (ProjDef  _ fn _)           = fn
+  ddUpd   (TableDef _ _ fn _ _ _ _)  = fn
   ddUpd   (ViewDef  _ _ _ _ u _ _ _) = u
-  ddUpd   (ProjDef  _ fn _)          = fn
-  ddKey   (TableDef _ _ _ p _ _)     = p
+  -- ddUpd   (ProjDef  _ fn _)          = fn
+  ddKey   (TableDef _ _ _ p _ _ _)   = p
   ddKey   (ViewDef  _ _ _ _ _ p _ _) = p
-  ddKey   (ProjDef  _ fn dd)         = ddKey dd
-  -- ddUniq :: Eq s => DataDef' s t -> [[s]]
-  ddData  (ProjDef _ _ dd) = dd
+  -- ddKey   (ProjDef  _ fn dd)         = ddKey dd
+  -- ddData  (ProjDef _ _ dd)          = dd
+  ddAutoIns   (TableDef _ _ _ _ _ _ ai)  = ai
+
   |]
+-- promoteOnly [d|
+--   isProj ProjDef {} = True
+--   isProj _          = False
+--   |]
 promoteOnly [d|
-  -- isTable TableDef {} = True
-  -- isTable _           = False
-  isProj ProjDef {} = True
-  isProj _          = False
-  |]
-promoteOnly [d|
-  ddUniq  (TableDef _ _ _ _ u _)     = u
+  ddUniq  (TableDef _ _ _ _ u _ _)   = u
   ddUniq  (ViewDef  _ _ _ _ _ _ u _) = u
-  ddUniq  (ProjDef  _ fn dd)         = filter (`isSub` fn) (ddUniq dd)
-  ddFrgn  (TableDef _ _ _ _ _ f)     = f
+  -- ddUniq  (ProjDef  _ fn dd)         = filter (`isSub` fn) (ddUniq dd)
+  ddFrgn  (TableDef _ _ _ _ _ f _)   = f
   ddFrgn  (ViewDef  _ _ _ _ _ _ _ f) = f
-  ddFrgn  (ProjDef  _ fn dd)         = filter ((`isSub` fn) . map fst . fst) (ddFrgn dd)
-  allKeys (TableDef _ _ _ p u _)     = p : u
+  -- ddFrgn  (ProjDef  _ fn dd)         = filter ((`isSub` fn) . map fst . fst) (ddFrgn dd)
+  allKeys (TableDef _ _ _ p u _ _)   = p : u
   allKeys (ViewDef  _ _ _ _ _ p u _) = p : u
-  allKeys (ProjDef  _ fn dd)         = filter (`isSub` fn) (AllKeys dd)
+  -- allKeys (ProjDef  _ fn dd)         = filter (`isSub` fn) (AllKeys dd)
   |]
 
 type DataDef = DataDef' Symbol Type
 
-type TableD v p u = TableD' (Typ v) (FieldsGrec (Grec v)) p u
+type TableD v = TableD' (Typ v) (FieldsGrec (Grec v))
 
-type family TableD' n r p u where
-  TableD' n r p u = TableDef n r (Map FstSym0 r) p u
+type family TableD' n r where
+  TableD' n r = TableDef n r (Map FstSym0 r)
 
-type ViewD v s upd p u = ViewD' (Typ v) (FieldsGrec (Grec v)) s upd p u
+type ViewD v = ViewD' (Typ v) (FieldsGrec (Grec v))
 
-type family ViewD' n r s upd p u where
-  ViewD' n r s upd p u = ViewDef n r (Map FstSym0 r) s upd p u
+type family ViewD' n r where
+  ViewD' n r = ViewDef n r (Map FstSym0 r)
 
-type ProjD v dd = ProjD' (FieldsGrec (Grec v)) dd
+-- type ProjD v dd = ProjD' (FieldsGrec (Grec v)) dd
 
-type family ProjD' r dd where
-  ProjD' r dd = ProjDef r (Map FstSym0 r) dd
+-- type family ProjD' r dd where
+--   ProjD' r dd = ProjDef r (Map FstSym0 r) dd
 
 type DataDefConstr d =
   ( IsNub (AllKeys d) ~ True
@@ -149,9 +143,9 @@ type DataDefConstr d =
   , SingI (DdFlds d), SingI (DdKey d)
   , SingI (DdUniq d), SingI (DdFrgn d)
   , KnownSymbol (DdName d)
-  , If (IsProj d)
-      (Submap (DdFlds d) (DdRec (DdData d)) ~ Just (Map SndSym0 (DdRec d)))
-      (()::Constraint)
+  -- , If (IsProj d)
+  --     (Submap (DdFlds d) (DdRec (DdData d)) ~ Just (Map SndSym0 (DdRec d)))
+  --     (()::Constraint)
   )
 
 type family Subrec t ns where
