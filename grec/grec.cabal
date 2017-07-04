@@ -22,8 +22,9 @@ library
                       , Data.Type.Grec.FieldsGrec
                       , Data.Type.Grec.Grec
                       , Data.Type.Grec.Lens
+                      , Data.Type.Grec.GrecLens
                       , Data.Type.Grec.Type
-                      
+
   other-modules:        Data.Type.Grec.Internal.GGrecList
 
   default-extensions:   DataKinds

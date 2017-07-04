@@ -1,0 +1,69 @@
+name:                advita
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/odr/advita#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Dmitry Olshansky
+maintainer:          olshanskydr@gmail.com
+copyright:           Dmitry Olshansky
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:      Advita.Model.Access
+                      , Advita.Model.Action
+                      , Advita.Model.ContactInfo
+                      , Advita.Model.Distributor
+                      , Advita.Model.Drug
+                      , Advita.Model.Fields
+                      , Advita.Model.Hospital
+                      , Advita.Model.Module
+                      , Advita.Model.Order
+                      , Advita.Model.Request
+                      , Advita.Model.Role
+                      , Advita.Model.State
+                      , Advita.Model.Transition
+                      , Advita.Model.User
+                      , Advita.Model.Ward
+                      , Advita.Model.WardHistory
+                      , Advita.Model.WardMed
+
+  default-extensions:   DataKinds
+                      , TypeOperators
+                      , DeriveGeneric
+                      , DuplicateRecordFields
+                      , KindSignatures
+  build-depends:       base >= 4.7 && < 5
+                      , text
+                      , time
+                      , grec
+                      , perst
+                      , perst-sqlite
+                      , servant
+  default-language:    Haskell2010
+
+executable advita-exe
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , advita
+  default-language:    Haskell2010
+
+test-suite advita-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , advita
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/odr/advita

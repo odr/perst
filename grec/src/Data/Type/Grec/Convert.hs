@@ -2,11 +2,15 @@
 {-# LANGUAGE TemplateHaskell           #-}
 module Data.Type.Grec.Convert
   ( Convert(..)
-    , IsConv, IsConvSym0
-    , InternalType, InternalTypeSym0
+    , IsConv, IsConvSym0, ConvType
+    , InternalType
+    -- , InternalTypeSym0
   ) where
 
-import           Data.Singletons.TH (genDefunSymbols)
+import           Data.Singletons.TH  (genDefunSymbols)
+import           GHC.TypeLits        (Nat)
+
+import           Data.Type.Grec.Type (GrecGroup)
 
 class Convert a b where
   convert :: a -> b
@@ -22,8 +26,14 @@ type family IsConv a :: Bool where
   IsConv [a]    = False
   IsConv _      = True
 
+type family ConvType a :: Nat where
+  ConvType String = 1
+  ConvType [a]    = 0
+  ConvType (GrecGroup a) = 2
+  ConvType _      = 1
+
 type family InternalType a :: * where
   InternalType [a] = a
   InternalType a   = a
 
-genDefunSymbols [''IsConv, ''InternalType]
+genDefunSymbols [''IsConv]

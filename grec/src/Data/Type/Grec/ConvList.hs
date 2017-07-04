@@ -19,6 +19,9 @@ instance (Convert b a, Convert (Tagged (cc ': ccc) c) (ConvList a))
           . unTagged
 
 
+instance Convert (ConvList a, Tagged '[] ()) (ConvList a) where
+  convert (cl, Tagged _) = cl
+
 instance Convert b a => Convert (ConvList a, Tagged '[bb] b) (ConvList a) where
   convert (cl, Tagged b) = cl `mappend` ConvList [convert b]
 
@@ -27,6 +30,9 @@ instance (Convert b a, Convert (ConvList a, Tagged (cc ': ccc) c) (ConvList a))
   convert (cl, Tagged (b,c))
     = ConvList [convert b] `mappend` convert (cl, Tagged c :: Tagged (cc ': ccc) c)
 
+
+instance Convert (ConvList a) (Tagged '[] ())  where
+  convert _ = Tagged ()
 
 instance Convert a b => Convert (ConvList a) (Tagged '[bb] b) where
   convert (ConvList [a]) = Tagged $ convert a

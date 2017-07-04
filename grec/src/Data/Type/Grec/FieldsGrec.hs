@@ -29,7 +29,8 @@ import           Data.Kind                    (Type)
 import           Data.List                    (partition)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
-import           Data.Singletons.TH           (genDefunSymbols, singletons)
+import           Data.Singletons.TH           (genDefunSymbols, promoteOnly,
+                                               singletons)
 import           Data.Tagged                  (Tagged (..))
 
 import           Data.Type.Grec.Convert       (IsConvSym0)
@@ -57,31 +58,22 @@ singletons
       filterByNotSnd f = filter (not . f . snd)
   |]
 
-instance -- {-# OVERLAPPING #-}
-      (SingI ns, SingI (FieldNamesConvGrec r), ConvFromGrec r [a])
-      => ConvFromGrec (GrecWithout ns r) [a] where
-  convFromGrec = map snd . without sns . zip sr . convFromGrec . unGWO
-   where
-    sns = fromSing (sing :: Sing ns)
-    sr = fromSing (sing :: Sing (FieldNamesConvGrec r))
-
-instance -- {-# OVERLAPPING #-}
-      (SingI ns, SingI (FieldNamesConvGrec r), ConvFromGrec r [a])
-      => ConvFromGrec (GrecWith ns r) [a] where
-  convFromGrec = map snd . with sns . zip sr . convFromGrec . unGW
-   where
-    sns = fromSing (sing :: Sing ns)
-    sr = fromSing (sing :: Sing (FieldNamesConvGrec r))
-
-
 type family FieldsGrec a :: [(Symbol, Type)] where
   -- FieldsGrec (Proxy (ns :: [(Symbol,Type)])) = ns
   FieldsGrec (Tagged (ns :: [Symbol]) (b::Type))
     = TaggedToList (Tagged ns b)
   FieldsGrec (GrecWithout ns a) = Without ns (FieldsGrec a)
   FieldsGrec (GrecWith ns a) = With ns (FieldsGrec a)
+  -- FieldsGrec (Grec (a,b)) = FieldsGrec (a,b)
   FieldsGrec (Grec a) = Fields a
   FieldsGrec (a,b) = FieldsGrec a :++ FieldsGrec b
+
+genDefunSymbols [''FieldsGrec]
+
+-- promoteOnly
+--   [d| fieldsConvGrec = filterBySnd ((/= 0) . isConv) . fieldsGrec
+--   |]
+
 
 type FieldNamesGrec a = Map FstSym0 (FieldsGrec a)
 
@@ -100,7 +92,23 @@ type FieldNamesNotConvGrec a = Map FstSym0 (FieldsNotConvGrec a)
 type FieldTypesNotConvGrec a = Map SndSym0 (FieldsNotConvGrec a)
 
 genDefunSymbols
-  [ ''FieldsGrec, ''FieldNamesGrec, ''FieldTypesGrec
+  [ ''FieldNamesGrec, ''FieldTypesGrec
   , ''FieldsConvGrec, ''FieldNamesConvGrec, ''FieldTypesConvGrec
   , ''FieldsNotConvGrec, ''FieldNamesNotConvGrec, ''FieldTypesNotConvGrec
   ]
+
+instance -- {-# OVERLAPPING #-}
+      (SingI ns, SingI (FieldNamesConvGrec r), ConvFromGrec r [a])
+      => ConvFromGrec (GrecWithout ns r) [a] where
+  convFromGrec = map snd . without sns . zip sr . convFromGrec . unGWO
+   where
+    sns = fromSing (sing :: Sing ns)
+    sr = fromSing (sing :: Sing (FieldNamesConvGrec r))
+
+instance -- {-# OVERLAPPING #-}
+      (SingI ns, SingI (FieldNamesConvGrec r), ConvFromGrec r [a])
+      => ConvFromGrec (GrecWith ns r) [a] where
+  convFromGrec = map snd . with sns . zip sr . convFromGrec . unGW
+   where
+    sns = fromSing (sing :: Sing ns)
+    sr = fromSing (sing :: Sing (FieldNamesConvGrec r))

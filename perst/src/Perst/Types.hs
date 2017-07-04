@@ -21,20 +21,20 @@ promoteOnly
       allIsSub :: Eq a => [[a]] -> [a] -> Bool
       allIsSub ass ps = all (`isSub` ps) ass
 
-      checkFK :: Eq a => [([(a,b)],(c,d))] -> [a] -> Bool
-      checkFK fks rs = all (\(fs,_) -> all (\(f,_) -> f `elem` rs) fs) fks
-
-      isNub :: Eq a => [a] -> Bool
-      isNub xs = xs == nub xs
-
-      allIsNub :: Eq a => [[a]] -> Bool
-      allIsNub = all isNub
-
-      pIsNub :: (Eq a, Eq b) => ([a],[b]) -> Bool
-      pIsNub (as,bs) = isNub as && isNub bs
-
-      fkIsNub :: (Eq a, Eq b) => [([(a,b)],(c,d))] -> Bool
-      fkIsNub = all (pIsNub . unzip) . map fst
+      -- checkFK :: Eq a => [([(a,b)],(c,d))] -> [a] -> Bool
+      -- checkFK fks rs = all (\(fs,_) -> all (\(f,_) -> f `elem` rs) fs) fks
+      --
+      -- isNub :: Eq a => [a] -> Bool
+      -- isNub xs = xs == nub xs
+      --
+      -- allIsNub :: Eq a => [[a]] -> Bool
+      -- allIsNub = all isNub
+      --
+      -- pIsNub :: (Eq a, Eq b) => ([a],[b]) -> Bool
+      -- pIsNub (as,bs) = isNub as && isNub bs
+      --
+      -- fkIsNub :: (Eq a, Eq b) => [([(a,b)],(c,d))] -> Bool
+      -- fkIsNub = all (pIsNub . unzip) . map fst
 
       backTypes :: a -> (c -> (d, Bool)) -> (a -> d -> Symbol) -> [(b,c)] -> [(Symbol,Bool)]
       backTypes a nul f = map ((\(d,b) -> (f a d, b)) . nul . snd)

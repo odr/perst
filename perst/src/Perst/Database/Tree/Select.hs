@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeInType           #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Perst.Database.Tree.Select (selectTreeMany) where
+module Perst.Database.Tree.Select where -- (selectTreeMany, SelectChilds()) where
 
 import           Control.Applicative        (ZipList (..), liftA2)
 import           Control.Monad.Catch        (MonadMask)
@@ -12,20 +12,19 @@ import           Data.Tagged                (Tagged (..), retag)
 import           Data.Traversable           (Traversable (..))
 import           Lens.Micro                 ((.~))
 
-import           Data.Type.Grec             (FieldName (..), Grec (..),
-                                             GrecWith (..), LensedConstraint,
-                                             nlens)
+import           Data.Type.Grec             (Grec (..), GrecWith (..),
+                                             LensedConstraint, nlens)
 import           Perst.Database.Constraints (SelConstr)
 import           Perst.Database.DbOption    (SessionMonad)
 import           Perst.Database.DML         (selectMany)
 import           Perst.Database.Tree.Def    (ChildByParents, FieldByName,
                                              GrecChilds, TaggedAllParentKeys,
-                                             TdData)
+                                             TdData, TreeDef)
 
 type SelectTreeConstraint m f b t r k =
   ( Applicative f, Traversable f
   , SelConstr m b (TdData t) (TaggedAllParentKeys t, Grec r) k
-  , SelectChilds m (Compose f ZipList) b (GrecChilds t r) (TaggedAllParentKeys t) r
+  , SelectChilds m (Compose f ZipList) b (GrecChilds t (Grec r)) (TaggedAllParentKeys t) r
   )
 
 selectTreeMany :: SelectTreeConstraint m ZipList b t r k
@@ -40,9 +39,11 @@ selectTreeMany' (_ :: Proxy t) (_ :: Proxy r) ks
  where
   ptd = Proxy :: Proxy (TdData t)
   pkr = Proxy :: Proxy (TaggedAllParentKeys t, Grec r)
-  ptc = Proxy :: Proxy (GrecChilds t r)
+  ptc = Proxy :: Proxy (GrecChilds t (Grec r))
 
-class SelectChilds m f b chs ks r where
+class SelectChilds m f b
+          (chs :: [(Symbol, (TreeDef, [(Symbol,Symbol)]))])
+          ks r where
   selectChilds :: Proxy chs -> f (ks,r) -> SessionMonad b m (f (ks,r))
 
 instance Monad m => SelectChilds m f b '[] ks r where
@@ -66,4 +67,4 @@ instance  ( SelectTreeConstraint m f b td (FieldByName s r)
       . (retag :: Tagged nk vk -> Tagged (ChildByParents rs nk) vk)
       . fst
       ) compKR
-    updRec k' r' = second (nlens (FieldName :: FieldName s) .~ r') k'
+    updRec k' r' = second (nlens (Proxy :: Proxy s) .~ r') k'

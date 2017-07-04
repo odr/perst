@@ -24,7 +24,8 @@ import           Data.Tagged                   (Tagged (..))
 import           GHC.Generics                  (Generic)
 
 import           Data.Type.Grec
-import           Perst.Database.DataDef        (DelCons (..), Subrec, TableD)
+import           Perst.Database.DataDef        (DataDFC (..), DelCons (..),
+                                                Subrec, TableD)
 import           Perst.Database.DbOption       (DbOption (..), DbTypeName,
                                                 SessionMonad)
 import           Perst.Database.DDL            as DDL
@@ -44,16 +45,21 @@ data Tab = Rec
   , z    :: NInt
   } deriving (Show, Eq, Generic)
 
-type TTab = TableD Tab '["id"] '[ '["name"]] '[] 'True
+type TTab = DataD (TableD Tab '["id"] '[ '["name"]] True) '[]
 
 pTab :: Proxy TTab
 pTab = Proxy
 
+
 data Customer = Customer
-  { id        :: Int64
-  , name      :: T.Text
+  { id    :: Int64
+  , names :: GrecGroup Names
+  , email :: T.Text
+  } deriving (Show, Generic)
+
+data Names = Names
+  { name      :: T.Text
   , shortname :: Maybe T.Text
-  , email     :: T.Text
   } deriving (Show, Generic)
 
 data Orders = Order -- name ORDER is disbled in sqlite!
@@ -83,6 +89,34 @@ data Address = Address
   , street     :: T.Text
   } deriving (Show, Generic, Eq, Ord)
 
+type TCustomerTab = TableD Customer '["id"] '[ '["name"]] False
+type TCustomer = DataD TCustomerTab '[]
+
+type TOrderTab = TableD Orders '["id"] '[ '["customerId", "num"]] True
+type TOrder = DataD TOrderTab
+                    '[ '(TCustomerTab, '[ '("customerId", "id")],  DcCascade)
+                     , '(TCustomerTab, '[ '("coCustomerId", "id")], DcSetNull)
+                     ]
+
+type TArticleTab = TableD Article '["id"] '[ '["name"]] False
+type TArticle = DataD TArticleTab '[]
+
+type TOrderPosition
+  = DataD (TableD OrderPosition '["orderId","articleId"] '[] False)
+          '[ '(TOrderTab, '[ '("orderId"  ,"id")], DcCascade)
+           , '(TArticleTab,  '[ '("articleId","id")], DcRestrict)
+           ]
+
+type TAddressTab = TableD Address '["id"] '[] False
+type TAddress = DataD TAddressTab
+                      '[ '(TCustomerTab, '[ '("customerId", "id")], DcCascade)]
+
+pCustomer = Proxy :: Proxy TCustomer
+pOrder    = Proxy :: Proxy TOrder
+pArticle  = Proxy :: Proxy TArticle
+pOrderPosition = Proxy :: Proxy TOrderPosition
+pAddress  = Proxy :: Proxy TAddress
+
 data CustomerTree = CustomerTree
   { id        :: Int64
   , name      :: T.Text
@@ -97,28 +131,6 @@ data OrderTree = OrderTree
   , date      :: T.Text
   , positions :: [OrderPosition]
   } deriving (Show, Generic, Eq, Ord)
-
-type TCustomer = TableD Customer '["id"] '[ '["name"]] '[] 'False
-type TOrder = TableD Orders '["id"] '[ '["customerId", "num"]]
-    '[ '( '[ '("customerId", "id")], '("Customer", DcCascade))
-     , '( '[ '("coCustomerId", "id")], '("Customer", DcSetNull))
-     ]
-     'True
-type TArticle = TableD Article '["id"] '[ '["name"]] '[] 'False
-type TOrderPosition = TableD OrderPosition '["orderId","articleId"] '[]
-    '[ '( '[ '("orderId","id")], '("Customer",DcCascade))
-     , '( '[ '("articleId","id")], '("Article",DcRestrict))
-     ]
-     'False
-type TAddress = TableD Address '["id"] '[]
-    '[ '( '[ '("customerId", "id")], '("Customer", DcCascade))]
-    'False
-
-pCustomer = Proxy :: Proxy TCustomer
-pOrder    = Proxy :: Proxy TOrder
-pArticle  = Proxy :: Proxy TArticle
-pOrderPosition = Proxy :: Proxy TOrderPosition
-pAddress  = Proxy :: Proxy TAddress
 
 type TCustomerTree
   = TreeDefC TCustomer
@@ -178,9 +190,9 @@ main = runSession sqlite "test.db" $ do
   createTab pAddress
 
 -- {-
-  insertManyR pCustomer [ Customer 1 "odr" (Just "odr") "x"
-                        , Customer 2 "dro" Nothing "y"
-                        , Customer 3 "zev" Nothing "z"
+  insertManyR pCustomer [ Customer 1 (GrecGroup $ Names "odr" (Just "odr")) "x"
+                        , Customer 2 (GrecGroup $ Names "dro" Nothing) "y"
+                        , Customer 3 (GrecGroup $ Names "zev" Nothing) "z"
                         ]
   rs <- insertManyR pOrder  [ Order 0 "1" 1 Nothing  "01.01.2017"
                             , Order 0 "2" 1 (Just 2) "01.02.2017"
@@ -199,6 +211,7 @@ main = runSession sqlite "test.db" $ do
                         , Address 3 2 "Some street"
                         ]
 -- -}
+
   -- insertTreeMany pCustomerTree ct
 
   ct' <- selectTreeMany pCustomerTree

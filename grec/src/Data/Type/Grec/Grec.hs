@@ -15,5 +15,6 @@ instance (GListToGrec a (Rep r), Generic r)
     => Convert (ConvList a) (ConvList a, Grec r) where
   convert = bimap ConvList (Grec . to) . gListToGrec . unConvList
 
-instance (GListFromGrec a (Rep r), Generic r) => Convert (ConvList a, Grec r) (ConvList a) where
+instance (GListFromGrec a (Rep r), Generic r)
+    => Convert (ConvList a, Grec r) (ConvList a) where
   convert (x,y)= x `mappend` ConvList (gListFromGrec $ from $ unGrec y)

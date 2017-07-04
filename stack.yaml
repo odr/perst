@@ -4,5 +4,6 @@ packages:
 - grec
 - perst
 - perst-sqlite
+- advita
 extra-deps:
 resolver: lts-8.7

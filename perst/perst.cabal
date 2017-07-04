@@ -19,6 +19,7 @@ library
                       , Perst.Database.DbOption
                       , Perst.Database.Constraints
                       , Perst.Types
+                      , Perst.Lens
                       , Perst.Database.DDL
                       , Perst.Database.DML
                       , Perst.Database.TreeDef

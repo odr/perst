@@ -3,7 +3,7 @@ module Data.Type.Grec.ConvGrec( ConvToGrec(..), ConvFromGrec(..)) where
 
 import           Data.Semigroup          (Semigroup (..))
 import           Data.Tagged             (Tagged (..))
-import           GHC.TypeLits            (Symbol)
+import           GHC.TypeLits            (Nat, Symbol)
 
 import           Data.Type.Grec.Convert  (Convert (..))
 import           Data.Type.Grec.ConvList (ConvList (..))
@@ -14,6 +14,17 @@ class ConvToGrec a b where
 
 class ConvFromGrec a b where
   convFromGrec :: a -> b
+
+-- type family GrecType a :: Nat where
+--   GrecType (a,b) = 2
+--   GrecType a = 1
+--
+-- class ConvToGrec a b where
+--   convToGrec :: a -> b
+--
+-- class ConvFromGrec a b where
+--   convFromGrec :: a -> b
+--
 
 instance Convert (ConvList a, Grec r) (ConvList a)
       => ConvFromGrec (Grec r) [a] where

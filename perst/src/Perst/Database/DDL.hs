@@ -14,7 +14,8 @@ import           Data.Text.Format           (Only (..), format)
 import           Data.Text.Lazy             (Text)
 import           GHC.TypeLits               (KnownSymbol, symbolVal)
 import           Perst.Database.Constraints (DDLConstr)
-import           Perst.Database.DataDef     (DataDef, DataDef' (..), fieldNames,
+import           Perst.Database.DataDef     (DataDef, DataDef' (..),
+                                             DataDef'' (..), fieldNames,
                                              foreignKeys, primaryKey, tableName,
                                              uniqKeys)
 import           Perst.Database.DbOption    (DbOption (..), SessionMonad,
@@ -28,8 +29,8 @@ class DDLConstr m b t => DDL m b (t :: DataDef) where
   create = createText (Proxy :: Proxy b) >=> execCommand
   drop   = dropText (Proxy :: Proxy b) >=> execCommand
 
-instance DDLConstr m b (TableDef n r fn p u f ai)
-      => DDL m b (TableDef n r fn p u f ai) where
+instance DDLConstr m b (DataDefC (TableDef n r fn p u ai) f)
+      => DDL m b (DataDefC (TableDef n r fn p u ai) f) where
   createText pb pt
     = return $ format "CREATE TABLE {} {} ({}, PRIMARY KEY ({}) {} {})"
         ( afterCreateTableText pb
@@ -52,8 +53,8 @@ instance DDLConstr m b (TableDef n r fn p u f ai)
         )
   dropText _ pt = return $ format "DROP TABLE {}" $ Only (tableName pt)
 
-instance (DDLConstr m b (ViewDef n r fn (Just s) upd p u f), KnownSymbol s)
-      => DDL m b (ViewDef n r fn (Just s) upd p u f) where
+instance (DDLConstr m b (DataDefC (ViewDef n r fn (Just s) upd p u ai) f), KnownSymbol s)
+      => DDL m b (DataDefC (ViewDef n r fn (Just s) upd p u ai) f) where
   createText pb pt
     = return $ format "CREATE VIEW {} {} AS {}"
         ( afterCreateTableText pb

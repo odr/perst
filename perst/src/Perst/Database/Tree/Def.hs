@@ -40,15 +40,14 @@ promoteOnly [d|
   childKeys s = map fst . snd . child s
   parentKeys s = map snd . snd . child s
 
-  childByParents rs ss
-      = map (\s' -> fromMaybe "_u_n_u_s_e_d_" $ lookup s' ck) ss
+  childByParents rs ss = map (\s' -> fromMaybe "_u_n_u_s_e_d_" $ lookup s' ck) ss
     where
       ck = map (\(a,b) -> (b,a)) rs
 
   fieldByName' s xs = fromMaybe (error "Can't lookup child field")
                     $ lookup s xs
 
-  grecChilds' t ss  = fromMaybe (error "Can't submap childs!")
+  grecChilds' t ss  = fromMaybe (error "GrecChilds': Can't submap childs!")
                     $ submap2 ss (tdChilds t)
   |]
 
@@ -60,7 +59,12 @@ promoteOnly [d|
           ) $ tdChilds t
   |]
 
-type GrecChilds t r = GrecChilds' t (FieldNamesNotConvGrec (Grec r))
+type GrecChilds t r = GrecChilds' t (FieldNamesNotConvGrec r)
+
+-- test = Proxy :: Proxy (GrecChilds
+--           ( Tagged '["x","y"] (1::Int, 'y')
+--           , GWO (Tagged ('z',1) :: Tagged '["z","n"] (Char, Int)) :: GrecWithout '["n"]
+--           ))
 
 type TreeDef = TreeDef' Symbol Type
 

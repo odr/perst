@@ -10,4 +10,5 @@ import           Data.Type.Grec.FieldsGrec as Grec
 import           Data.Type.Grec.Grec       as Grec
 import           Data.Type.Grec.Lens       as Grec
 -- import           Data.Type.Grec.TreeType   as Grec
+import           Data.Type.Grec.GrecLens   as Grec
 import           Data.Type.Grec.Type       as Grec

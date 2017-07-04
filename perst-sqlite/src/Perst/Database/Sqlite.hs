@@ -1,6 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Perst.Database.Sqlite
-    ( Sqlite, sqlite
+    ( Sqlite, sqlite, SQLData
     )
     where
 
@@ -22,7 +22,7 @@ import           Database.SQLite3           (Database, SQLData (..), Statement,
                                              lastInsertRowId, open, prepare,
                                              reset, step)
 import           Perst.Database.Constraints
-import           Perst.Database.DbOption    (DbOption (..), DbTypeName)
+import           Perst.Database.DbOption    (DBEnum, DbOption (..), DbTypeName)
 
 data Sqlite
 
@@ -33,6 +33,8 @@ type instance DbTypeName Sqlite Int64      = "INTEGER"
 type instance DbTypeName Sqlite Text       = "TEXT"
 type instance DbTypeName Sqlite Double     = "FLOAT"
 type instance DbTypeName Sqlite ByteString = "BLOB"
+type instance DbTypeName Sqlite (DBEnum a) = "TEXT"
+
 
 instance Convert SQLData Int64 where
   convert (SQLInteger x) = x

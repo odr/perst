@@ -55,9 +55,6 @@ type InsConstr m b t r =
   , SingI (DdAutoIns t)
   , InsConstr' b t (FieldNamesConvGrec r) (FieldTypesConvGrec r)
   , ConvFromGrec r [FieldDB b]
-  -- , If (IsProj t)
-  --     (IsSub (Mandatory (DdRec (DdData t))) (DdFlds t) ~ True)
-  --     (()::Constraint)
   )
 type family InsConstr' b t fnr ftr where
   InsConstr' b t fnr ftr =

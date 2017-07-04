@@ -1,5 +1,7 @@
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE ExistentialQuantification  #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell            #-}
 module Perst.Database.DbOption
     (
     -- * Backend definition
@@ -20,18 +22,26 @@ module Perst.Database.DbOption
 
     , SessionMonad
     , runCommand
+
+    -- * DBFields
+
+    , DBEnum(..)
     ) where
 
 import           Control.Monad.Catch        (MonadCatch, MonadMask)
 import           Control.Monad.IO.Class     (MonadIO)
 import           Control.Monad.Trans.Reader (ReaderT)
 import           Data.Kind                  (Type)
+import           Data.List                  (find)
+import           Data.Maybe                 (fromMaybe)
 import           Data.Proxy                 (Proxy (..))
 import           Data.Singletons.Prelude
 import           Data.Singletons.TH         (genDefunSymbols)
-import           Data.Text.Lazy             (Text)
+import           Data.String                (IsString)
+import           Data.Text.Lazy             (Text, pack, unpack)
+import           GHC.Generics               (Generic)
 
-import           Data.Type.Grec             (FieldsGrec)
+import           Data.Type.Grec             (Convert (..), FieldsGrec)
 import           Perst.Database.DataDef
 import           Perst.Types                (BackTypes)
 
@@ -102,3 +112,17 @@ type DbOptionConstr m b d =
   , SingI (BackTypes b NullableSym0 DbTypeNameSym0 (DdRec d))
   , MonadIO m, MonadMask m
   )
+
+newtype DBEnum (a :: [Symbol]) = DBEnum { getDBEnum :: Text }
+  deriving (Show, Eq, Ord, Generic, IsString)
+
+instance (Convert a Text, SingI ss) => Convert a (DBEnum ss) where
+  convert = DBEnum . check . convert
+    where
+      ss = showProxy (Proxy :: Proxy ss)
+      check s
+        = fromMaybe (error $ "Invalid value '" ++ unpack s ++ "' for DBEnum" ++ show ss)
+        $ find (== s) $ map pack ss
+
+instance Convert Text a => Convert (DBEnum ss) a where
+  convert = convert . getDBEnum

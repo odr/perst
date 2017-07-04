@@ -1,7 +1,9 @@
+{-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Type.Grec.Type
     ( (:::), Cons, Fields, Typ, GFields, ListToTagged, TaggedToList, ListToPairs
     , ListToTaggedPairs
+    , GrecGroup(..), UnGrecGroup, GUnGroupFields
     ) where
 
 import           Data.Kind               (Type)
@@ -29,7 +31,16 @@ type family GTyp (a :: k1) :: Symbol where
       :$$: Text "Checked type is " :<>: ShowType a
       )
 
-type Fields a = GFields (Rep a)
+newtype GrecGroup a = GrecGroup { getGrecGroup :: a } deriving (Show, Eq, Ord, Generic)
+type family UnGrecGroup (a :: [(Symbol, Type)]) where
+  UnGrecGroup '[] = '[]
+  UnGrecGroup ('(s, GrecGroup b) ': as) = Fields b :++ UnGrecGroup as
+  UnGrecGroup (a ': as) = a ': UnGrecGroup as
+
+
+type Fields a = GUnGroupFields (Rep a)
+type GUnGroupFields g = UnGrecGroup (GFields g)
+
 type family GFields (a :: k1) :: [(Symbol,Type)] where
   GFields (S1 (MetaSel ('Just s) _ _ _) (Rec0 v)) = '[ '(s, v)]
   GFields (C1 _ s) = GFields s
@@ -39,7 +50,7 @@ type family GFields (a :: k1) :: [(Symbol,Type)] where
   -- newtype
   GFields (D1 (MetaData _ _ _ 'True) (C1 _ (S1 _ (Rec0 dt)))) = GFields (Rep dt)
   GFields a = TypeError (
-      Text "GFields is supported only for Representation of record with one constructor"
+      Text "Grec.Type.hs: GFields is supported only for Representation of record with one constructor"
       :$$: Text "and at least one field or newtype for such record"
       :$$: Text "Checked type is " :<>: ShowType a
       )
