@@ -11,9 +11,9 @@ import           Data.Singletons.Prelude.List  (FindSym0, LookupSym0, NubSym0)
 import           Data.Singletons.Prelude.Maybe (FromMaybeSym0)
 import           Data.Singletons.TH            (promoteOnly, singletons)
 
-import           Data.Type.Grec                (FieldNamesNotConvGrec, Fields,
-                                                Grec (..), InternalType,
-                                                ListToTaggedPairs)
+import           Data.Type.Grec                (FieldNamesNotConvGrec,
+                                                FieldsGrec, Grec (..),
+                                                InternalType, ListToTaggedPairs)
 import           Perst.Database.DataDef        (DataDef', DdFldsSym0, DdRecSym0)
 import           Perst.Types                   (IsSubSym0, Submap2, Submap2Sym0)
 
@@ -70,9 +70,9 @@ type TreeDef = TreeDef' Symbol Type
 
 type CheckTree a = CheckTree' a ~ True
 
-type MbFieldByName s r = Lookup s (Fields r)
+type MbFieldByName s r = Lookup s (FieldsGrec r)
 
-type FieldByName s r = InternalType (FieldByName' s (Fields r))
+type FieldByName s r = InternalType (FieldByName' s (FieldsGrec r))
 
 type TaggedAllParentKeys t = ListToTaggedPairs (AllParentKeys t)
 -- type CheckChilds a b = FromConsList (CheckChilds' ContainSym0 a b)

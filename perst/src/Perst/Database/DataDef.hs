@@ -12,6 +12,7 @@ module Perst.Database.DataDef
   , TableD, ViewD, DataDFC(..)
   , DdName, DdRec, DdFlds, DdKey, DdUniq, DdUpd, AllKeys, DdFrgn, DdAutoIns -- , DdData
   , DdNameSym0, DdRecSym0, DdKeySym0, DdUniqSym0, DdUpdSym0, DdFrgnSym0, DdFldsSym0
+  , Dd, Ddf
   , DataDefConstr
   , ddFlds, sDdFlds, ddRec, sDdRec
   -- * Good functions to take table info in runtime

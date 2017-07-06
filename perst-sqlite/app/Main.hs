@@ -54,7 +54,7 @@ pTab = Proxy
 data Customer = Customer
   { id    :: Int64
   , names :: GrecGroup Names
-  , email :: T.Text
+  -- , email :: T.Text
   } deriving (Show, Generic)
 
 data Names = Names
@@ -189,7 +189,7 @@ main = runSession sqlite "test.db" $ do
   createTab pOrderPosition
   createTab pAddress
 
--- {-
+{-
   insertManyR pCustomer [ Customer 1 (GrecGroup $ Names "odr" (Just "odr")) "x"
                         , Customer 2 (GrecGroup $ Names "dro" Nothing) "y"
                         , Customer 3 (GrecGroup $ Names "zev" Nothing) "z"
@@ -210,9 +210,9 @@ main = runSession sqlite "test.db" $ do
                         , Address 2 1 "My second street"
                         , Address 3 2 "Some street"
                         ]
--- -}
+-}
 
-  -- insertTreeMany pCustomerTree ct
+  insertTreeManyR pCustomerTree ct
 
   ct' <- selectTreeMany pCustomerTree
                 (Proxy :: Proxy CustomerTree)

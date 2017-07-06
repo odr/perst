@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Data.Type.Grec.Lens(nlens, {- FieldName(..), -} LensedConstraint) where
+module Data.Type.Grec.Lens(nlens, LensedConstraint) where
 
 import           Control.Monad                 ((>=>))
 import           Data.Maybe                    (isJust)
@@ -16,9 +16,9 @@ type LensedConstraint r n t
   = (Generic r, GLensed n t (Rep r), Lookup n (Fields r) ~ Just t)
 
 -- data FieldName (n::Symbol) = FieldName
-instance (LensedConstraint b n a, Functor f)
-    => IsLabel n ((a -> f a) -> b -> f b) where
-  fromLabel _ = nlens (Proxy :: Proxy n)
+-- instance (LensedConstraint b n a, Functor f)
+--     => IsLabel n ((a -> f a) -> b -> f b) where
+--   fromLabel _ = nlens (Proxy :: Proxy n)
 
 nlens :: (LensedConstraint b n a, Functor f)
       => Proxy n -> (a -> f a) -> b -> f b

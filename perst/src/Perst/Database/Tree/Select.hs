@@ -12,8 +12,8 @@ import           Data.Tagged                (Tagged (..), retag)
 import           Data.Traversable           (Traversable (..))
 import           Lens.Micro                 ((.~))
 
-import           Data.Type.Grec             (Grec (..), GrecWith (..),
-                                             LensedConstraint, nlens)
+import           Data.Type.Grec             (Grec (..), GrecLens (..),
+                                             GrecWith (..))
 import           Perst.Database.Constraints (SelConstr)
 import           Perst.Database.DbOption    (SessionMonad)
 import           Perst.Database.DML         (selectMany)
@@ -49,9 +49,9 @@ class SelectChilds m f b
 instance Monad m => SelectChilds m f b '[] ks r where
   selectChilds _ = return
 
-instance  ( SelectTreeConstraint m f b td (FieldByName s r)
+instance  ( SelectTreeConstraint m f b td (FieldByName s (Grec r))
               (GrecWith (Map FstSym0 rs) (Tagged (ChildByParents rs nk) vk))
-          , LensedConstraint r s [FieldByName s r]
+          , GrecLens s [FieldByName s (Grec r)] (Grec r)
           , SelectChilds m f b chs (Tagged nk vk) r
           )
     => SelectChilds m f b ('(s,'(td,rs)) ': chs) (Tagged nk vk) r where
@@ -60,11 +60,12 @@ instance  ( SelectTreeConstraint m f b td (FieldByName s r)
     >>= selectChilds (Proxy :: Proxy chs)
    where
     ptd = Proxy :: Proxy td
-    ptr = Proxy :: Proxy (FieldByName s r)
+    ptr = Proxy :: Proxy (FieldByName s (Grec r))
     newkey = fmap
       ( (GW :: Tagged (ChildByParents rs nk) vk
             -> GrecWith (Map FstSym0 rs) (Tagged (ChildByParents rs nk) vk))
       . (retag :: Tagged nk vk -> Tagged (ChildByParents rs nk) vk)
       . fst
       ) compKR
-    updRec k' r' = second (nlens (Proxy :: Proxy s) .~ r') k'
+    updRec :: (Tagged nk vk, r) -> [FieldByName s (Grec r)] -> (Tagged nk vk, r)
+    updRec k' r' = second (unGrec . (grecLens (Proxy :: Proxy s) .~ r') . Grec) k'
