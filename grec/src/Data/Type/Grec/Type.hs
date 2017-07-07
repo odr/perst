@@ -1,17 +1,28 @@
-{-# LANGUAGE DeriveGeneric        #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds           #-}
+{-# LANGUAGE DeriveGeneric             #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE UndecidableInstances      #-}
 module Data.Type.Grec.Type
     ( (:::), Cons, Fields, Typ, GFields, ListToTagged, TaggedToList, ListToPairs
     , ListToTaggedPairs
     , GrecGroup(..), UnGrecGroup, GUnGroupFields
+    , IsSub, IsSubSym0, IsSubSym1
+    , AllIsSub, AllIsSubSym0, AllIsSubSym1
+    , Submap, SubmapSym0, SubmapSym1
+    , Submap2, Submap2Sym0, Submap2Sym1
+    , Contain, ContainSym0, ContainSym1
     ) where
 
-import           Data.Kind               (Type)
+import           Data.Kind                     (Type)
 import           Data.Singletons.Prelude
-import           Data.Tagged             (Tagged (..))
+import           Data.Singletons.Prelude.List
+import           Data.Singletons.Prelude.Maybe
+import           Data.Singletons.TH
+import           Data.Tagged                   (Tagged (..))
 import           GHC.Generics
-import           GHC.OverloadedLabels    (IsLabel (..))
-import           GHC.TypeLits            (ErrorMessage (..), TypeError)
+import           GHC.OverloadedLabels          (IsLabel (..))
+import           GHC.TypeLits                  (ErrorMessage (..), TypeError)
 
 type (:::) a b = '(a,b)
 
@@ -81,3 +92,23 @@ type family ListToPairs (t :: [Type]) :: Type where
   ListToPairs (a1 ': a2 ': as) = (a1, ListToPairs (a2 ': as))
 
 type ListToTaggedPairs t = Tagged (Map FstSym0 t) (ListToPairs (Map SndSym0 t))
+
+promoteOnly
+  [d| isSub :: Eq a => [a] -> [a] -> Bool
+      isSub as bs = all (`elem` bs) as -- null $ aa \\ bs
+
+      allIsSub :: Eq a => [[a]] -> [a] -> Bool
+      allIsSub ass ps = all (`isSub` ps) ass
+
+      submap :: Eq a => [a] -> [(a,b)] -> Maybe [b]
+      submap as ps = let rs = map (`lookup` ps) as in
+        if any_ isNothing rs then Nothing else Just (map fromJust rs)
+
+      submap2 :: Eq a => [a] -> [(a,b)] -> Maybe [(a,b)]
+      submap2 as ps = case submap as ps of
+        Nothing -> Nothing
+        Just rs -> Just (zip as rs)
+  |]
+
+type Contain a b = Submap (Map FstSym0 b) a ~ Just (Map SndSym0 b)
+genDefunSymbols [''Contain]

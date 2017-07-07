@@ -39,7 +39,6 @@ import           Perst.Database.DbOption       (DbOption (..), DbTypeName,
 import           Perst.Database.DDL            as DDL
 import           Perst.Database.DML
 import           Perst.Database.TreeDef
-import           Perst.Lens                    (NamesGrecLens)
 import           Perst.Types
 
 ----------------------

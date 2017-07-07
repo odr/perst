@@ -19,15 +19,16 @@ library
                       , Perst.Database.DbOption
                       , Perst.Database.Constraints
                       , Perst.Types
-                      , Perst.Lens
+                      -- , Perst.Lens
                       , Perst.Database.DDL
                       , Perst.Database.DML
                       , Perst.Database.TreeDef
                       , Perst.Database.Tree.Def
                       , Perst.Database.Tree.Insert
                       , Perst.Database.Tree.Select
+                      , Perst.Database.Tree.Update
 
-  extensions:           DataKinds
+  default-extensions:   DataKinds
                       , TypeOperators
                       , KindSignatures
                       , OverloadedStrings
@@ -38,7 +39,13 @@ library
                       , FlexibleContexts
                       , FlexibleInstances
                       , ConstraintKinds
-                      , MagicHash
+                      -- , MagicHash
+
+  other-extensions:     RankNTypes
+                      , TypeInType
+                      , ExistentialQuantification
+                      , UndecidableInstances
+                      , TemplateHaskell
 
   build-depends:       base >= 4.7 && < 5
                       , grec

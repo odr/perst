@@ -34,13 +34,14 @@ import           Data.Singletons.TH            (genDefunSymbols, promoteOnly,
                                                 singletons, singletonsOnly)
 import           Data.Tagged                   (Tagged)
 import qualified Data.Text.Lazy                as TL
-import           Data.Type.Grec                (FieldNamesConvGrec, FieldsGrec,
-                                                Grec, ListToPairs, Typ)
+import           Data.Type.Grec                (AllIsSub, FieldNamesConvGrec,
+                                                FieldsGrec, Grec, IsSub,
+                                                IsSubSym0, ListToPairs, Submap,
+                                                Typ)
 import           GHC.Generics                  (Generic)
 import           GHC.TypeLits                  (ErrorMessage (..), KnownSymbol,
                                                 TypeError)
-import           Perst.Types                   (AllIsSub, IsSub, IsSubSym0,
-                                                Submap)
+import           Perst.Types                   ()
 
 singletons [d|
   data DelCons = DcRestrict | DcCascade | DcSetNull

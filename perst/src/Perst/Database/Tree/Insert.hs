@@ -19,15 +19,16 @@ import           Lens.Micro.Extras             (view)
 
 import           Data.Type.Grec                (FieldsGrec, FieldsGrecSym0,
                                                 Grec (..), GrecLens (..),
-                                                GrecWithout (..), ListToPairs)
+                                                GrecWithout (..), ListToPairs,
+                                                NamesGrecLens (..), Submap,
+                                                SubmapSym0)
 import           Perst.Database.Constraints    (InsConstr)
 import           Perst.Database.DataDef        (DdAutoIns, DdKey)
 import           Perst.Database.DbOption       (GenKey, SessionMonad)
 import           Perst.Database.DML            (insertMany)
 import           Perst.Database.Tree.Def       (FieldByName, GrecChilds, TdData,
                                                 TreeDef)
-import           Perst.Lens                    (NamesGrecLens (..))
-import           Perst.Types                   (Submap, SubmapSym0)
+-- import           Perst.Lens                    (NamesGrecLens (..))
 
 type InsertTreeConstraint m f b t r =
   ( Applicative f, Traversable f
@@ -70,7 +71,6 @@ promoteOnly [d|
   getParentTypes rs r = fromMaybe
     (error "Invalid parent fields in InsertChilds!")
     $ submap (map snd rs) $ fieldsGrec r
-  -- test s = error s
   |]
 
 type Fsts rs = Map FstSym0 rs

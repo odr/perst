@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE TypeInType           #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Perst.Database.DDL
@@ -26,8 +27,8 @@ class DDLConstr m b t => DDL m b (t :: DataDef) where
   drop        :: Proxy t -> SessionMonad b m ()
   createText  :: Proxy b -> Proxy t -> SessionMonad b m Text
   dropText    :: Proxy b -> Proxy t -> SessionMonad b m Text
-  create = createText (Proxy :: Proxy b) >=> execCommand
-  drop   = dropText (Proxy :: Proxy b) >=> execCommand
+  create pt = createText (Proxy :: Proxy b) pt >>= execCommand
+  drop   pt = dropText   (Proxy :: Proxy b) pt >>= execCommand
 
 instance DDLConstr m b (DataDefC (TableDef n r fn p u ai) f)
       => DDL m b (DataDefC (TableDef n r fn p u ai) f) where

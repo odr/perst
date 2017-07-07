@@ -13,9 +13,10 @@ import           Data.Singletons.TH            (promoteOnly, singletons)
 
 import           Data.Type.Grec                (FieldNamesNotConvGrec,
                                                 FieldsGrec, Grec (..),
-                                                InternalType, ListToTaggedPairs)
+                                                InternalType, IsSubSym0,
+                                                ListToTaggedPairs, Submap2,
+                                                Submap2Sym0)
 import           Perst.Database.DataDef        (DataDef', DdFldsSym0, DdRecSym0)
-import           Perst.Types                   (IsSubSym0, Submap2, Submap2Sym0)
 
 singletons [d|
   data TreeDef' s t = TreeDefC (DataDef' s t) [(s, (TreeDef' s t, [(s,s)]))]

@@ -6,4 +6,5 @@ module Perst.Database.TreeDef
 import           Perst.Database.Tree.Def    as TD
 import           Perst.Database.Tree.Insert as TD
 import           Perst.Database.Tree.Select as TD
+import           Perst.Database.Tree.Update as TD
 {--}

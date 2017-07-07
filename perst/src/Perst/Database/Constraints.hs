@@ -20,7 +20,8 @@ import           Data.Singletons.Prelude      (Elem, Error, If, SingI)
 import           Data.Singletons.Prelude.List ((:\\))
 import           Data.Type.Grec               (ConvFromGrec, ConvToGrec,
                                                FieldNamesConvGrec,
-                                               FieldTypesConvGrec)
+                                               FieldTypesConvGrec, IsSub,
+                                               Submap)
 import           GHC.TypeLits                 (ErrorMessage (..), KnownSymbol,
                                                SomeSymbol (..), Symbol (..),
                                                TypeError, symbolVal')
@@ -28,8 +29,7 @@ import           Perst.Database.DataDef       (AllKeys, DataDef, Dd, DdAutoIns,
                                                DdKey, DdRec, DdRec, DdUpd)
 import           Perst.Database.DbOption      (DbOption (..), DbOptionConstr,
                                                NullableSym0)
-import           Perst.Types                  (BackTypes, IsSub,
-                                               MandatoryFields, Submap)
+import           Perst.Types                  (BackTypes, MandatoryFields)
 
 -- type IsCheck = 'True
 

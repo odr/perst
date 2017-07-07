@@ -148,11 +148,11 @@ updateByPKMany (pt :: Proxy t) (rs :: [r])
                  , GWO r :: GrecWithout (DdKey t) r)
                  ) rs
 
-updateByPKManyR
-  :: UpdByKeyConstr m b t (GrecWithout (DdKey t) (Grec r))
-                          (GrecWith    (DdKey t) (Grec r))
+updateByPKManyR  :: ( UpdByKeyConstr m b t (GrecWithout (DdKey t) (Grec r))
+                                           (GrecWith    (DdKey t) (Grec r))
+                    )
   => Proxy t -> [r] -> SessionMonad b m ()
-updateByPKManyR pt = updateByPKMany pt . map Grec
+updateByPKManyR pt = updateByPKMany pt . fmap Grec
 
 updateByPK
   :: UpdByKeyConstr m b t (GrecWithout (DdKey t) r) (GrecWith (DdKey t) r)
@@ -177,9 +177,9 @@ deleteByKeyText pb pt pk
         $ fieldNames' pk
     )
 
-deleteByKeyMany :: DelByKeyConstr m b t k
-                => Proxy t -> [k] -> SessionMonad b m ()
-deleteByKeyMany pt (ks :: [k]) = do
+deleteByKeyMany :: (Traversable f,  DelByKeyConstr m b t k)
+                => Proxy t -> f k -> SessionMonad b m ()
+deleteByKeyMany pt (ks :: f k) = do
   (pb :: Proxy b, _) <- ask
   (cmd :: PrepCmd b) <- deleteByKeyText pb pt (Proxy :: Proxy k)
                     >>= prepareCommand
@@ -188,15 +188,17 @@ deleteByKeyMany pt (ks :: [k]) = do
 deleteByKey :: DelByKeyConstr m b t k => Proxy t -> k -> SessionMonad b m ()
 deleteByKey pt = deleteByKeyMany pt . (:[])
 
-deleteByPKMany  :: DelByKeyConstr m b t (GrecWith (DdKey t) r)
-                => Proxy t -> [r] -> SessionMonad b m ()
-deleteByPKMany (pt :: Proxy t) (rs :: [r])
+deleteByPKMany  :: (Traversable f, DelByKeyConstr m b t (GrecWith (DdKey t) r))
+                => Proxy t -> f r -> SessionMonad b m ()
+deleteByPKMany (pt :: Proxy t) (rs :: f r)
     = deleteByKeyMany pt
-    $ map (\r -> GW r :: GrecWith (DdKey t) r) rs
+    $ fmap (\r -> GW r :: GrecWith (DdKey t) r) rs
 
-deleteByPKManyR :: DelByKeyConstr m b t (GrecWith (DdKey t) (Grec r))
-                => Proxy t -> [r] -> SessionMonad b m ()
-deleteByPKManyR pt = deleteByPKMany pt . map Grec
+deleteByPKManyR ::  ( Traversable f
+                    , DelByKeyConstr m b t (GrecWith (DdKey t) (Grec r))
+                    )
+                => Proxy t -> f r -> SessionMonad b m ()
+deleteByPKManyR pt = deleteByPKMany pt . fmap Grec
 
 deleteByPK  :: DelByKeyConstr m b t (GrecWith (DdKey t) r)
             => Proxy t -> r -> SessionMonad b m ()
