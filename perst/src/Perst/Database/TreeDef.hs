@@ -7,4 +7,5 @@ import           Perst.Database.Tree.Def    as TD
 import           Perst.Database.Tree.Insert as TD
 import           Perst.Database.Tree.Select as TD
 import           Perst.Database.Tree.Update as TD
+import           Perst.Database.Tree.Delete as TD
 {--}

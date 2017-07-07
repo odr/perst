@@ -27,6 +27,7 @@ library
                       , Perst.Database.Tree.Insert
                       , Perst.Database.Tree.Select
                       , Perst.Database.Tree.Update
+                      , Perst.Database.Tree.Delete
 
   default-extensions:   DataKinds
                       , TypeOperators
