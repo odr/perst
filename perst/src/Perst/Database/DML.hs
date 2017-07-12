@@ -13,6 +13,10 @@ module Perst.Database.DML
   , updateByKey, updateByKeyR
   , updateByPKMany, updateByPKManyR
   , updateByPK, updateByPKR
+  -- * Diff UPDATE
+  , updateByKeyDiffMany, updateByPKDiffMany
+  -- , updateByKeyDiffMany, updateByKeyDiffManyR
+  -- , updateByPKDiffMany, updateByPKDiffManyR
 
   -- * DELETE
   , deleteByKeyText
@@ -109,13 +113,13 @@ updateByKeyText pb pt pr pk
   = return $ format "UPDATE {} SET {} WHERE {}" (tableName pt, rs, ks)
  where
   (ks, rs)
-    = bimap interSnd interSnd
+    = bimap (interSnd " AND ") (interSnd ",")
     $ splitAt (length keyNames)
     $ zipWith (\n s -> (s, format "{} = {}" (s, paramName pb n))) [0..]
     $ keyNames ++ fieldNames' pr
    where
     keyNames = fieldNames' pk
-    interSnd = TL.intercalate "," . map snd
+    interSnd s = TL.intercalate s . map snd
 
 --
 updateByKeyDiffText :: UpdByKeyDiffConstr m b t r k
@@ -138,13 +142,13 @@ updateByKeyDiffText (pb :: Proxy b) pt (k :: k) old (new :: r)
                         else Just (format "{} = {}" (fn, paramName pb num), n)
                   ) (zip3 old' new' fns) [0..]
   (ks,vks)
-      = first (TL.intercalate ",")
+      = first (TL.intercalate " AND ")
       $ unzip
       $ zipWith3 (\vk fn num -> (format "{} = {}" (fn, paramName pb num), vk))
                 k' kns [length vrs..]
 
 --
-updateByKeyDiffTextMany :: UpdByKeyDiffConstr m b t r k
+updateByKeyDiffTextMany :: (UpdByKeyDiffConstr m b t r k)
                         => Proxy b -> Proxy t -> [(k,r,r)]
                         -> SessionMonad b m (M.Map TL.Text [[FieldDB b]])
 updateByKeyDiffTextMany pb pt
@@ -152,9 +156,9 @@ updateByKeyDiffTextMany pb pt
   . mapM (fmap (second (:[])) . (\(k,o,n) -> updateByKeyDiffText pb pt k o n))
 
 --
-updateByKeyMany :: UpdByKeyConstr m b t r k
-                => Proxy t -> [(k,r)] -> SessionMonad b m ()
-updateByKeyMany (pt :: Proxy t) (rs :: [(k,r)]) = do
+updateByKeyMany :: (UpdByKeyConstr m b t r k, Traversable f)
+                => Proxy t -> f (k,r)  -> SessionMonad b m ()
+updateByKeyMany (pt :: Proxy t) (rs :: f (k,r)) = do
   (pb :: Proxy b, _) <- ask
   (cmd :: PrepCmd b) <- updateByKeyText pb pt pr pk
                     >>= prepareCommand
@@ -166,7 +170,7 @@ updateByKeyMany (pt :: Proxy t) (rs :: [(k,r)]) = do
   (pr,pk) = (Proxy :: Proxy r, Proxy :: Proxy k)
 
 --
-updateByKeyDiffMany :: UpdByKeyDiffConstr m b t r k
+updateByKeyDiffMany :: (UpdByKeyDiffConstr m b t r k)
                 => Proxy t -> [(k,r,r)] -> SessionMonad b m ()
 updateByKeyDiffMany (pt :: Proxy t) (rs :: [(k,r,r)]) = do
   (pb :: Proxy b, _) <- ask
@@ -179,9 +183,9 @@ updateByKeyDiffMany (pt :: Proxy t) (rs :: [(k,r,r)]) = do
     ) mp
 
 
-updateByKeyManyR  :: UpdByKeyConstr m b t (Grec r) k
-                  => Proxy t -> [(k,r)] -> SessionMonad b m ()
-updateByKeyManyR pt = updateByKeyMany pt . map (fmap Grec)
+updateByKeyManyR  :: (UpdByKeyConstr m b t (Grec r) k, Traversable f)
+                  => Proxy t -> f (k,r) -> SessionMonad b m ()
+updateByKeyManyR pt = updateByKeyMany pt . fmap (fmap Grec)
 
 updateByKey :: UpdByKeyConstr m b t r k
             => Proxy t -> (k, r) -> SessionMonad b m ()
@@ -191,27 +195,27 @@ updateByKeyR  :: UpdByKeyConstr m b t (Grec r) k
               => Proxy t -> (k,r) -> SessionMonad b m ()
 updateByKeyR pt = updateByKey pt . fmap Grec
 
-updateByPKMany  :: UpdByKeyConstr m b t (WithoutKey t r) (WithKey t r)
-                => Proxy t -> [r] -> SessionMonad b m ()
-updateByPKMany (pt :: Proxy t) (rs :: [r])
+updateByPKMany  ::  ( UpdByKeyConstr m b t (WithoutKey t r) (WithKey t r)
+                    , Traversable f
+                    )
+                => Proxy t -> f r -> SessionMonad b m ()
+updateByPKMany (pt :: Proxy t) (rs :: f r)
     = updateByKeyMany pt
-    $ map (\r -> ( GW  r :: GrecWith    (DdKey t) r
-                 , GWO r :: GrecWithout (DdKey t) r
-                 )
-           ) rs
+    $ fmap (\r -> (GW r, GWO r) :: (WithKey t r, WithoutKey t r)) rs
 --
-updateByPKDiffMany  :: UpdByKeyDiffConstr m b t (WithoutKey t r) (WithKey t r)
+updateByPKDiffMany :: (UpdByKeyDiffConstr m b t (WithoutKey t r) (WithKey t r))
                     => Proxy t -> [(r,r)] -> SessionMonad b m ()
 updateByPKDiffMany (pt :: Proxy t) (rs :: [(r,r)])
     = updateByKeyDiffMany pt
-    $ map (\(o,n) -> ( GW  o :: GrecWith    (DdKey t) r
-                     , GWO o :: GrecWithout (DdKey t) r
-                     , GWO n :: GrecWithout (DdKey t) r
-                     )
+    $ fmap (\(o,n) -> (GW  o, GWO o, GWO n)
+                   :: (WithKey t r, WithoutKey t r, WithoutKey t r)
            ) rs
 
-updateByPKManyR :: UpdByKeyConstr m b t (WithoutKey t (Grec r)) (WithKey t (Grec r))
-                => Proxy t -> [r] -> SessionMonad b m ()
+updateByPKManyR :: ( UpdByKeyConstr m b t (WithoutKey t (Grec r))
+                                          (WithKey t (Grec r))
+                   , Traversable f
+                   )
+                 => Proxy t -> f r -> SessionMonad b m ()
 updateByPKManyR pt = updateByPKMany pt . fmap Grec
 
 updateByPK  :: UpdByKeyConstr m b t (WithoutKey t r) (WithKey t r)
@@ -229,7 +233,7 @@ deleteByKeyText :: DelByKeyConstr m b t k
 deleteByKeyText pb pt pk
   = return $ format "DELETE FROM {} WHERE {}"
     ( tableName pt
-    , TL.intercalate ","
+    , TL.intercalate " AND "
         $ zipWith (\n s -> format "{} = {}" (s, paramName pb n)) [0..]
         $ fieldNames' pk
     )
@@ -274,7 +278,7 @@ selectText pb pt pr pk
   = return $ format "SELECT {} FROM {} WHERE {}"
     ( TL.intercalate "," $ fieldNamesT pr
     , tableName pt
-    , TL.intercalate ","
+    , TL.intercalate " AND "
         $ zipWith (\n s -> format "{} = {}" (s, paramName pb n))
                   [0..] $ fieldNamesT pk
     )

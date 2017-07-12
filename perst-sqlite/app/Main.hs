@@ -177,6 +177,8 @@ ct = [ CustomerTree 1 "odr" (Just "odr")
         [ Address 3 2 "Some street"]
     , CustomerTree 3 "zev" Nothing [] []
     ]
+ct3 = CustomerTree 3 "zev1" (Just "zev") [] []
+
 -- pct = Proxy :: Proxy (FieldsTree r)
 
 
@@ -223,6 +225,15 @@ main = runSession sqlite "test.db" $ do
     if ct' == map (:[]) ct
       then "Checked"
       else "ct' = " ++ show ct'
+
+  updateTreeManyR pCustomerTree (Prelude.drop 2 ct) [ct3]
+  ct' <- selectTreeMany pCustomerTree
+                (Proxy :: Proxy CustomerTree)
+                (map Tagged [1..3] :: [Tagged '["id"] Int64])
+  liftIO $ do
+    putStrLn "After update:"
+    print ct'
+
 
 {-
   let ords = [ Order (rs!!3) "z4" 3 (Just 1)

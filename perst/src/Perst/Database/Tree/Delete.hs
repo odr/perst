@@ -58,5 +58,5 @@ instance  ( DeleteTreeConstraint m (Compose f ZipList) b td (Grec (FieldByName s
     deleteTreeMany' (Proxy :: Proxy td) rc
     deleteChilds (Proxy :: Proxy chs) rs
    where
-    rc :: (Compose f ZipList) (Grec (FieldByName s r))
+    rc :: Compose f ZipList (Grec (FieldByName s r))
     rc = Compose $ (ZipList . fmap Grec . view (grecLens (Proxy :: Proxy s))) <$> rs

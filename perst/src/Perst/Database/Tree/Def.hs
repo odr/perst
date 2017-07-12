@@ -76,4 +76,5 @@ type TaggedAllParentKeys t = ListToTaggedPairs (AllParentKeys t)
 
 type TopKey t         = DdKey (TdData t)
 type TopPK t r        = GrecWith (TopKey t) r
+type TopNotPK t r     = GrecWithout (TopKey t) r
 type TopPKPairs t r   = GWPairs (TopKey t) r
