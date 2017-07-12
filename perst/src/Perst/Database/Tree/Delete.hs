@@ -14,20 +14,19 @@ import           Perst.Database.DataDef     (DdKey)
 import           Perst.Database.DbOption    (SessionMonad)
 import           Perst.Database.DML         (deleteByKeyMany)
 import           Perst.Database.Tree.Def    (FieldByName, GrecChilds, TdData,
-                                             TreeDef)
+                                             TopPK, TreeDef)
 
-type DeleteTreeConstraint m f b t k =
+type DeleteTreeConstraint m f b t r =
   ( Applicative f, Traversable f
-  , DelByKeyConstr m b (TdData t) k
-  , DeleteChilds m f b (GrecChilds t k) k
+  , DelByKeyConstr m b (TdData t) (TopPK t r)
+  , DeleteChilds m f b (GrecChilds t r) r
   )
 
-deleteTreeManyR :: DeleteTreeConstraint m ZipList b t
-                                        (GrecWith (DdKey (TdData t)) (Grec r))
+deleteTreeManyR :: DeleteTreeConstraint m ZipList b t (Grec r)
                 => Proxy (t :: TreeDef) -> [r] -> SessionMonad b m ()
-deleteTreeManyR (pt :: Proxy t) (rs :: [r]) = deleteTreeMany pt $ fmap getKey rs
- where
-  getKey = GW . Grec :: r -> GrecWith (DdKey (TdData t)) (Grec r)
+deleteTreeManyR (pt :: Proxy t) = deleteTreeMany pt . fmap Grec
+ -- where
+ --  getKey = GW . Grec :: r -> GrecWith (DdKey (TdData t)) (Grec r)
 
 deleteTreeMany  :: DeleteTreeConstraint m ZipList b t r
                 => Proxy (t :: TreeDef) -> [r] -> SessionMonad b m ()
@@ -37,11 +36,11 @@ deleteTreeMany' :: DeleteTreeConstraint m f b t r
                 => Proxy (t :: TreeDef) -> f r -> SessionMonad b m ()
 deleteTreeMany' (_ :: Proxy t) (s :: f r) = do
   deleteChilds pc s
-  deleteByKeyMany pd s
+  deleteByKeyMany pd $ fmap getKey s
  where
   pc = Proxy :: Proxy (GrecChilds t r)
   pd = Proxy :: Proxy (TdData t)
-
+  getKey = GW :: r -> TopPK t r
 
 class DeleteChilds m f b chs r where
   deleteChilds  :: Proxy chs -> f r -> SessionMonad b m ()

@@ -22,6 +22,7 @@ module Perst.Database.DataDef
   -- * Some other stuffs
   , Subrec
   , showProxy
+  , WithKey, WithoutKey
   )
   where
 
@@ -35,9 +36,9 @@ import           Data.Singletons.TH            (genDefunSymbols, promoteOnly,
 import           Data.Tagged                   (Tagged)
 import qualified Data.Text.Lazy                as TL
 import           Data.Type.Grec                (AllIsSub, FieldNamesConvGrec,
-                                                FieldsGrec, Grec, IsSub,
-                                                IsSubSym0, ListToPairs, Submap,
-                                                Typ)
+                                                FieldsGrec, Grec, GrecWith,
+                                                GrecWithout, IsSub, IsSubSym0,
+                                                ListToPairs, Submap, Typ)
 import           GHC.Generics                  (Generic)
 import           GHC.TypeLits                  (ErrorMessage (..), KnownSymbol,
                                                 TypeError)
@@ -200,3 +201,6 @@ foreignKeys (_ :: Proxy t) = fromSing (sing :: Sing (DdFrgn t))
 
 showProxy :: (SingI t, SingKind k) => Proxy (t :: k) -> DemoteRep k
 showProxy (_ :: Proxy t) = fromSing (sing :: Sing t)
+
+type WithKey t r = GrecWith (DdKey t) r
+type WithoutKey t r = GrecWithout (DdKey t) r

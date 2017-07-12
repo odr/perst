@@ -27,11 +27,14 @@ module Data.Type.Grec.FieldsGrec
     , FieldTypesNotConvGrec
     , FieldNamesNotConvGrecSym0
     , FieldTypesNotConvGrecSym0
+    , GWPairs, gwPairs
+    , GWOPairs, gwoPairs
     ) where
 
 import           Data.Function                 (on)
 import           Data.Kind                     (Type)
 import           Data.List                     (partition)
+import           Data.Ord                      (comparing)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
 import           Data.Singletons.Prelude.Maybe (IsJust)
@@ -106,19 +109,31 @@ genDefunSymbols
 type GWPairs ns a  = ListToPairs (Map SndSym0 (FieldsGrec (GrecWith    ns a)))
 type GWOPairs ns a = ListToPairs (Map SndSym0 (FieldsGrec (GrecWithout ns a)))
 
+gwPairs :: NamesGrecLens ns (GWPairs ns a) (GrecWith ns a)
+        => GrecWith ns a -> GWPairs ns a
+gwPairs (x :: GrecWith ns a)
+  = namesGrecGet (Proxy :: Proxy ns) x :: GWPairs ns a
+
+gwoPairs  :: NamesGrecLens ns (GWOPairs ns a) (GrecWithout ns a)
+          => GrecWithout ns a -> GWOPairs ns a
+gwoPairs (x :: GrecWithout ns a)
+  = namesGrecGet (Proxy :: Proxy ns) x :: GWOPairs ns a
+
 instance (Eq (GWPairs ns a), NamesGrecLens ns (GWPairs ns a) (GrecWith ns a))
       => Eq (GrecWith ns a) where
-  (==) = (==) `on` f
-   where
-    f :: GrecWith ns a -> GWPairs ns a
-    f = namesGrecGet (Proxy :: Proxy ns)
+  (==) = (==) `on` gwPairs
 
 instance (Eq (GWOPairs ns a), NamesGrecLens ns (GWOPairs ns a) (GrecWithout ns a))
       => Eq (GrecWithout ns a) where
-  (==) = (==) `on` f
-   where
-    f :: GrecWithout ns a -> GWOPairs ns a
-    f = namesGrecGet (Proxy :: Proxy ns)
+  (==) = (==) `on` gwoPairs
+
+instance (Ord (GWPairs ns a), NamesGrecLens ns (GWPairs ns a) (GrecWith ns a))
+      => Ord (GrecWith ns a) where
+  compare = comparing gwPairs
+
+instance (Ord (GWOPairs ns a), NamesGrecLens ns (GWOPairs ns a) (GrecWithout ns a))
+      => Ord (GrecWithout ns a) where
+  compare = comparing gwoPairs
 
 ---------------
 instance (SingI ns, SingI (FieldNamesConvGrec r), ConvFromGrec r [a])

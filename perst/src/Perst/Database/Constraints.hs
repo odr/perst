@@ -92,9 +92,14 @@ type family UpdConstr' t fnr ftr fnk ftk where
     , SingI fnk
     )
 
-type UpdByKeyConstr m b t r (k :: Type) =
+type UpdByKeyConstr m b t r k =
   ( UpdConstr m b t r k
   , Elem (FieldNamesConvGrec k) (AllKeys t) ~ True
+  )
+
+type UpdByKeyDiffConstr m b t r k =
+  ( UpdByKeyConstr m b t r k
+  , Eq (FieldDB b)
   )
 
 type DelConstr m b t k =

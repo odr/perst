@@ -31,8 +31,10 @@ import           Control.Monad              (when)
 import           Control.Monad.Catch        (MonadMask, finally)
 import           Control.Monad.IO.Class     (MonadIO (..))
 import           Control.Monad.Trans.Reader (ask)
-import           Data.Bifunctor             (bimap)
+import           Data.Bifunctor             (bimap, first, second)
 import           Data.List                  (intercalate, (\\))
+import qualified Data.Map                   as M
+import           Data.Maybe                 (catMaybes)
 import           Data.Proxy                 (Proxy (..))
 import           Data.Text.Format           (format)
 import qualified Data.Text.Lazy             as TL
@@ -42,8 +44,10 @@ import           Data.Type.Grec             (ConvFromGrec (..), ConvToGrec (..),
                                              GrecWithout (..))
 import           Perst.Database.Constraints (DelByKeyConstr, DelConstr,
                                              InsConstr, RecConstr, SelConstr,
-                                             UpdByKeyConstr, UpdConstr)
-import           Perst.Database.DataDef     (DdAutoIns, DdKey, fieldNames',
+                                             UpdByKeyConstr, UpdByKeyDiffConstr,
+                                             UpdConstr)
+import           Perst.Database.DataDef     (DdAutoIns, DdKey, WithKey,
+                                             WithoutKey, fieldNames',
                                              fieldNamesT, primaryKey, showProxy,
                                              tableName)
 import           Perst.Database.DbOption    (DbOption (..), DbOptionConstr,
@@ -100,7 +104,7 @@ insertR pt = insert pt . Grec
 -- * UPDATE
 
 updateByKeyText :: UpdByKeyConstr m b t r k
-    => Proxy b -> Proxy t -> Proxy r -> Proxy (k :: *) -> SessionMonad b m TL.Text
+    => Proxy b -> Proxy t -> Proxy r -> Proxy k -> SessionMonad b m TL.Text
 updateByKeyText pb pt pr pk
   = return $ format "UPDATE {} SET {} WHERE {}" (tableName pt, rs, ks)
  where
@@ -113,6 +117,41 @@ updateByKeyText pb pt pr pk
     keyNames = fieldNames' pk
     interSnd = TL.intercalate "," . map snd
 
+--
+updateByKeyDiffText :: UpdByKeyDiffConstr m b t r k
+                    => Proxy b -> Proxy t -> k -> r -> r
+                    -> SessionMonad b m (TL.Text, [FieldDB b])
+updateByKeyDiffText (pb :: Proxy b) pt (k :: k) old (new :: r)
+  = return (format "UPDATE {} SET {} WHERE {}" (tableName pt, rs, ks), vrs++vks)
+ where
+  old' = convFromGrec old :: [FieldDB b]
+  new' = convFromGrec new
+  fns  = fieldNames' (Proxy :: Proxy r)
+  kns  = fieldNames' (Proxy :: Proxy k)
+  k' = convFromGrec k
+  (rs,vrs) = first (TL.intercalate ",")
+          $ unzip
+          $ catMaybes
+          $ zipWith (\(o, n, fn) num ->
+                      if o == n
+                        then Nothing
+                        else Just (format "{} = {}" (fn, paramName pb num), n)
+                  ) (zip3 old' new' fns) [0..]
+  (ks,vks)
+      = first (TL.intercalate ",")
+      $ unzip
+      $ zipWith3 (\vk fn num -> (format "{} = {}" (fn, paramName pb num), vk))
+                k' kns [length vrs..]
+
+--
+updateByKeyDiffTextMany :: UpdByKeyDiffConstr m b t r k
+                        => Proxy b -> Proxy t -> [(k,r,r)]
+                        -> SessionMonad b m (M.Map TL.Text [[FieldDB b]])
+updateByKeyDiffTextMany pb pt
+  = fmap (M.fromListWith mappend)
+  . mapM (fmap (second (:[])) . (\(k,o,n) -> updateByKeyDiffText pb pt k o n))
+
+--
 updateByKeyMany :: UpdByKeyConstr m b t r k
                 => Proxy t -> [(k,r)] -> SessionMonad b m ()
 updateByKeyMany (pt :: Proxy t) (rs :: [(k,r)]) = do
@@ -125,6 +164,19 @@ updateByKeyMany (pt :: Proxy t) (rs :: [(k,r)]) = do
           (finalizePrepared cmd)
  where
   (pr,pk) = (Proxy :: Proxy r, Proxy :: Proxy k)
+
+--
+updateByKeyDiffMany :: UpdByKeyDiffConstr m b t r k
+                => Proxy t -> [(k,r,r)] -> SessionMonad b m ()
+updateByKeyDiffMany (pt :: Proxy t) (rs :: [(k,r,r)]) = do
+  (pb :: Proxy b, _) <- ask
+  mp <- M.toList <$> updateByKeyDiffTextMany pb pt rs
+  mapM_ (\(t,ps) -> do
+      (cmd :: PrepCmd b) <- prepareCommand t
+      finally (mapM_ (runPrepared cmd) ps)
+              (finalizePrepared cmd)
+
+    ) mp
 
 
 updateByKeyManyR  :: UpdByKeyConstr m b t (Grec r) k
@@ -139,30 +191,35 @@ updateByKeyR  :: UpdByKeyConstr m b t (Grec r) k
               => Proxy t -> (k,r) -> SessionMonad b m ()
 updateByKeyR pt = updateByKey pt . fmap Grec
 
-updateByPKMany
-  :: UpdByKeyConstr m b t (GrecWithout (DdKey t) r) (GrecWith (DdKey t) r)
-  => Proxy t -> [r] -> SessionMonad b m ()
+updateByPKMany  :: UpdByKeyConstr m b t (WithoutKey t r) (WithKey t r)
+                => Proxy t -> [r] -> SessionMonad b m ()
 updateByPKMany (pt :: Proxy t) (rs :: [r])
     = updateByKeyMany pt
     $ map (\r -> ( GW  r :: GrecWith    (DdKey t) r
-                 , GWO r :: GrecWithout (DdKey t) r)
-                 ) rs
+                 , GWO r :: GrecWithout (DdKey t) r
+                 )
+           ) rs
+--
+updateByPKDiffMany  :: UpdByKeyDiffConstr m b t (WithoutKey t r) (WithKey t r)
+                    => Proxy t -> [(r,r)] -> SessionMonad b m ()
+updateByPKDiffMany (pt :: Proxy t) (rs :: [(r,r)])
+    = updateByKeyDiffMany pt
+    $ map (\(o,n) -> ( GW  o :: GrecWith    (DdKey t) r
+                     , GWO o :: GrecWithout (DdKey t) r
+                     , GWO n :: GrecWithout (DdKey t) r
+                     )
+           ) rs
 
-updateByPKManyR  :: ( UpdByKeyConstr m b t (GrecWithout (DdKey t) (Grec r))
-                                           (GrecWith    (DdKey t) (Grec r))
-                    )
-  => Proxy t -> [r] -> SessionMonad b m ()
+updateByPKManyR :: UpdByKeyConstr m b t (WithoutKey t (Grec r)) (WithKey t (Grec r))
+                => Proxy t -> [r] -> SessionMonad b m ()
 updateByPKManyR pt = updateByPKMany pt . fmap Grec
 
-updateByPK
-  :: UpdByKeyConstr m b t (GrecWithout (DdKey t) r) (GrecWith (DdKey t) r)
-  => Proxy t -> r -> SessionMonad b m ()
+updateByPK  :: UpdByKeyConstr m b t (WithoutKey t r) (WithKey t r)
+            => Proxy t -> r -> SessionMonad b m ()
 updateByPK pt = updateByPKMany pt . (:[])
 
-updateByPKR
-  :: UpdByKeyConstr m b t (GrecWithout (DdKey t) (Grec r))
-                          (GrecWith    (DdKey t) (Grec r))
-  => Proxy t -> r -> SessionMonad b m ()
+updateByPKR :: UpdByKeyConstr m b t (WithoutKey t (Grec r)) (WithKey t (Grec r))
+            => Proxy t -> r -> SessionMonad b m ()
 updateByPKR pt = updateByPK pt . Grec
 
 -- * DELETE

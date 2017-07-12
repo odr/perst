@@ -27,14 +27,13 @@ import           Perst.Database.DataDef        (DdAutoIns, DdKey)
 import           Perst.Database.DbOption       (GenKey, SessionMonad)
 import           Perst.Database.DML            (insertMany)
 import           Perst.Database.Tree.Def       (FieldByName, GrecChilds, TdData,
-                                                TreeDef)
+                                                TopKey, TreeDef)
 -- import           Perst.Lens                    (NamesGrecLens (..))
 
 type InsertTreeConstraint m f b t r =
   ( Applicative f, Traversable f
   , InsConstr m b (TdData t) r
-  , InsertChilds m f b (DdAutoIns (TdData t))
-                (DdKey (TdData t)) (GrecChilds t r) r
+  , InsertChilds m f b (DdAutoIns (TdData t)) (TopKey t) (GrecChilds t r) r
   )
 
 insertTreeManyR :: InsertTreeConstraint m ZipList b t (Grec r)
@@ -54,7 +53,7 @@ insertTreeMany' (_ :: Proxy t) (rs :: f r) = do
   ptd = Proxy :: Proxy (TdData t)
   ptc = Proxy :: Proxy (GrecChilds t r)
   pai = Proxy :: Proxy (DdAutoIns (TdData t))
-  tagKey :: x -> Tagged (DdKey (TdData t)) x
+  tagKey :: x -> Tagged (TopKey t) x
   tagKey = Tagged
 
 class InsertChilds m f b (ai :: Bool) pk chs r where

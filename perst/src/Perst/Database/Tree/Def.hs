@@ -12,11 +12,13 @@ import           Data.Singletons.Prelude.Maybe (FromMaybeSym0)
 import           Data.Singletons.TH            (promoteOnly, singletons)
 
 import           Data.Type.Grec                (FieldNamesNotConvGrec,
-                                                FieldsGrec, Grec (..),
+                                                FieldsGrec, GWPairs, Grec (..),
+                                                GrecWith, GrecWithout,
                                                 InternalType, IsSubSym0,
                                                 ListToTaggedPairs, Submap2,
                                                 Submap2Sym0)
-import           Perst.Database.DataDef        (DataDef', DdFldsSym0, DdRecSym0)
+import           Perst.Database.DataDef        (DataDef', DdFldsSym0, DdKey,
+                                                DdRecSym0)
 
 singletons [d|
   data TreeDef' s t = TreeDefC (DataDef' s t) [(s, (TreeDef' s t, [(s,s)]))]
@@ -62,11 +64,6 @@ promoteOnly [d|
 
 type GrecChilds t r = GrecChilds' t (FieldNamesNotConvGrec r)
 
--- test = Proxy :: Proxy (GrecChilds
---           ( Tagged '["x","y"] (1::Int, 'y')
---           , GWO (Tagged ('z',1) :: Tagged '["z","n"] (Char, Int)) :: GrecWithout '["n"]
---           ))
-
 type TreeDef = TreeDef' Symbol Type
 
 type CheckTree a = CheckTree' a ~ True
@@ -76,12 +73,7 @@ type MbFieldByName s r = Lookup s (FieldsGrec r)
 type FieldByName s r = InternalType (FieldByName' s (FieldsGrec r))
 
 type TaggedAllParentKeys t = ListToTaggedPairs (AllParentKeys t)
--- type CheckChilds a b = FromConsList (CheckChilds' ContainSym0 a b)
---
--- getProxies :: SingI (Map FstSym0 (TreeRec r))
---   => Proxy (t :: TreeDef) -> Proxy (r :: TreeT) ->
---   (Proxy (TreeChilds r), Proxy (TdChilds t), Proxy (TdData t)
---   , Proxy (EqName (TdChilds t) (TreeChilds r))
---   , [TL.Text])
--- getProxies (pt :: Proxy t) (pr :: Proxy r) = (Proxy, Proxy, Proxy, Proxy
---     , map TL.pack $ showProxy (Proxy :: Proxy (Map FstSym0 (TreeRec r))))
+
+type TopKey t         = DdKey (TdData t)
+type TopPK t r        = GrecWith (TopKey t) r
+type TopPKPairs t r   = GWPairs (TopKey t) r
