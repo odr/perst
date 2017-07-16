@@ -15,6 +15,7 @@ test = 1
 data Dat0 = Rec0 deriving (Show, Eq, Generic)
 -- vd0 = Refl :: Fields Dat0 :~: '[]
 
+
 data Dat1 = Rec1 { f11 :: Int } deriving (Show, Eq, Generic)
 vd1 = Refl :: FieldsGrec (Grec Dat1) :~: '["f11":::Int]
 

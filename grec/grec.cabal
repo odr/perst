@@ -62,6 +62,7 @@ executable grec-exe
                       , DeriveGeneric
                       -- , TypeFamilies
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+                      --  -fplugin=Perst.Plugin -plugin-package perst-plugin
   build-depends:       base
                       , grec
                       , singletons

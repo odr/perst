@@ -1,6 +1,7 @@
 flags: {}
 extra-package-dbs: []
 packages:
+- perst-plugin
 - grec
 - perst
 - perst-sqlite
