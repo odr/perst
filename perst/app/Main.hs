@@ -1,13 +1,19 @@
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeInType            #-}
+{-# LANGUAGE ConstraintKinds           #-}
+{-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE DeriveGeneric             #-}
+{-# LANGUAGE DuplicateRecordFields     #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE InstanceSigs              #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE TypeInType                #-}
+{-# LANGUAGE TypeSynonymInstances      #-}
+{-# LANGUAGE UndecidableInstances      #-}
 
 module Main where
 
@@ -23,6 +29,7 @@ import           Control.Monad.Catch           (SomeException, catch)
 import           Control.Monad.IO.Class        (MonadIO (..))
 import           Data.List                     (sort)
 import           Data.Proxy                    (Proxy (..))
+import           Data.Singletons.CustomStar    (singletonStar)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
 import           Data.Singletons.Prelude.Maybe
@@ -78,6 +85,8 @@ instance Convert a DBData => Convert (Maybe a) DBData where
 instance Convert DBData a => Convert DBData (Maybe a) where
   convert DBNull = Nothing
   convert x      = Just $ convert x
+
+singletonStar [''Text, ''Double, ''Int64, ''Maybe]
 
 instance DbOption DB where
     type SessionParams DB   = Text
@@ -147,11 +156,11 @@ type TAddressTab = TableD Address '["id"] '[] False
 type TAddress = DataD TAddressTab
                       '[ '(TCustomerTab, '[ '("customerId", "id")], DcCascade)]
 
-pCustomer = Proxy :: Proxy TCustomer
-pOrder    = Proxy :: Proxy TOrder
-pArticle  = Proxy :: Proxy TArticle
-pOrderPosition = Proxy :: Proxy TOrderPosition
-pAddress  = Proxy :: Proxy TAddress
+pCustomer = sing :: Sing TCustomer
+pOrder    = sing :: Sing TOrder
+pArticle  = sing :: Sing TArticle
+pOrderPosition = sing :: Sing TOrderPosition
+pAddress  = sing :: Sing TAddress
 
 data CustomerTree = CustomerTree
   { id        :: Int64
@@ -177,10 +186,11 @@ type TOrderTree = TreeDefC TOrder
   -- '[]
   '[ '("positions", '( TreeDefC TOrderPosition '[], '[ '("orderId", "id") ]))]
 
+sCustomerTree = sing :: Sing TCustomerTree
 pCustomerTree = Proxy :: Proxy TCustomerTree
 
-createTab :: (DDL IO b a) => Proxy a -> SessionMonad b IO ()
-createTab (p :: Proxy a) = do
+createTab :: (DDL IO b a) => Sing a -> SessionMonad b IO ()
+createTab (p :: Sing a) = do
   catch (DDL.drop p) (\(_::SomeException) -> return ())
   create p
 
@@ -206,32 +216,32 @@ ct = [ CustomerTree 1 "odr" (Just "odr") -- "odr@ru"
     ]
 -- pct = Proxy :: Proxy (FieldsTree r)
 
-type ITC t r = InsertTreeConstraint IO ZipList DB t r
-
-check :: ITC t r => Proxy '(t, r)
-check = Proxy
-
-type IC t r = InsConstr IO DB (TdData t) r
-type ICH t r = InsertChilds IO ZipList DB (DdAutoIns (TdData t))
-              (DdKey (TdData t)) (GrecChilds t r) r
-
-type ICH' t r xs = InsertChilds IO ZipList DB (DdAutoIns (TdData t))
-              (DdKey (TdData t)) xs r
-
-check1 :: IC t r => Proxy '(t, r)
-check1 = Proxy
-
-check2 :: ICH t r => Proxy '(t, r)
-check2 = Proxy
-
-check2' :: ICH' t r xs => Proxy '(t, r, xs)
-check2' = Proxy
-
-checkGL :: GrecLens s [FieldByName s r] r => Proxy '(s,r)
-checkGL = Proxy
-
-checkGL2 :: NamesGrecLens (Fsts rs) (RecParent r rs) r => Proxy '(rs,r)
-checkGL2 = Proxy
+-- type ITC t r = InsertTreeConstraint IO ZipList DB t r
+--
+-- check :: ITC t r => Proxy '(t, r)
+-- check = Proxy
+--
+-- type IC t r = InsConstr IO DB (TdData t) r
+-- type ICH t r = InsertChilds IO ZipList DB (DdAutoIns (TdData t))
+--               (DdKey (TdData t)) (GrecChilds t r) r
+--
+-- type ICH' t r xs = InsertChilds IO ZipList DB (DdAutoIns (TdData t))
+--               (DdKey (TdData t)) xs r
+--
+-- check1 :: IC t r => Proxy '(t, r)
+-- check1 = Proxy
+--
+-- check2 :: ICH t r => Proxy '(t, r)
+-- check2 = Proxy
+--
+-- check2' :: ICH' t r xs => Proxy '(t, r, xs)
+-- check2' = Proxy
+--
+-- checkGL :: GrecLens s [FieldByName s r] r => Proxy '(s,r)
+-- checkGL = Proxy
+--
+-- checkGL2 :: NamesGrecLens (Fsts rs) (RecParent r rs) r => Proxy '(rs,r)
+-- checkGL2 = Proxy
 
 main :: IO ()
 main = runSession db "test.db" $ do
@@ -265,7 +275,7 @@ main = runSession db "test.db" $ do
                         ]
 -}
 
-  insertTreeManyR pCustomerTree ct
+  insertTreeManyR sCustomerTree ct
 
   ct' <- selectTreeMany pCustomerTree
                 (Proxy :: Proxy CustomerTree)

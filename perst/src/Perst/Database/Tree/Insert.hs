@@ -23,11 +23,11 @@ import           Data.Type.Grec                (FieldsGrec, FieldsGrecSym0,
                                                 NamesGrecLens (..), Submap,
                                                 SubmapSym0)
 import           Perst.Database.Constraints    (InsConstr)
-import           Perst.Database.DataDef        (DdAutoIns, DdKey)
+import           Perst.Database.DataDef        (DdAutoIns, DdKey, sDdAutoIns)
 import           Perst.Database.DbOption       (GenKey, SessionMonad)
 import           Perst.Database.DML            (insertMany)
 import           Perst.Database.Tree.Def       (FieldByName, GrecChilds, TdData,
-                                                TopKey, TreeDef)
+                                                TopKey, TreeDef, sTdData)
 -- import           Perst.Lens                    (NamesGrecLens (..))
 
 type InsertTreeConstraint m f b t r =
@@ -37,27 +37,27 @@ type InsertTreeConstraint m f b t r =
   )
 
 insertTreeManyR :: InsertTreeConstraint m ZipList b t (Grec r)
-                => Proxy (t :: TreeDef) -> [r] -> SessionMonad b m [r]
+                => Sing (t :: TreeDef) -> [r] -> SessionMonad b m [r]
 insertTreeManyR pt = fmap (fmap unGrec) . insertTreeMany pt . fmap Grec
 
 insertTreeMany  :: InsertTreeConstraint m ZipList b t r
-                => Proxy (t :: TreeDef) -> [r] -> SessionMonad b m [r]
+                => Sing (t :: TreeDef) -> [r] -> SessionMonad b m [r]
 insertTreeMany pt = fmap getZipList . insertTreeMany' pt . ZipList
 
 insertTreeMany' :: InsertTreeConstraint m f b t r
-                => Proxy (t :: TreeDef) -> f r -> SessionMonad b m (f r)
-insertTreeMany' (_ :: Proxy t) (rs :: f r) = do
-  mbk <- fmap (fmap tagKey) <$> insertMany ptd rs
-  insertChilds pai ptc mbk rs
+                => Sing (t :: TreeDef) -> f r -> SessionMonad b m (f r)
+insertTreeMany' (st :: Sing t) (rs :: f r) = do
+  mbk <- fmap (fmap tagKey) <$> insertMany std rs
+  insertChilds sai ptc mbk rs
  where
-  ptd = Proxy :: Proxy (TdData t)
+  std = sTdData st
   ptc = Proxy :: Proxy (GrecChilds t r)
-  pai = Proxy :: Proxy (DdAutoIns (TdData t))
+  sai = sDdAutoIns std
   tagKey :: x -> Tagged (TopKey t) x
   tagKey = Tagged
 
 class InsertChilds m f b (ai :: Bool) pk chs r where
-  insertChilds  :: Proxy ai
+  insertChilds  :: Sing ai
                 -> Proxy chs
                 -> Maybe (f (Tagged (pk :: [Symbol]) (GenKey b)))
                 -> f r
@@ -85,17 +85,18 @@ instance  ( InsertTreeConstraint
           , InsertChilds m f b False pk chs r
           , Applicative f
           , NamesGrecLens (Snds rs) (RecParent r rs) r
+          , SingI td
           ) => InsertChilds m f b False pk ( '(s, '(td,rs)) ': chs) r where
-  insertChilds pai _ mbk rs = do
+  insertChilds sai _ mbk rs = do
     rs' <- fmap ( liftA2 (\r r' -> r & grecLens fn .~ r') rs
                 . fmap getZipList
                 . getCompose
                 . fmap (unGrec . unGWO . snd)
                 )
-        $ insertTreeMany' (Proxy :: Proxy td)
+        $ insertTreeMany' (sing :: Sing td)
         $ Compose $ newRec <$> rs
 
-    insertChilds pai (Proxy :: Proxy chs) mbk rs'
+    insertChilds sai (Proxy :: Proxy chs) mbk rs'
    where
     fn = Proxy :: Proxy s
     newRec :: r -> ZipList (AddParent s rs r)
@@ -120,17 +121,18 @@ instance  ( InsertTreeConstraint
           , NamesGrecLens (Snds rs)
                           (RecParentAutoIns b pk r rs)
                           (RecAutoIns b pk r)
+          , SingI td
           ) => InsertChilds m f b True pk ( '(s, '(td,rs)) ': chs) r where
-  insertChilds pai _ mbk rs = do
+  insertChilds sai _ mbk rs = do
     rs' <- fmap ( liftA2 (\r r' -> r & grecLens fn .~ r') rs
                 . fmap getZipList
                 . getCompose
                 . fmap (unGrec . unGWO . snd)
                 )
-        $ insertTreeMany' (Proxy :: Proxy td)
+        $ insertTreeMany' (sing :: Sing td)
         $ Compose $ newRec <$> ks <*> rs
 
-    insertChilds pai (Proxy :: Proxy chs) mbk rs'
+    insertChilds sai (Proxy :: Proxy chs) mbk rs'
    where
     fn = Proxy :: Proxy s
     newRec :: Tagged pk (GenKey b) -> r -> ZipList (AddParentAutoIns b pk s rs r)

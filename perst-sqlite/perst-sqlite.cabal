@@ -34,6 +34,7 @@ library
                       , grec
                       , perst
                       , direct-sqlite
+                      , singletons
                       , ghc-prim
                       , bytestring
                       , transformers

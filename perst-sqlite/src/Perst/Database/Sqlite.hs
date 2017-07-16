@@ -1,28 +1,35 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE InstanceSigs              #-}
+-- {-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TypeSynonymInstances      #-}
+{-# LANGUAGE UndecidableInstances      #-}
 module Perst.Database.Sqlite
     ( Sqlite, sqlite, SQLData
     )
     where
 
-import           Control.Monad.Catch        (SomeException, catch, finally,
-                                             throwM)
-import           Control.Monad.IO.Class     (MonadIO (..))
-import           Control.Monad.Trans.Reader (ReaderT (..), ask)
-import           Data.ByteString            (ByteString)
-import           Data.Int                   (Int64)
-import           Data.Monoid                ((<>))
-import           Data.Proxy                 (Proxy (..))
-import           Data.Text                  (Text)
-import           Data.Text.Format           (Only (..), format)
-import           Data.Text.Lazy             (toStrict)
-import           Data.Type.Grec             (Convert (..))
-import           Database.SQLite3           (Database, SQLData (..), Statement,
-                                             StepResult (..), bind, close,
-                                             columns, exec, finalize,
-                                             lastInsertRowId, open, prepare,
-                                             reset, step)
+import           Control.Monad.Catch         (SomeException, catch, finally,
+                                              throwM)
+import           Control.Monad.IO.Class      (MonadIO (..))
+import           Control.Monad.Trans.Reader  (ReaderT (..), ask)
+import           Data.ByteString             (ByteString)
+import           Data.Int                    (Int64)
+import           Data.Monoid                 ((<>))
+import           Data.Proxy                  (Proxy (..))
+-- import           Data.Singletons.CustomStar (singletonStar)
+import           Data.Singletons.TypeRepStar
+import           Data.Text                   (Text)
+import           Data.Text.Format            (Only (..), format)
+import           Data.Text.Lazy              (toStrict)
+import           Data.Type.Grec              (Convert (..))
+import           Database.SQLite3            (Database, SQLData (..), Statement,
+                                              StepResult (..), bind, close,
+                                              columns, exec, finalize,
+                                              lastInsertRowId, open, prepare,
+                                              reset, step)
 import           Perst.Database.Constraints
-import           Perst.Database.DbOption    (DBEnum, DbOption (..), DbTypeName)
+import           Perst.Database.DbOption     (DBEnum, DbOption (..), DbTypeName)
 
 data Sqlite
 
@@ -35,6 +42,9 @@ type instance DbTypeName Sqlite Double     = "FLOAT"
 type instance DbTypeName Sqlite ByteString = "BLOB"
 type instance DbTypeName Sqlite (DBEnum a) = "TEXT"
 
+-- singletonStar [''Text, ''Double, ''Int64, ''Maybe]
+
+-- singletonStar [''Text, ''Double, ''Int64, ''Maybe] -- , ''ByteString, ''DBEnum]
 
 instance Convert SQLData Int64 where
   convert (SQLInteger x) = x

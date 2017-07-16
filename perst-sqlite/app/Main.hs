@@ -20,12 +20,13 @@ import           Data.Proxy                    (Proxy (..))
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
 import           Data.Singletons.Prelude.Maybe
+import           Data.Singletons.TypeRepStar
 import           Data.Tagged                   (Tagged (..))
 import           GHC.Generics                  (Generic)
 
 import           Data.Type.Grec
-import           Perst.Database.DataDef        (DataDFC (..), DelCons (..),
-                                                Subrec, TableD)
+import           Perst.Database.DataDef        (DataD, DelCons (..), Subrec,
+                                                TableD)
 import           Perst.Database.DbOption       (DbOption (..), DbTypeName,
                                                 SessionMonad)
 import           Perst.Database.DDL            as DDL
@@ -47,8 +48,8 @@ data Tab = Rec
 
 type TTab = DataD (TableD Tab '["id"] '[ '["name"]] True) '[]
 
-pTab :: Proxy TTab
-pTab = Proxy
+pTab :: Sing TTab
+pTab = sing
 
 
 data Customer = Customer
@@ -111,11 +112,11 @@ type TAddressTab = TableD Address '["id"] '[] False
 type TAddress = DataD TAddressTab
                       '[ '(TCustomerTab, '[ '("customerId", "id")], DcCascade)]
 
-pCustomer = Proxy :: Proxy TCustomer
-pOrder    = Proxy :: Proxy TOrder
-pArticle  = Proxy :: Proxy TArticle
-pOrderPosition = Proxy :: Proxy TOrderPosition
-pAddress  = Proxy :: Proxy TAddress
+pCustomer      = sing :: Sing TCustomer
+pOrder         = sing :: Sing TOrder
+pArticle       = sing :: Sing TArticle
+pOrderPosition = sing :: Sing  TOrderPosition
+pAddress       = sing :: Sing TAddress
 
 data CustomerTree = CustomerTree
   { id        :: Int64
@@ -153,9 +154,10 @@ type TCustomerTree
      ]
 
 pCustomerTree = Proxy :: Proxy TCustomerTree
+sCustomerTree = sing :: Sing TCustomerTree
 
-createTab :: (DDL IO b a) => Proxy a -> SessionMonad b IO ()
-createTab (p :: Proxy a) = do
+createTab :: (DDL IO b a) => Sing a -> SessionMonad b IO ()
+createTab p = do
   catch (DDL.drop p) (\(_::SomeException) -> return ())
   create p
 
@@ -214,7 +216,7 @@ main = runSession sqlite "test.db" $ do
                         ]
 -}
 
-  insertTreeManyR pCustomerTree ct
+  insertTreeManyR sCustomerTree ct
 
   ct' <- selectTreeMany pCustomerTree
                 (Proxy :: Proxy CustomerTree)
@@ -226,13 +228,13 @@ main = runSession sqlite "test.db" $ do
       then "Checked"
       else "ct' = " ++ show ct'
 
-  updateTreeManyR pCustomerTree (Prelude.drop 2 ct) [ct3]
-  ct' <- selectTreeMany pCustomerTree
-                (Proxy :: Proxy CustomerTree)
-                (map Tagged [1..3] :: [Tagged '["id"] Int64])
-  liftIO $ do
-    putStrLn "After update:"
-    print ct'
+  -- updateTreeManyR pCustomerTree (Prelude.drop 2 ct) [ct3]
+  -- ct' <- selectTreeMany pCustomerTree
+  --               (Proxy :: Proxy CustomerTree)
+  --               (map Tagged [1..3] :: [Tagged '["id"] Int64])
+  -- liftIO $ do
+  --   putStrLn "After update:"
+  --   print ct'
 
 
 {-

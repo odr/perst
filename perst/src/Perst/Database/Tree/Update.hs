@@ -11,6 +11,7 @@ import           Data.Bifunctor             (bimap, first)
 import qualified Data.Map.Strict            as M
 import           Data.Maybe                 (fromJust, isJust)
 import           Data.Proxy                 (Proxy (..))
+import           Data.Singletons.Prelude    (Sing, SingI (..))
 import           Data.Tagged                (Tagged (..))
 import           Lens.Micro.Extras          (view)
 
@@ -36,12 +37,15 @@ type UpdateTreeConstraint m b t r =
   , NamesGrecLens (TopKey t) (TopPKPairs t r) (TopPK t r)
   , UpdByKeyDiffConstr m b (TdData t) (TopNotPK t r) (TopPK t r)
   , UpdateChilds m b (GrecChilds t r) r
+  , SingI (TdData t)
+  , SingI t
   )
 
 {-
 updateTree doesn't return data because
 - there are some difficults in implementation
-- anyway better to select data after update because of the possible db-triggers and so on
+- anyway better to select data after update because of the
+  possibility of db-triggers and so on
 Maybe in future we can change it...
 -}
 
@@ -56,9 +60,9 @@ updateTreeMany :: (UpdateTreeConstraint m b t r)
                 => Proxy (t :: TreeDef) -> [r] -> [r] -> SessionMonad b m ()
 updateTreeMany (pt :: Proxy t) (olds :: [r]) (news :: [r]) = do
   deleteTreeMany pt $ filter (not . (`M.member` news') . pairs) olds
-  updateByPKDiffMany (Proxy :: Proxy (TdData t)) us
+  updateByPKDiffMany (sing :: Sing (TdData t)) us
   updateChilds (Proxy :: Proxy (GrecChilds t r)) us
-  insertTreeMany pt $ filter (not . (`M.member` olds') . pairs) news
+  insertTreeMany (sing :: Sing t) $ filter (not . (`M.member` olds') . pairs) news
   return ()
  where
   pairs (n :: r) = gwPairs (GW n :: TopPK t r)

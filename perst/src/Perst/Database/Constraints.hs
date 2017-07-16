@@ -25,8 +25,10 @@ import           Data.Type.Grec               (ConvFromGrec, ConvToGrec,
 import           GHC.TypeLits                 (ErrorMessage (..), KnownSymbol,
                                                SomeSymbol (..), Symbol (..),
                                                TypeError, symbolVal')
-import           Perst.Database.DataDef       (AllKeys, DataDef, Dd, DdAutoIns,
-                                               DdKey, DdRec, DdRec, DdUpd)
+import           Perst.Database.DataDef       (AllKeys, CheckInsMandatory,
+                                               DataDef, Dd, DdAutoIns, DdFrgn,
+                                               DdKey, DdRec, DdRec, DdUpd,
+                                               KeyType)
 import           Perst.Database.DbOption      (DbOption (..), DbOptionConstr,
                                                NullableSym0)
 import           Perst.Types                  (BackTypes, MandatoryFields)
@@ -38,7 +40,7 @@ type DDLConstr m (b :: Type) (t::DataDef) =
   -- , IsProj t ~ False
   )
 
-type Mandatory rd = MandatoryFields NullableSym0 rd
+-- type Mandatory rd = MandatoryFields NullableSym0 rd
 
 type RecConstr m (b :: Type) (t :: DataDef) (r :: Type) =
   ( DbOptionConstr m b t
@@ -53,7 +55,8 @@ type family RecConstr' t fnr ftr where
 
 type InsConstr m b t r =
   ( DbOptionConstr m b t
-  , SingI (DdAutoIns t)
+  , SingI (DdKey t)
+  -- , SingI (DdAutoIns t)
   , InsConstr' b t (FieldNamesConvGrec r) (FieldTypesConvGrec r)
   , ConvFromGrec r [FieldDB b]
   )
@@ -65,17 +68,15 @@ type family InsConstr' b t fnr ftr where
     -- inserted record contains all mandatory fields
     -- , IsSub (Mandatory (DdRec t) :\\ If (DdAutoIns t) (DdKey t) '[]) fnr
     --     ~ True
-    , If (IsSub (Mandatory (DdRec t) :\\ If (DdAutoIns t) (DdKey t) '[]) fnr)
-        (() :: Constraint)
+    , If (CheckInsMandatory NullableSym0 t fnr) (() :: Constraint)
         (TypeError
             ( Text "Inserted record doesn't contain all mandatory fields."
               :$$: Text "Inserted record fields: " :<>: ShowType fnr
-              :$$: Text "Mandatory fields: " :<>: ShowType (Mandatory (DdRec t) :\\ If (DdAutoIns t) (DdKey t) '[])
+              :$$: Text "Mandatory fields: "
+                  :<>: ShowType (CheckInsMandatory NullableSym0 t fnr)
               :$$: Text "Table definition: " :<>: ShowType (Dd t)
             ))
-    , If (DdAutoIns t)
-        (Submap (DdKey t) (DdRec t) ~ Just '[GenKey b])
-        (() :: Constraint)
+    , If (DdAutoIns t) (KeyType t ~ Just '[GenKey b]) (() :: Constraint)
     )
 
 type UpdConstr m b t r k =

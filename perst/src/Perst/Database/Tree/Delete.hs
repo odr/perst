@@ -6,9 +6,11 @@ module Perst.Database.Tree.Delete where
 import           Control.Applicative        (ZipList (..))
 import           Data.Functor.Compose       (Compose (..))
 import           Data.Proxy                 (Proxy (..))
+import           Data.Singletons.Prelude    (Sing, SingI (..))
+import           Lens.Micro.Extras          (view)
+
 import           Data.Type.Grec             (Grec (..), GrecLens (..),
                                              GrecWith (..))
-import           Lens.Micro.Extras          (view)
 import           Perst.Database.Constraints (DelByKeyConstr)
 import           Perst.Database.DataDef     (DdKey)
 import           Perst.Database.DbOption    (SessionMonad)
@@ -20,6 +22,7 @@ type DeleteTreeConstraint m f b t r =
   ( Applicative f, Traversable f
   , DelByKeyConstr m b (TdData t) (TopPK t r)
   , DeleteChilds m f b (GrecChilds t r) r
+  , SingI (TdData t)
   )
 
 deleteTreeManyR :: DeleteTreeConstraint m ZipList b t (Grec r)
@@ -39,7 +42,7 @@ deleteTreeMany' (_ :: Proxy t) (s :: f r) = do
   deleteByKeyMany pd $ fmap getKey s
  where
   pc = Proxy :: Proxy (GrecChilds t r)
-  pd = Proxy :: Proxy (TdData t)
+  pd = sing :: Sing (TdData t)
   getKey = GW :: r -> TopPK t r
 
 class DeleteChilds m f b chs r where

@@ -97,8 +97,8 @@ genDefunSymbols [''DbTypeName, ''Nullable]
 
 
 dbTypeNames :: SingI (BackTypes b NullableSym0 DbTypeNameSym0 (DdRec t))
-            => Proxy (b :: Type) -> Proxy t -> [(String, Bool)]
-dbTypeNames (_ :: Proxy b) (_ :: Proxy t)
+            => Proxy (b :: Type) -> Sing t -> [(String, Bool)]
+dbTypeNames (_ :: Proxy b) (_ :: Sing t)
   = fromSing (sing :: Sing (BackTypes b NullableSym0 DbTypeNameSym0 (DdRec t)))
 
 dbTypeNames' :: SingI (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsGrec r))
@@ -108,7 +108,7 @@ dbTypeNames' (_ :: Proxy b) (_ :: Proxy r)
 
 type DbOptionConstr m b d =
   ( DbOption b
-  , DataDefConstr d
+  -- , DataDefConstr d
   , SingI (BackTypes b NullableSym0 DbTypeNameSym0 (DdRec d))
   , MonadIO m, MonadMask m
   )
