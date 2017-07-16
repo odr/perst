@@ -2,19 +2,21 @@
 {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TypeInType                #-}
 {-# LANGUAGE UndecidableInstances      #-}
 module Data.Type.Grec.Type
     ( (:::), Cons, Fields, Typ, GFields, ListToTagged, TaggedToList, ListToPairs
     , ListToTaggedPairs
     , GrecGroup(..), UnGrecGroup, GUnGroupFields
-    , IsSub, IsSubSym0, IsSubSym1
-    , AllIsSub, AllIsSubSym0, AllIsSubSym1
-    , Submap, SubmapSym0, SubmapSym1
-    , Submap2, Submap2Sym0, Submap2Sym1
+    , IsSub, IsSubSym0, IsSubSym1, sIsSub
+    , AllIsSub, AllIsSubSym0, AllIsSubSym1, sAllIsSub
+    , Submap, SubmapSym0, SubmapSym1, sSubmap
+    , Submap2, Submap2Sym0, Submap2Sym1, sSubmap2
     , Contain, ContainSym0, ContainSym1
     ) where
 
 import           Data.Kind                     (Type)
+import           Data.Maybe                    (fromJust, isNothing)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
 import           Data.Singletons.Prelude.Maybe
@@ -93,7 +95,7 @@ type family ListToPairs (t :: [Type]) :: Type where
 
 type ListToTaggedPairs t = Tagged (Map FstSym0 t) (ListToPairs (Map SndSym0 t))
 
-promoteOnly
+singletons
   [d| isSub :: Eq a => [a] -> [a] -> Bool
       isSub as bs = all (`elem` bs) as -- null $ aa \\ bs
 
