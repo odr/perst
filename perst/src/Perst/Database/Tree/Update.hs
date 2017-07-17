@@ -28,7 +28,8 @@ import           Perst.Database.Tree.Def    (FieldByName, GrecChilds, TdData,
 import           Perst.Database.Tree.Delete (DeleteTreeConstraint,
                                              deleteTreeMany)
 import           Perst.Database.Tree.Insert (AddParent, InsertTreeConstraint,
-                                             RecParent, Snds, insertTreeMany)
+                                             RecParent, insertTreeMany)
+import           Perst.Types                (Snds)
 
 type UpdateTreeConstraint m b t r =
   ( InsertTreeConstraint m ZipList b t r

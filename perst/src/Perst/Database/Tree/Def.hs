@@ -27,6 +27,9 @@ singletons [d|
   tdChilds  (TreeDefC _ c) = c
 
   parentKeyNames t = map (map fst . snd . snd) $ tdChilds t
+
+  -- grecChilds'' :: Eq s => TreeDef' s t -> [s] -> [(s,(TreeDef' s t,[(s,s)]))]
+  -- grecChilds'' t ss  = submap2 ss (tdChilds t)
   |]
 
 promoteOnly [d|

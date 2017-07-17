@@ -218,15 +218,15 @@ main = runSession sqlite "test.db" $ do
 
   insertTreeManyR sCustomerTree ct
 
-  ct' <- selectTreeMany pCustomerTree
-                (Proxy :: Proxy CustomerTree)
-                (map Tagged [1..3] :: [Tagged '["id"] Int64])
-        -- >>= liftIO . putStrLn . ("Check CustomerTree: " ++) . show
-                   -- . (== map (:[]) ct) . sort
-  liftIO $ putStrLn $ "Check CustomerTree: " ++
-    if ct' == map (:[]) ct
-      then "Checked"
-      else "ct' = " ++ show ct'
+  -- ct' <- selectTreeMany pCustomerTree
+  --               (Proxy :: Proxy CustomerTree)
+  --               (map Tagged [1..3] :: [Tagged '["id"] Int64])
+  --       -- >>= liftIO . putStrLn . ("Check CustomerTree: " ++) . show
+  --                  -- . (== map (:[]) ct) . sort
+  -- liftIO $ putStrLn $ "Check CustomerTree: " ++
+  --   if ct' == map (:[]) ct
+  --     then "Checked"
+  --     else "ct' = " ++ show ct'
 
   -- updateTreeManyR pCustomerTree (Prelude.drop 2 ct) [ct3]
   -- ct' <- selectTreeMany pCustomerTree
