@@ -23,13 +23,16 @@ import           Perst.Database.DataDef        (DataDef', DdFldsSym0, DdKey,
 singletons [d|
   data TreeDef' s t = TreeDefC (DataDef' s t) [(s, (TreeDef' s t, [(s,s)]))]
 
-  |]
-promoteOnly [d|
   tdData    (TreeDefC d _) = d
   tdChilds  (TreeDefC _ c) = c
 
   parentKeyNames t = map (map fst . snd . snd) $ tdChilds t
 
+  -- grecChilds'' :: Eq s => TreeDef' s t -> [s] -> [(s,(TreeDef' s t,[(s,s)]))]
+  -- grecChilds'' t ss  = submap2 ss (tdChilds t)
+  |]
+
+promoteOnly [d|
   allParentKeyNames :: Eq s => TreeDef' s t -> [s]
   allParentKeyNames t = nub $ concatMap (map snd . snd . snd) $ tdChilds t
 
@@ -40,6 +43,7 @@ promoteOnly [d|
   child s t = fromMaybe
       (error "There is no right children")
       $ lookup s $ tdChilds t
+
   childKeys s = map fst . snd . child s
   parentKeys s = map snd . snd . child s
 
@@ -52,9 +56,7 @@ promoteOnly [d|
 
   grecChilds' t ss  = fromMaybe (error "GrecChilds': Can't submap childs!")
                     $ submap2 ss (tdChilds t)
-  |]
 
-promoteOnly [d|
   checkTree' :: (Eq s) => TreeDef' s t -> Bool
   checkTree' t
     = all (\(_,(a,b)) -> isSub (map fst b) (ddFlds $ tdData t)

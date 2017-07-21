@@ -8,15 +8,16 @@ import           Data.Singletons.Prelude.Maybe
 import           Data.Singletons.TH
 import           GHC.Exts                      (Constraint)
 
+singletons
+  [d|
+  fsts rs = map fst rs
+  snds rs = map snd rs
 
-promoteOnly
-  [d| backTypes :: a -> (c -> (d, Bool)) -> (a -> d -> Symbol) -> [(b,c)] -> [(Symbol,Bool)]
-      backTypes a nul f = map ((\(d,b) -> (f a d, b)) . nul . snd)
-
-      mandatoryFields :: (c -> (d, Bool)) -> [(b,c)] -> [b]
-      mandatoryFields f = map fst . filter (\(b,c) -> not $ snd $ f c)
+  mandatoryFields :: (c -> (d, Bool)) -> [(b,c)] -> [b]
+  mandatoryFields f = fsts . filter (\(b,c) -> not $ snd $ f c)
+  backTypes :: a -> (c -> (d, Bool)) -> (a -> d -> s) -> [(b,c)] -> [(s,Bool)]
+  backTypes a nul f = map ((\(d,b) -> (f a d, b)) . nul . snd)
   |]
 
--- type family FromConsList (a::[Constraint]) :: Constraint where
---   FromConsList '[] = ()
---   FromConsList (a ': b) = (a,FromConsList b)
+singToProxy :: Sing s -> Proxy s
+singToProxy _ = Proxy

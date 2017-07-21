@@ -5,15 +5,16 @@
 {-# LANGUAGE TypeInType                #-}
 {-# LANGUAGE UndecidableInstances      #-}
 module Data.Type.Grec.Type
-    ( (:::), Cons, Fields, Typ, GFields, ListToTagged, TaggedToList, ListToPairs
-    , ListToTaggedPairs
-    , GrecGroup(..), UnGrecGroup, GUnGroupFields
-    , IsSub, IsSubSym0, IsSubSym1, sIsSub
-    , AllIsSub, AllIsSubSym0, AllIsSubSym1, sAllIsSub
-    , Submap, SubmapSym0, SubmapSym1, sSubmap
-    , Submap2, Submap2Sym0, Submap2Sym1, sSubmap2
-    , Contain, ContainSym0, ContainSym1
-    ) where
+    -- ( (:::), Cons, Fields, Typ, GFields, ListToTagged, TaggedToList, ListToPairs
+    -- , ListToTaggedPairs
+    -- , GrecGroup(..), UnGrecGroup, GUnGroupFields
+    -- , IsSub, IsSubSym0, IsSubSym1, sIsSub
+    -- , AllIsSub, AllIsSubSym0, AllIsSubSym1, sAllIsSub
+    -- , Submap, SubmapSym0, SubmapSym1, sSubmap
+    -- , Submap2, Submap2Sym0, Submap2Sym1, sSubmap2
+    -- , Contain, ContainSym0, ContainSym1
+    -- )
+    where
 
 import           Data.Kind                     (Type)
 import           Data.List                     (nub)

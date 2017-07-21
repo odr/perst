@@ -11,6 +11,7 @@ import           Data.Bifunctor             (bimap, first)
 import qualified Data.Map.Strict            as M
 import           Data.Maybe                 (fromJust, isJust)
 import           Data.Proxy                 (Proxy (..))
+import           Data.Singletons.Prelude    (Sing (SCons, STuple2), SingI (..))
 import           Data.Tagged                (Tagged (..))
 import           Lens.Micro.Extras          (view)
 
@@ -23,11 +24,12 @@ import           Perst.Database.DbOption    (SessionMonad)
 import           Perst.Database.DML         (updateByPKDiffMany)
 import           Perst.Database.Tree.Def    (FieldByName, GrecChilds, TdData,
                                              TopKey, TopNotPK, TopPK,
-                                             TopPKPairs, TreeDef)
+                                             TopPKPairs, TreeDef, sTdData)
 import           Perst.Database.Tree.Delete (DeleteTreeConstraint,
                                              deleteTreeMany)
 import           Perst.Database.Tree.Insert (AddParent, InsertTreeConstraint,
-                                             RecParent, Snds, insertTreeMany)
+                                             RecParent, insertTreeMany)
+import           Perst.Types                (Snds)
 
 type UpdateTreeConstraint m b t r =
   ( InsertTreeConstraint m ZipList b t r
@@ -41,23 +43,24 @@ type UpdateTreeConstraint m b t r =
 {-
 updateTree doesn't return data because
 - there are some difficults in implementation
-- anyway better to select data after update because of the possible db-triggers and so on
+- anyway better to select data after update because of the
+  possibility of db-triggers and so on
 Maybe in future we can change it...
 -}
 
 
 updateTreeManyR :: (UpdateTreeConstraint m b t (GrecF r))
-                => Proxy (t :: TreeDef) -> [r] -> [r] -> SessionMonad b m ()
+                => Sing (t :: TreeDef) -> [r] -> [r] -> SessionMonad b m ()
 updateTreeManyR pt olds = updateTreeMany pt (map grec olds)
                         . map grec
 
 -- updateTreeMany return list of inserted record with keys
 updateTreeMany :: (UpdateTreeConstraint m b t r)
-                => Proxy (t :: TreeDef) -> [r] -> [r] -> SessionMonad b m ()
-updateTreeMany (pt :: Proxy t) (olds :: [r]) (news :: [r]) = do
+                => Sing (t :: TreeDef) -> [r] -> [r] -> SessionMonad b m ()
+updateTreeMany (pt :: Sing t) (olds :: [r]) (news :: [r]) = do
   deleteTreeMany pt $ filter (not . (`M.member` news') . pairs) olds
-  updateByPKDiffMany (Proxy :: Proxy (TdData t)) us
-  updateChilds (Proxy :: Proxy (GrecChilds t r)) us
+  updateByPKDiffMany (sTdData pt) us
+  updateChilds (sing :: Sing (GrecChilds t r)) us
   insertTreeMany pt $ filter (not . (`M.member` olds') . pairs) news
   return ()
  where
@@ -71,7 +74,7 @@ updateTreeMany (pt :: Proxy t) (olds :: [r]) (news :: [r]) = do
 
 
 class UpdateChilds m b chs r where
-  updateChilds  :: Proxy chs -> [(r,r)] -> SessionMonad b m ()
+  updateChilds  :: Sing chs -> [(r,r)] -> SessionMonad b m ()
 
 instance Monad m => UpdateChilds m b '[] r where
   updateChilds _ _ = return ()
@@ -82,9 +85,9 @@ instance  ( UpdateTreeConstraint m b td (AddParent s rs r)
           , NamesGrecLens (Snds rs) (RecParent r rs) r
           )
           => UpdateChilds m b ('(s,'(td,rs)) ': chs) r where
-  updateChilds _ rs = do
-    updateTreeMany (Proxy :: Proxy td) olds news
-    updateChilds (Proxy :: Proxy chs) rs
+  updateChilds (SCons (STuple2 sname (STuple2 std srs)) schs) rs = do
+    updateTreeMany std olds news
+    updateChilds schs rs
    where
     (olds,news) = bimap concat concat $ unzip $ map (bimap newRec newRec) rs
     --

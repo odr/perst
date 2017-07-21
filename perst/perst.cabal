@@ -64,7 +64,7 @@ library
 executable perst-exe
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -O
                       --  -fplugin=Perst.Plugin -plugin-package perst-plugin
   build-depends:       base
                      , perst
