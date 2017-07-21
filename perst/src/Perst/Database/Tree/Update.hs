@@ -14,9 +14,9 @@ import           Data.Proxy                 (Proxy (..))
 import           Data.Tagged                (Tagged (..))
 import           Lens.Micro.Extras          (view)
 
-import           Data.Type.Grec             (Grec (..), GrecLens (..),
+import           Data.Type.Grec             (Grec (..), GrecF, GrecLens (..),
                                              GrecWith (..), GrecWithout (..),
-                                             NamesGrecLens (..), gwPairs)
+                                             NamesGrecLens (..), grec, gwPairs)
 
 import           Perst.Database.Constraints (UpdByKeyDiffConstr)
 import           Perst.Database.DbOption    (SessionMonad)
@@ -46,10 +46,10 @@ Maybe in future we can change it...
 -}
 
 
-updateTreeManyR :: (UpdateTreeConstraint m b t (Grec r))
+updateTreeManyR :: (UpdateTreeConstraint m b t (GrecF r))
                 => Proxy (t :: TreeDef) -> [r] -> [r] -> SessionMonad b m ()
-updateTreeManyR pt olds = updateTreeMany pt (map Grec olds)
-                        . map Grec
+updateTreeManyR pt olds = updateTreeMany pt (map grec olds)
+                        . map grec
 
 -- updateTreeMany return list of inserted record with keys
 updateTreeMany :: (UpdateTreeConstraint m b t r)

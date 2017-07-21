@@ -226,7 +226,7 @@ main = runSession sqlite "test.db" $ do
       then "Checked"
       else "ct' = " ++ show ct'
 
-  -- updateTreeManyR pCustomerTree (Prelude.drop 2 ct) [ct3]
+  updateTreeManyR pCustomerTree (Prelude.drop 2 ct) [ct3]
   ct' <- selectTreeMany pCustomerTree
                 (Proxy :: Proxy CustomerTree)
                 (map Tagged [1..3] :: [Tagged '["id"] Int64])

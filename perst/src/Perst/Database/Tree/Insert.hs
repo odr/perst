@@ -18,10 +18,10 @@ import           Lens.Micro                    ((&), (.~))
 import           Lens.Micro.Extras             (view)
 
 import           Data.Type.Grec                (FieldsGrec, FieldsGrecSym0,
-                                                Grec (..), GrecLens (..),
-                                                GrecWithout (..), ListToPairs,
-                                                NamesGrecLens (..), Submap,
-                                                SubmapSym0)
+                                                Grec (unGrec), GrecF,
+                                                GrecLens (..), GrecWithout (..),
+                                                ListToPairs, NamesGrecLens (..),
+                                                Submap, SubmapSym0, grec)
 import           Perst.Database.Constraints    (InsConstr)
 import           Perst.Database.DataDef        (DdAutoIns, DdKey)
 import           Perst.Database.DbOption       (GenKey, SessionMonad)
@@ -36,9 +36,9 @@ type InsertTreeConstraint m f b t r =
   , InsertChilds m f b (DdAutoIns (TdData t)) (TopKey t) (GrecChilds t r) r
   )
 
-insertTreeManyR :: InsertTreeConstraint m ZipList b t (Grec r)
+insertTreeManyR :: InsertTreeConstraint m ZipList b t (GrecF r)
                 => Proxy (t :: TreeDef) -> [r] -> SessionMonad b m [r]
-insertTreeManyR pt = fmap (fmap unGrec) . insertTreeMany pt . fmap Grec
+insertTreeManyR pt = fmap (fmap unGrec) . insertTreeMany pt . fmap grec
 
 insertTreeMany  :: InsertTreeConstraint m ZipList b t r
                 => Proxy (t :: TreeDef) -> [r] -> SessionMonad b m [r]
@@ -76,7 +76,7 @@ type Fsts rs = Map FstSym0 rs
 type Snds rs = Map SndSym0 rs
 type AddParent s rs r =
   ( Tagged (Fsts rs) (RecParent r rs)
-  , GrecWithout (Fsts rs) (Grec (FieldByName s r))
+  , GrecWithout (Fsts rs) (GrecF (FieldByName s r))
   )
 instance  ( InsertTreeConstraint
               m (Compose f ZipList) b td
@@ -99,16 +99,16 @@ instance  ( InsertTreeConstraint
    where
     fn = Proxy :: Proxy s
     newRec :: r -> ZipList (AddParent s rs r)
-    newRec r = (\r' -> (tr, GWO (Grec r'))) <$> ZipList (view (grecLens fn) r)
+    newRec r = (\r' -> (tr, GWO (grec r'))) <$> ZipList (view (grecLens fn) r)
      where
       tr = Tagged (namesGrecGet (Proxy :: Proxy (Snds rs)) r)
 
 type RecParent r rs = ListToPairs (GetParentTypes rs r)
-type RecAutoIns b pk r = (Tagged pk (GenKey b), GrecWithout pk (Grec r))
+type RecAutoIns b pk r = (Tagged pk (GenKey b), GrecWithout pk (GrecF r))
 type RecParentAutoIns b pk r rs = RecParent (RecAutoIns b pk r) rs
 type AddParentAutoIns b pk s rs r =
   ( Tagged (Fsts rs) (RecParentAutoIns b pk r rs)
-  , GrecWithout (Fsts rs) (Grec (FieldByName s r))
+  , GrecWithout (Fsts rs) (GrecF (FieldByName s r))
   )
 
 instance  ( InsertTreeConstraint
@@ -134,10 +134,10 @@ instance  ( InsertTreeConstraint
    where
     fn = Proxy :: Proxy s
     newRec :: Tagged pk (GenKey b) -> r -> ZipList (AddParentAutoIns b pk s rs r)
-    newRec k r = (\r' -> (tr, GWO (Grec r')))
+    newRec k r = (\r' -> (tr, GWO (grec r')))
             <$> ZipList (view (grecLens fn) r)
      where
       tr = Tagged (namesGrecGet (Proxy :: Proxy (Snds rs))
-                  (k, GWO (Grec r) :: GrecWithout pk (Grec r)))
+                  (k, GWO (grec r) :: GrecWithout pk (GrecF r)))
     ks = fromMaybe (error $ "There is no key value (Nothing) in insertChilds"
                   ++ " but parent has AutoIns flag") mbk

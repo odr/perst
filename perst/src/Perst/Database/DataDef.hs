@@ -36,7 +36,7 @@ import           Data.Singletons.TH            (genDefunSymbols, promoteOnly,
 import           Data.Tagged                   (Tagged)
 import qualified Data.Text.Lazy                as TL
 import           Data.Type.Grec                (AllIsSub, FieldNamesConvGrec,
-                                                FieldsGrec, Grec, GrecWith,
+                                                FieldsGrec, GrecF, GrecWith,
                                                 GrecWithout, IsSub, IsSubSym0,
                                                 ListToPairs, Submap, Typ)
 import           GHC.Generics                  (Generic)
@@ -131,7 +131,7 @@ promoteOnly [d|
 
 type DataDef = DataDef' Symbol Type
 
-type TableD v pk uk ai = TableD' (Typ v) (FieldsGrec (Grec v)) pk uk ai
+type TableD v pk uk ai = TableD' (Typ v) (FieldsGrec (GrecF v)) pk uk ai
 
 -- class TableDC n r pk uk ai where
 --   type TableDC
@@ -160,7 +160,7 @@ instance  ( FkIsNub refs ~ True
   type DataD d refs = DataDefC d (MkRefs refs)
 
 -- View is not interesting right now... Rewrite later!
-type ViewD v = ViewD' (Typ v) (FieldsGrec (Grec v))
+type ViewD v = ViewD' (Typ v) (FieldsGrec (GrecF v))
 
 type family ViewD' n r where
   ViewD' n r = ViewDef n r (Map FstSym0 r)

@@ -16,6 +16,7 @@ module Data.Type.Grec.Type
     ) where
 
 import           Data.Kind                     (Type)
+import           Data.List                     (nub)
 import           Data.Maybe                    (fromJust, isNothing)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
@@ -100,7 +101,8 @@ singletons
       isSub as bs = all (`elem` bs) as -- null $ aa \\ bs
 
       allIsSub :: Eq a => [[a]] -> [a] -> Bool
-      allIsSub ass ps = all (`isSub` ps) ass
+      allIsSub ass ps = isSub (nub $ concat ass) ps
+      --all (`isSub` ps) ass
 
       submap :: Eq a => [a] -> [(a,b)] -> Maybe [b]
       submap as ps = let rs = map (`lookup` ps) as in

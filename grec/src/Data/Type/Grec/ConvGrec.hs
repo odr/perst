@@ -15,24 +15,13 @@ class ConvToGrec a b where
 class ConvFromGrec a b where
   convFromGrec :: a -> b
 
--- type family GrecType a :: Nat where
---   GrecType (a,b) = 2
---   GrecType a = 1
---
--- class ConvToGrec a b where
---   convToGrec :: a -> b
---
--- class ConvFromGrec a b where
---   convFromGrec :: a -> b
---
-
-instance Convert (ConvList a, Grec r) (ConvList a)
-      => ConvFromGrec (Grec r) [a] where
+instance Convert (ConvList a, Grec r fs) (ConvList a)
+      => ConvFromGrec (Grec r fs) [a] where
   convFromGrec = unConvList . convert . (,) (ConvList ([]::[a]))
 
-instance Convert (ConvList a) (ConvList a, Grec r)
-      => ConvToGrec [a] (Grec r) where
-  convToGrec = snd . (convert :: ConvList a -> (ConvList a, Grec r)) . ConvList
+instance Convert (ConvList a) (ConvList a, Grec r fs)
+      => ConvToGrec [a] (Grec r fs) where
+  convToGrec = snd . (convert :: ConvList a -> (ConvList a, Grec r fs)) . ConvList
 
 instance Convert (ConvList a, Tagged ns b) (ConvList a)
       => ConvFromGrec (Tagged (ns :: [Symbol]) b) [a] where

@@ -46,7 +46,7 @@ import           Lens.Micro.Extras             (view)
 
 import           Data.Type.Grec.Convert        (IsConvSym0)
 import           Data.Type.Grec.ConvGrec       (ConvFromGrec (..))
-import           Data.Type.Grec.Grec           (Grec (..))
+import           Data.Type.Grec.Grec           (Grec (..), grec)
 -- import           Data.Type.Grec.GrecLens
 import           Data.Type.Grec.Lens           (LensedConstraint, nlens)
 import           Data.Type.Grec.Type           (Fields, ListToPairs,
@@ -78,7 +78,7 @@ type family FieldsGrec a :: [(Symbol, Type)] where
   FieldsGrec (Tagged (ns :: [Symbol]) b) = TaggedToList (Tagged ns b)
   FieldsGrec (GrecWithout ns a) = Without ns (FieldsGrec a)
   FieldsGrec (GrecWith ns a) = With ns (FieldsGrec a)
-  FieldsGrec (Grec a) = Fields a
+  FieldsGrec (Grec a fs) = fs
   FieldsGrec (a,b) = FieldsGrec a :++ FieldsGrec b
 
 genDefunSymbols [''FieldsGrec]
@@ -154,7 +154,7 @@ instance (SingI ns, SingI (FieldNamesConvGrec r), ConvFromGrec r [a])
 class GrecLens n a b where
   grecLens :: Functor f => Proxy n -> (a -> f a) -> b -> f b
 
-instance LensedConstraint b n a => GrecLens n a (Grec b) where
+instance LensedConstraint b n a => GrecLens n a (Grec b fs) where
   grecLens pn f = fmap Grec . nlens pn f . unGrec
 
 --------------
@@ -177,14 +177,10 @@ instance GrecLens n a (Tagged (n ': '[]) a) where
   grecLens pn f = fmap Tagged . f . unTagged
 ------------
 
-type GrecLensCons n a b = Lookup n (FieldsGrec b) ~ Just a
-
-instance (GrecLensCons n a (GrecWithout ns b), GrecLens n a b)
-      => GrecLens n a (GrecWithout ns b) where
+instance GrecLens n a b => GrecLens n a (GrecWithout ns b) where
   grecLens pn f = fmap GWO . grecLens pn f . unGWO
 
-instance (GrecLensCons n a (GrecWith ns b), GrecLens n a b)
-      => GrecLens n a (GrecWith ns b) where
+instance GrecLens n a b => GrecLens n a (GrecWith ns b) where
   grecLens pn f = fmap GW . grecLens pn f . unGW
 
 ------------

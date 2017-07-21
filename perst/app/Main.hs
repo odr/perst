@@ -12,6 +12,7 @@
 module Main where
 
 -- main :: IO ()
+
 -- main = return ()
 import           Control.Applicative
 import           Data.Bifunctor

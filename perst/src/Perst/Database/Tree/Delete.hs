@@ -6,8 +6,8 @@ module Perst.Database.Tree.Delete where
 import           Control.Applicative        (ZipList (..))
 import           Data.Functor.Compose       (Compose (..))
 import           Data.Proxy                 (Proxy (..))
-import           Data.Type.Grec             (Grec (..), GrecLens (..),
-                                             GrecWith (..))
+import           Data.Type.Grec             (GrecF, GrecLens (..),
+                                             GrecWith (..), grec)
 import           Lens.Micro.Extras          (view)
 import           Perst.Database.Constraints (DelByKeyConstr)
 import           Perst.Database.DataDef     (DdKey)
@@ -22,9 +22,9 @@ type DeleteTreeConstraint m f b t r =
   , DeleteChilds m f b (GrecChilds t r) r
   )
 
-deleteTreeManyR :: DeleteTreeConstraint m ZipList b t (Grec r)
+deleteTreeManyR :: DeleteTreeConstraint m ZipList b t (GrecF r)
                 => Proxy (t :: TreeDef) -> [r] -> SessionMonad b m ()
-deleteTreeManyR (pt :: Proxy t) = deleteTreeMany pt . fmap Grec
+deleteTreeManyR (pt :: Proxy t) = deleteTreeMany pt . fmap grec
  -- where
  --  getKey = GW . Grec :: r -> GrecWith (DdKey (TdData t)) (Grec r)
 
@@ -48,7 +48,7 @@ class DeleteChilds m f b chs r where
 instance Monad m => DeleteChilds m f b '[] r where
   deleteChilds _ _ = return ()
 
-instance  ( DeleteTreeConstraint m (Compose f ZipList) b td (Grec (FieldByName s r))
+instance  ( DeleteTreeConstraint m (Compose f ZipList) b td (GrecF (FieldByName s r))
           , GrecLens s [FieldByName s r] r
           , Applicative f
           , DeleteChilds m f b chs r
@@ -58,5 +58,5 @@ instance  ( DeleteTreeConstraint m (Compose f ZipList) b td (Grec (FieldByName s
     deleteTreeMany' (Proxy :: Proxy td) rc
     deleteChilds (Proxy :: Proxy chs) rs
    where
-    rc :: Compose f ZipList (Grec (FieldByName s r))
-    rc = Compose $ (ZipList . fmap Grec . view (grecLens (Proxy :: Proxy s))) <$> rs
+    rc :: Compose f ZipList (GrecF (FieldByName s r))
+    rc = Compose $ (ZipList . fmap grec . view (grecLens (Proxy :: Proxy s))) <$> rs

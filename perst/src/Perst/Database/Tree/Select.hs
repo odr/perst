@@ -7,13 +7,14 @@ import           Control.Monad.Catch        (MonadMask)
 import           Control.Monad.IO.Class     (MonadIO (..))
 import           Data.Bifunctor             (second)
 import           Data.Functor.Compose       (Compose (..))
-import           Data.Singletons.Prelude    (FstSym0, Map, Proxy (..), Symbol)
+import           Data.Singletons.Prelude    (Fst, FstSym0, Head, Map,
+                                             Proxy (..), Snd, Symbol)
 import           Data.Tagged                (Tagged (..), retag)
 import           Data.Traversable           (Traversable (..))
 import           Lens.Micro                 ((.~))
 
-import           Data.Type.Grec             (Grec (..), GrecLens (..),
-                                             GrecWith (..))
+import           Data.Type.Grec             (Grec (..), GrecF, GrecLens (..),
+                                             GrecWith (..), grec)
 import           Perst.Database.Constraints (SelConstr)
 import           Perst.Database.DbOption    (SessionMonad)
 import           Perst.Database.DML         (selectMany)
@@ -23,8 +24,11 @@ import           Perst.Database.Tree.Def    (ChildByParents, FieldByName,
 
 type SelectTreeConstraint m f b t r k =
   ( Applicative f, Traversable f
-  , SelConstr m b (TdData t) (TaggedAllParentKeys t, Grec r) k
-  , SelectChilds m (Compose f ZipList) b (GrecChilds t (Grec r)) (TaggedAllParentKeys t) r
+  , SelectTreeConstraint' m f b t r (GrecF r) k
+  )
+type SelectTreeConstraint' m f b t r gr k =
+  ( SelConstr m b (TdData t) (TaggedAllParentKeys t, gr) k
+  , SelectChilds m (Compose f ZipList) b (GrecChilds t gr) (TaggedAllParentKeys t) r
   )
 
 selectTreeMany :: SelectTreeConstraint m ZipList b t r k
@@ -38,8 +42,8 @@ selectTreeMany' (_ :: Proxy t) (_ :: Proxy r) ks
   >>= fmap (fmap getZipList . getCompose . fmap snd) . selectChilds ptc
  where
   ptd = Proxy :: Proxy (TdData t)
-  pkr = Proxy :: Proxy (TaggedAllParentKeys t, Grec r)
-  ptc = Proxy :: Proxy (GrecChilds t (Grec r))
+  pkr = Proxy :: Proxy (TaggedAllParentKeys t, GrecF r)
+  ptc = Proxy :: Proxy (GrecChilds t (GrecF r))
 
 class SelectChilds m f b
           (chs :: [(Symbol, (TreeDef, [(Symbol,Symbol)]))])
@@ -49,9 +53,19 @@ class SelectChilds m f b
 instance Monad m => SelectChilds m f b '[] ks r where
   selectChilds _ = return
 
-instance  ( SelectTreeConstraint m f b td (FieldByName s (Grec r))
-              (GrecWith (Map FstSym0 rs) (Tagged (ChildByParents rs nk) vk))
-          , GrecLens s [FieldByName s (Grec r)] (Grec r)
+type SelectChildsConstraint m f b chs nk vk r =
+  SelectChildsConstraint' m f b chs nk vk (GrecF r) (Fst (Head chs))
+
+type SelectChildsConstraint' m f b chs nk vk r s =
+  SelectChildsConstraint'' m f b chs nk vk r s (FieldByName s r) (Snd (Snd (Head chs)))
+
+type SelectChildsConstraint'' m f b chs nk vk r s r' rs =
+  ( SelectTreeConstraint m f b (Fst (Snd (Head chs))) r'
+          (GrecWith (Map FstSym0 rs) (Tagged (ChildByParents rs nk) vk))
+  , GrecLens s [r'] r
+  )
+
+instance  ( SelectChildsConstraint m f b ('(s,'(td,rs)) ': chs) nk vk r
           , SelectChilds m f b chs (Tagged nk vk) r
           )
     => SelectChilds m f b ('(s,'(td,rs)) ': chs) (Tagged nk vk) r where
@@ -60,12 +74,12 @@ instance  ( SelectTreeConstraint m f b td (FieldByName s (Grec r))
     >>= selectChilds (Proxy :: Proxy chs)
    where
     ptd = Proxy :: Proxy td
-    ptr = Proxy :: Proxy (FieldByName s (Grec r))
+    ptr = Proxy :: Proxy (FieldByName s (GrecF r ))
     newkey = fmap
       ( (GW :: Tagged (ChildByParents rs nk) vk
             -> GrecWith (Map FstSym0 rs) (Tagged (ChildByParents rs nk) vk))
       . (retag :: Tagged nk vk -> Tagged (ChildByParents rs nk) vk)
       . fst
       ) compKR
-    updRec :: (Tagged nk vk, r) -> [FieldByName s (Grec r)] -> (Tagged nk vk, r)
-    updRec k' r' = second (unGrec . (grecLens (Proxy :: Proxy s) .~ r') . Grec) k'
+    updRec :: (Tagged nk vk, r) -> [FieldByName s (GrecF r)] -> (Tagged nk vk, r)
+    updRec k' r' = second (unGrec . (grecLens (Proxy :: Proxy s) .~ r') . grec) k'
