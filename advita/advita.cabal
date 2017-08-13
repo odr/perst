@@ -44,7 +44,7 @@ library
                       , grec
                       , perst
                       , perst-sqlite
-                      , servant
+                      -- , servant
   default-language:    Haskell2010
 
 executable advita-exe

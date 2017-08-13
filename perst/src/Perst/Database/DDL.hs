@@ -1,66 +1,91 @@
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE DefaultSignatures    #-}
+{-# LANGUAGE MagicHash            #-}
 {-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE TypeInType           #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Perst.Database.DDL
     ( DDL (..)
     ) where
 
-import           Control.Arrow              (first)
-import           Control.Monad              ((>=>))
-import           Control.Monad.IO.Class     (MonadIO)
-import           Data.Kind                  (Type)
-import           Data.List                  (intercalate)
-import           Data.Proxy                 (Proxy (..))
-import           Data.Singletons.Prelude    (Sing)
-import           Data.Text.Format           (Only (..), format)
-import           Data.Text.Lazy             (Text)
-import           GHC.TypeLits               (KnownSymbol, symbolVal)
-import           Perst.Database.Constraints (DDLConstr)
-import           Perst.Database.DataDef     (DataDef, DataDef' (..),
-                                             DataDef'' (..), fieldNames,
-                                             foreignKeys, primaryKey, tableName,
-                                             uniqKeys)
-import           Perst.Database.DbOption    (DbOption (..), SessionMonad,
-                                             dbTypeNames)
+import           Control.Arrow           (first)
+import           Control.Monad           ((>=>))
+import           Control.Monad.Catch     (SomeException, catch)
+import           Control.Monad.IO.Class  (MonadIO)
+import           Data.Kind               (Type)
+import           Data.List               (intercalate)
+import           Prelude                 hiding (drop)
+-- import           Data.Proxy              (Proxy (..))
+import           Data.Singletons.Prelude (Fst)
+import           Data.Text               (Text)
+import qualified Data.Text               as T
+import           Data.Text.Format        (Only (..))
+import           GHC.Prim                (Proxy#, proxy#)
+import           GHC.TypeLits            (KnownSymbol, symbolVal)
+-- import           Perst.Database.Constraints (DDLConstr)
 
-class DDLConstr m b t => DDL m b (t :: DataDef) where
-  create      :: Sing t -> SessionMonad b m ()
-  drop        :: Sing t -> SessionMonad b m ()
-  createText  :: Proxy b -> Sing t -> SessionMonad b m Text
-  dropText    :: Proxy b -> Sing t -> SessionMonad b m Text
-  create pt = createText (Proxy :: Proxy b) pt >>= execCommand
-  drop   pt = dropText   (Proxy :: Proxy b) pt >>= execCommand
+import           Data.Type.Grec          (Grec)
+import           Perst.Database.DataDef  (DataDef, DataDef' (..),
+                                          DataDefInfo (..), DataInfo (..),
+                                          FK (..), formatS)
+import           Perst.Database.DbOption (DbOption (..), DbTypeNames (..),
+                                          MonadCons, SessionMonad)
 
-instance DDLConstr m b (DataDefC (TableDef n r fn p u ai) f)
-      => DDL m b (DataDefC (TableDef n r fn p u ai) f) where
-  createText pb st
-    = return $ format "CREATE TABLE {} {} ({}, PRIMARY KEY ({}) {} {})"
-        ( afterCreateTableText pb
-        , tableName st
-        , intercalate ","
-            $ zipWith (\n (t,b) -> n ++ " " ++ t
-                                  ++ if b then " NULL" else " NOT NULL")
-                      (fieldNames st) (dbTypeNames pb st)
-        , intercalate "," $ primaryKey st
-        , foldMap (format ",UNIQUE ({})" . Only . intercalate ",")
-            $ uniqKeys st
-        , foldMap ( format ",FOREIGN KEY ({}) REFERENCES {} ({}) {} "
-                  . ((,,,)  <$> intercalate "," . fst . fst
-                            <*> fst . snd
-                            <*> intercalate "," . snd . fst
-                            <*> deleteConstraintText pb . snd . snd
-                    )
-                  . first unzip
-                  ) $ foreignKeys st
-        )
-  dropText _ pt = return $ format "DROP TABLE {}" $ Only (tableName pt)
+type DDLConsV b t = (DbOption b, DataDefInfo t)
+type DDLCons b t = (DDLConsV b t, DbTypeNames b (Grec (Fst t)))
 
-instance (DDLConstr m b (DataDefC (ViewDef n r fn (Just s) upd p u ai) f), KnownSymbol s)
-      => DDL m b (DataDefC (ViewDef n r fn (Just s) upd p u ai) f) where
-  createText pb st
-    = return $ format "CREATE VIEW {} {} AS {}"
-        ( afterCreateTableText pb
-        , tableName st
-        , symbolVal (Proxy :: Proxy s)
-        )
-  dropText _ st = return $ format "DROP VIEW {}" $ Only (tableName st)
+class DDLConsV b t => DDL b t where
+  create      :: MonadCons m => SessionMonad b m ()
+  drop        :: MonadCons m => SessionMonad b m ()
+  createText  :: Text
+  dropText    :: Text
+  dropCreate :: MonadCons m => SessionMonad b m ()
+  dropCreate = do
+    catch (drop @b @t) (\(_::SomeException) -> return ())
+    create @b @t
+
+  dropText = formatS "DROP TABLE {}" $ Only (tableName @t)
+  create = execCommand @b (createText @b @t)
+  drop   = execCommand @b (dropText   @b @t)
+
+
+instance DDLCons b '(r, DataDefC (TableInfo p u ai) f)
+    => DDL b '(r, DataDefC (TableInfo p u ai) f) where
+  createText = createTextTable
+      (proxy# :: Proxy# b)
+      (proxy# :: Proxy# '(r, DataDefC (TableInfo p u ai) f))
+
+instance DDLConsV b '(r, DataDefC (ViewInfo (Just s) upd p u ai) f)
+      => DDL b '(r, DataDefC (ViewInfo (Just s) upd p u ai) f) where
+  createText = createTextView
+      (proxy# :: Proxy# b)
+      (proxy# :: Proxy# '(r, DataDefC (ViewInfo (Just s) upd p u ai) f))
+
+createTextTable :: DDLCons b t => Proxy# b -> Proxy# t -> Text
+createTextTable (_ :: Proxy# b) (_ :: Proxy# t)
+  = formatS "CREATE TABLE {} {} ({}, PRIMARY KEY ({}) {} {})"
+      ( afterCreateTableText @b
+      , tableName @t
+      , T.intercalate ","
+          $ zipWith (\n (t,b) -> formatS "{} {} {} NULL"
+                                          (n,t, if b then T.empty else "NOT"))
+                    (fieldNames @t) (dbTypeNames @b @(Grec (Fst t)))
+      , T.intercalate "," $ primaryKey @t
+      , foldMap (formatS ",UNIQUE ({})" . Only . T.intercalate ",")
+          $ uniqKeys @t
+      , foldMap (formatS ",FOREIGN KEY ({}) REFERENCES {} ({}) {} "
+                . ((,,,)  <$> T.intercalate "," . map fst . fkRefs
+                          <*> fkRefTab
+                          <*> T.intercalate "," . map snd . fkRefs
+                          <*> deleteConstraintText @b . fkDelCons
+                  )
+                ) $ foreignKeys @t
+      )
+createTextView :: DDLConsV b t => Proxy# b -> Proxy# t -> Text
+createTextView (_ :: Proxy# b) (_ :: Proxy# t)
+  = formatS "CREATE VIEW {} {} AS {}"
+    ( afterCreateTableText @b
+    , tableName @t
+    , viewText @t
+    )

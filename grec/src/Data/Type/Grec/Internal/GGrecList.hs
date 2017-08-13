@@ -14,6 +14,7 @@ import           GHC.Generics
 -- (instead of class with two functions)
 -- because of some differences in condition
 -- (<Convert a b> vs <Convert b a> and <Monoid m> vs nothing)
+
 class GListToGrec a g where
   gListToGrec :: [a] -> ([a], g b)
 class GListFromGrec a g where

@@ -70,6 +70,8 @@ type family GFields (a :: k1) :: [(Symbol,Type)] where
       :$$: Text "Checked type is " :<>: ShowType a
       )
 
+genDefunSymbols [''Fields]
+
 type family ListToTagged (t :: [(Symbol,Type)]) :: Type where
   ListToTagged '[ '(a,b)] = Tagged a b
   ListToTagged ( '(n,a) ': b ': c) = (Tagged n a, ListToTagged (b ': c))

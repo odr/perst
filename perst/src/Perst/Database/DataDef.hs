@@ -1,32 +1,36 @@
+{-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE InstanceSigs              #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE StandaloneDeriving        #-}
 {-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TypeApplications          #-}
 {-# LANGUAGE TypeInType                #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
 module Perst.Database.DataDef
-  ( DelCons(..)
-  -- * Table definition
-  , DataDef'(..), DataDef, DataDef''(..)
-  , TableD, ViewD, DataD -- , DataDFC(..)
-  , DdName, DdRec, DdFlds, DdKey, DdUniq, DdUpd, AllKeys, DdFrgn, DdAutoIns -- , DdData
-  , DdNameSym0, DdRecSym0, DdKeySym0, DdUniqSym0, DdUpdSym0, DdFrgnSym0, DdFldsSym0
-  , Dd, Ddf
-  , sDdName, sDdRec, sDdFlds, sDdKey, sDdUniq, sDdUpd, sAllKeys, sDdFrgn, sDdAutoIns -- , DdData
-  , sDd, sDdf
-  , CheckInsMandatory, KeyType
-  -- , DataDefConstr
+  -- ( DelCons(..)
+  -- -- * Table definition
+  -- , DataDef'(..), DataDef, DataDef''(..)
+  -- , TableD, ViewD, DataD -- , DataDFC(..)
+  -- , DdName, DdRec, DdFlds, DdKey, DdUniq, DdUpd, AllKeys, DdFrgn, DdAutoIns -- , DdData
+  -- , DdNameSym0, DdRecSym0, DdKeySym0, DdUniqSym0, DdUpdSym0, DdFrgnSym0, DdFldsSym0
+  -- , Dd, Ddf
+  -- , sDdName, sDdRec, sDdFlds, sDdKey, sDdUniq, sDdUpd, sAllKeys, sDdFrgn, sDdAutoIns -- , DdData
+  -- , sDd, sDdf
+  -- , CheckInsMandatory, KeyType
+  -- -- , DataDefConstr
   -- , ddFlds, ddRec
-  -- * Good functions to take table info in runtime
-  , tableName, fieldNames
-  , fieldNames', fieldNamesT
-  , primaryKey, uniqKeys, foreignKeys, autoIns
-  -- * Some other stuffs
-  , Subrec
-  , showProxy
-  , WithKey, WithoutKey
-  )
+  -- -- * Good functions to take table info in runtime
+  -- -- , DataDefInfo(..)
+  -- , tableName, fieldNames, primaryKey, uniqKeys, foreignKeys, autoIns, viewText
+  -- -- , fieldNames', fieldNamesT
+  -- -- * Some other stuffs
+  -- , Subrec
+  -- , showProxy
+  -- , WithKey, WithoutKey
+  -- , formatS
+  -- )
   where
 
 import           Data.Kind                     (Constraint, Type)
@@ -38,9 +42,12 @@ import           Data.Singletons.Prelude.Maybe (FromJust)
 import           Data.Singletons.TH            (genDefunSymbols, promoteOnly,
                                                 singletons, singletonsOnly)
 import           Data.Tagged                   (Tagged)
+import           Data.Text                     (Text)
+import           Data.Text.Format              (Format, format)
+import           Data.Text.Format.Params       (Params)
 import qualified Data.Text.Lazy                as TL
 import           Data.Type.Grec                (AllIsSub, FieldNamesConvGrec,
-                                                FieldsGrec, GrecF, GrecWith,
+                                                FieldsGrec, Grec, GrecWith,
                                                 GrecWithout, IsSub, IsSubSym0,
                                                 ListToPairs, Submap, SubmapSym0,
                                                 Typ)
@@ -52,8 +59,118 @@ import           Perst.Types
 singletons [d|
   data DelCons = DcRestrict | DcCascade | DcSetNull
     deriving (Show, Eq, Ord)
+
+  data DataInfo s
+    -- = TableInfo
+    --   { diName    :: s
+    --   , diFields  :: [(s,t)]
+    --   , diKey     :: [s]
+    --   , diUniq    :: [[s]]
+    --   , diAutoIns :: Bool
+    --   }
+    -- | ViewInfo
+    --   { diName    :: s
+    --   , diFields   :: [(s,t)]
+    --   , diSql     :: Maybe s
+    --   , diUpd     :: [s]
+    --   , diKey     :: [s]
+    --   , diUniq    :: [[s]]
+    --   , diAutoIns :: Bool
+    --   }
+    = TableInfo
+      { diKey     :: [s]
+      , diUniq    :: [[s]]
+      , diAutoIns :: Bool
+      }
+    | ViewInfo
+      { diSql     :: Maybe s
+      , diUpd     :: [s]
+      , diKey     :: [s]
+      , diUniq    :: [[s]]
+      , diAutoIns :: Bool
+      }
+
+  data FK s = FKC
+    { fkRefTab  :: s
+    , fkDelCons :: DelCons
+    , fkRefs    :: [(s,s)]
+    }
+
+  data DataDef' s = DataDefC
+    { ddInfo :: DataInfo s
+    , ddFKs :: [FK s]
+    }
+
   |]
 
+deriving instance Show s => Show (DataInfo s)
+deriving instance Show s => Show (FK s)
+deriving instance Show s => Show (DataDef' s)
+
+type DataDef = DataDef' Symbol
+
+type DdKey t = DiKey (DdInfo t)
+type DataKey t = DdKey (Snd t)
+type WithKey t r = GrecWith (DataKey t) r
+type WithoutKey t r = GrecWithout (DataKey t) r
+
+type DataAutoIns t = DiAutoIns (DdInfo (Snd t))
+
+class ( SingI (Snd t)
+      , SingI (FieldNamesConvGrec (Grec (Fst t)))
+      , SingI (Typ (Fst t))
+      )
+    => DataDefInfo (t :: (Type, DataDef)) where
+  singDataDef :: Sing (Snd t)
+  singDataDef = sing
+
+  dataDef :: DataDef' Text
+  dataDef = fromSing (singDataDef @t)
+
+  dataInfo :: DataInfo Text
+  dataInfo = ddInfo (dataDef @t)
+
+  isTable :: Bool
+  isTable = case dataInfo @t of { TableInfo {} -> True; _ -> False }
+
+  isView :: Bool
+  isView = case dataInfo @t of { ViewInfo {} -> True; _ -> False }
+
+  primaryKey :: [Text]
+  primaryKey = diKey (dataInfo @t)
+  --
+  uniqKeys :: [[Text]]
+  uniqKeys = diUniq (dataInfo @t)
+
+  foreignKeys :: [FK Text]
+  foreignKeys = ddFKs (dataDef @t)
+
+  autoIns :: Bool
+  autoIns = diAutoIns (dataInfo @t)
+
+  viewText :: Maybe Text
+  viewText | isView @t = diSql (dataInfo @t)
+           | otherwise = Nothing
+
+  tableName :: Text
+  tableName = fromSing (sing :: Sing (Typ (Fst t)))
+
+  fieldNames :: [Text]
+  fieldNames = fromSing (sing :: Sing (FieldNamesConvGrec (Grec (Fst t))))
+
+instance ( SingI (Snd t)
+      , SingI (FieldNamesConvGrec (Grec (Fst t)))
+      , SingI (Typ (Fst t))
+      )
+    => DataDefInfo t
+
+showProxy :: (SingI t, SingKind k) => Proxy (t :: k) -> Demote k
+showProxy (_ :: Proxy t) = fromSing (sing :: Sing t)
+
+formatS :: Params ps => Format -> ps -> Text
+formatS f = TL.toStrict . format f
+
+{-
 type FK s = ([(s,s)],(s,DelCons))
 
 singletons [d|
@@ -104,6 +221,9 @@ singletons [d|
   ddAutoIns  (DataDefC d _) = ddAutoIns' d
   ddUniq     (DataDefC d _)   = ddUniq' d
   ddFrgn     (DataDefC _ f)     = f
+  ddSel' (ViewDef _ _ _ ms _ _ _ _) = ms
+  ddSel' (TableDef _ _ _ _ _ _)     = Nothing
+  ddSel (DataDefC d _) = ddSel' d
   allKeys d = ddKey d : ddUniq d
   isNub :: Eq a => [a] -> Bool
   isNub xs = xs == nub xs
@@ -163,7 +283,7 @@ type DataD d refs = DataDefC d (MkRefs refs)
 -- View is not interesting right now... Rewrite later!
 type ViewD v = ViewD' (Typ v) (FieldsGrec (GrecF v))
 
-type family ViewD' n r where
+type {- family ViewD' n r where -}
   ViewD' n r = ViewDef n r (Map FstSym0 r)
 
 -- type DataDefConstr d =
@@ -172,38 +292,38 @@ type family ViewD' n r where
 --   , KnownSymbol (DdName d)
 --   )
 
-type family Subrec t ns where
+type {- family Subrec t ns where -}
   Subrec t ns = Tagged ns (ListToPairs (FromJust (Submap ns (DdRec t))))
 
 genDefunSymbols [''TableD, ''ViewD, ''Subrec]
 
+formatS :: Params ps => Format -> ps -> Text
+formatS f = TL.toStrict . format f
 
-tableName :: Sing (t :: DataDef) -> String
+tableName :: Sing (t :: DataDef) -> Text
 tableName = fromSing . sDdName
 
-fieldNames :: Sing (t :: DataDef) -> [String]
+fieldNames :: Sing (t :: DataDef) -> [Text]
 fieldNames = fromSing . sDdFlds
 
-fieldNames' :: SingI (FieldNamesConvGrec r) => Proxy r -> [String]
-fieldNames' (_ :: Proxy r) = fromSing (sing :: Sing (FieldNamesConvGrec r))
-
-fieldNamesT :: SingI (FieldNamesConvGrec r) => Proxy r -> [TL.Text]
-fieldNamesT = map TL.pack . fieldNames'
-
-primaryKey :: Sing (t :: DataDef) -> [String]
+primaryKey :: Sing (t :: DataDef) -> [Text]
 primaryKey = fromSing . sDdKey
 
-uniqKeys :: Sing (t :: DataDef) -> [[String]]
+uniqKeys :: Sing (t :: DataDef) -> [[Text]]
 uniqKeys = fromSing . sDdUniq
 
-foreignKeys :: Sing (t :: DataDef) -> [([(String, String)], (String, DelCons))]
+foreignKeys :: Sing (t :: DataDef) -> [([(Text, Text)], (Text, DelCons))]
 foreignKeys = fromSing . sDdFrgn
 
-autoIns :: Sing (t::DataDef) -> Bool
+autoIns :: Sing (t :: DataDef) -> Bool
 autoIns = fromSing . sDdAutoIns
 
-showProxy :: (SingI t, SingKind k) => Proxy (t :: k) -> DemoteRep k
+viewText :: Sing (t :: DataDef) -> Maybe Text
+viewText = fromSing . sDdSel
+
+showProxy :: (SingI t, SingKind k) => Proxy (t :: k) -> Demote k
 showProxy (_ :: Proxy t) = fromSing (sing :: Sing t)
 
 type WithKey t r = GrecWith (DdKey t) r
 type WithoutKey t r = GrecWithout (DdKey t) r
+-}

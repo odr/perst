@@ -1,73 +1,89 @@
+{-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE DefaultSignatures         #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE MagicHash                 #-}
 {-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TypeApplications          #-}
 {-# LANGUAGE TypeInType                #-}
 {-# LANGUAGE UndecidableInstances      #-}
 module Perst.Database.Tree.Insert where
 
 import           Control.Applicative           (ZipList (..), liftA2)
-import           Control.Monad.Catch           (MonadMask)
-import           Control.Monad.IO.Class        (MonadIO (..))
 import           Data.Functor.Compose          (Compose (..))
+import           Data.Maybe                    (fromMaybe)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.Maybe (FromMaybeSym0)
 import           Data.Singletons.TH            (promoteOnly)
 import           Data.Tagged                   (Tagged (..))
--- import           GHC.TypeLits               (Symbol)
-import           Data.Maybe                    (fromMaybe)
+import           GHC.Prim                      (Proxy#, proxy#)
 import           Lens.Micro                    ((&), (.~))
 import           Lens.Micro.Extras             (view)
 
 import           Data.Type.Grec                (FieldsGrec, FieldsGrecSym0,
-                                                Grec (unGrec), GrecF,
-                                                GrecLens (..), GrecWithout (..),
+                                                Grec (..), GrecLens (..),
+                                                GrecWith (..), GrecWithout (..),
                                                 ListToPairs, NamesGrecLens (..),
-                                                Submap, SubmapSym0, grec)
-import           Perst.Database.Constraints    (InsConstr)
-import           Perst.Database.DataDef        (DdAutoIns, DdKey, sDdAutoIns)
-import           Perst.Database.DbOption       (GenKey, SessionMonad)
-import           Perst.Database.DML            (insertMany)
-import           Perst.Database.Tree.Def       (FieldByName, GrecChilds, TdData,
-                                                TopKey, TreeDef, sTdData)
-import           Perst.Types                   (Fsts, Snds, sSnds, singToProxy)
--- import           Perst.Lens                    (NamesGrecLens (..))
+                                                Submap, SubmapSym0)
+-- import           Perst.Database.Constraints    (InsConstr)
+import           Perst.Database.DataDef        (DataAutoIns, DataKey)
+import           Perst.Database.DbOption       (GenKey, MonadCons, SessionMonad)
+import           Perst.Database.DML            (Insert (..))
+import           Perst.Database.Tree.Def       (AppCons, FieldByName,
+                                                GrecChilds, TdData, TopKey,
+                                                TopKey, TreeDef)
+import           Perst.Types                   (Fsts, Snds)
 
-type InsertTreeConstraint m f b t r =
-  ( Applicative f, Traversable f
-  , InsConstr m b (TdData t) r
-  , SingI (GrecChilds t r)
-  , InsertChilds m f b (DdAutoIns (TdData t)) (TopKey t) (GrecChilds t r) r
+type InsertTreeConstraint' b t r =
+  ( Insert b (TdData t) r
+  , InsertChilds b (DataAutoIns (TdData t)) (GrecChilds t r) (TopKey t) r
   )
 
-insertTreeManyR :: InsertTreeConstraint m ZipList b t (GrecF r)
-                => Sing (t :: TreeDef) -> [r] -> SessionMonad b m [r]
-insertTreeManyR pt = fmap (fmap unGrec) . insertTreeMany pt . fmap grec
+type {- family InsertTreeConstraint m f b t r where -}
+  InsertTreeConstraint m f b t r =
+    ( AppCons f
+    , MonadCons m
+    , InsertTreeConstraint' b t r
+    )
 
-insertTreeMany  :: InsertTreeConstraint m ZipList b t r
-                => Sing (t :: TreeDef) -> [r] -> SessionMonad b m [r]
-insertTreeMany pt = fmap getZipList . insertTreeMany' pt . ZipList
+class InsertTree b t r where
+  insertTreeManyF :: (MonadCons m , AppCons f) => f r -> SessionMonad b m (f r)
+  default insertTreeManyF :: InsertTreeConstraint m f b t r
+                          => f r -> SessionMonad b m (f r)
+  insertTreeManyF = insertTreeManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
 
-insertTreeMany' :: InsertTreeConstraint m f b t r
-                => Sing (t :: TreeDef) -> f r -> SessionMonad b m (f r)
-insertTreeMany' (st :: Sing t) (rs :: f r) = do
-  mbk <- fmap (fmap tagKey) <$> insertMany std rs
-  insertChilds sai ptc mbk rs
+  insertTreeMany  :: MonadCons m => [r] -> SessionMonad b m [r]
+  insertTreeMany = fmap getZipList . insertTreeManyF @b @t . ZipList
+
+instance InsertTreeConstraint' b t (r1,r2) => InsertTree b t (r1,r2)
+instance InsertTreeConstraint' b t (Tagged ns r) => InsertTree b t (Tagged ns r)
+instance InsertTreeConstraint' b t (GrecWith ns r) => InsertTree b t (GrecWith ns r)
+instance InsertTreeConstraint' b t (GrecWithout ns r) => InsertTree b t (GrecWithout ns r)
+
+
+class InsertTree b t (Grec r) => InsertTreeR b t r where
+  insertTreeManyR :: MonadCons m => [r] -> SessionMonad b m [r]
+  insertTreeManyR = fmap (fmap unGrec) . insertTreeMany @b @t . fmap Grec
+
+instance InsertTree b t (Grec r) => InsertTreeR b t r
+
+
+insertTreeManyDef :: InsertTreeConstraint m f b t r
+                => Proxy# b -> Proxy# t -> f r -> SessionMonad b m (f r)
+insertTreeManyDef (_ :: Proxy# b) (_ :: Proxy# t) (rs :: f r) = do
+  mbk <- fmap (fmap tagKey) <$> insertMany @b @(TdData t) rs
+  insertChilds @b @(DataAutoIns(TdData t)) @(GrecChilds t r) mbk rs
  where
-  std = sTdData st
-  ptc = sing :: Sing (GrecChilds t r)
-  sai = sDdAutoIns std
   tagKey :: x -> Tagged (TopKey t) x
   tagKey = Tagged
 
-class InsertChilds m f b (ai :: Bool) pk
-                  (chs :: [(Symbol,(TreeDef,[(Symbol,Symbol)]))]) r where
-  insertChilds  :: Sing ai
-                -> Sing chs
-                -> Maybe (f (Tagged (pk :: [Symbol]) (GenKey b)))
-                -> f r
+class InsertChilds b (ai :: Bool)
+                  (chs :: [(Symbol,(TreeDef,[(Symbol,Symbol)]))]) pk r where
+  insertChilds  :: (MonadCons m , AppCons f)
+                => Maybe (f (Tagged (pk :: [Symbol]) (GenKey b))) -> f r
                 -> SessionMonad b m (f r)
 
-instance Monad m => InsertChilds m f b ai pk '[] r where
-  insertChilds _ _ _ = return
+instance InsertChilds b ai '[] pk r where
+  insertChilds _ = return
 
 promoteOnly [d|
   getParentTypes rs r = fromMaybe
@@ -75,77 +91,85 @@ promoteOnly [d|
     $ submap (map snd rs) $ fieldsGrec r
   |]
 
--- type Fsts rs = Map FstSym0 rs
--- type Snds rs = Map SndSym0 rs
--- singletons [d|
---   fsts rs = map fst rs
---   snds rs = map snd rs
---   |]
+type family InsChildConsF b pk s td rs chs r where
+  InsChildConsF b pk s td rs chs r
+    = InsChildConsF' b pk s td rs chs r (RecParent r rs) (FieldByName s r) (Fsts rs)
 
-type AddParent s rs r =
-  ( Tagged (Fsts rs) (RecParent r rs)
-  , GrecWithout (Fsts rs) (GrecF (FieldByName s r))
-  )
-instance  ( InsertTreeConstraint
-              m (Compose f ZipList) b td
-              (AddParent s rs r)
-          , GrecLens s [FieldByName s r] r
-          , InsertChilds m f b False pk chs r
-          , Applicative f
-          , NamesGrecLens (Snds rs) (RecParent r rs) r
-          ) => InsertChilds m f b False pk ( '(s, '(td,rs)) ': chs) r where
-  insertChilds sai (SCons (STuple2 sname (STuple2 std srs)) schs) mbk rs = do
-    rs' <- fmap ( liftA2 (\r r' -> r & grecLens fn .~ r') rs
+type family InsChildConsF' b pk s td rs chs r rp fld frs where
+  InsChildConsF' b pk s td rs chs r rp fld frs =
+    ( InsertTree b td (AddParent frs rp fld)
+    , GrecLens s [fld] r
+    , InsertChilds b 'False chs pk r
+    , NamesGrecLens (Snds rs) rp r
+    )
+
+type family AddParent frs rp fld where
+  AddParent frs rp fld = (Tagged frs rp, GrecWithout frs (Grec fld))
+
+instance InsChildConsF b pk s td rs chs r
+      => InsertChilds b False ( '(s, '(td,rs)) ': chs) pk r where
+  insertChilds {-sai (SCons (STuple2 sname (STuple2 std srs)) schs) -}mbk rs = do
+    rs' <- fmap ( liftA2 (\r r' -> r & grecLens @s .~ r') rs
                 . fmap getZipList
                 . getCompose
                 . fmap (unGrec . unGWO . snd)
                 )
-        $ insertTreeMany' std
+        $ insertTreeManyF @b @td
         $ Compose $ newRec <$> rs
 
-    insertChilds sai schs mbk rs'
+    insertChilds @b @'False @chs mbk rs'
    where
-    fn = Proxy :: Proxy s
-    newRec :: r -> ZipList (AddParent s rs r)
-    newRec r = (\r' -> (tr, GWO (grec r'))) <$> ZipList (view (grecLens fn) r)
+    newRec :: r -> ZipList (AddParent (Fsts rs) (RecParent r rs) (FieldByName s r))
+    newRec r = (\r' -> (tr, GWO (Grec r'))) <$> ZipList (view (grecLens @s) r)
      where
-      tr = Tagged (namesGrecGet (singToProxy $ sSnds srs) r)
+      tr = Tagged (namesGrecGet @(Snds rs) r)
 
-type RecParent r rs = ListToPairs (GetParentTypes rs r)
-type RecAutoIns b pk r = (Tagged pk (GenKey b), GrecWithout pk (GrecF r))
-type RecParentAutoIns b pk r rs = RecParent (RecAutoIns b pk r) rs
-type AddParentAutoIns b pk s rs r =
-  ( Tagged (Fsts rs) (RecParentAutoIns b pk r rs)
-  , GrecWithout (Fsts rs) (GrecF (FieldByName s r))
-  )
+type family RecParent r rs where
+  RecParent r rs = ListToPairs (GetParentTypes rs r)
+type family RecAutoIns b pk r where
+  RecAutoIns b pk r = (Tagged pk (GenKey b), GrecWithout pk (Grec r))
 
-instance  ( InsertTreeConstraint
-              m (Compose f ZipList) b td
-              (AddParentAutoIns b pk s rs r)
-          , GrecLens s [FieldByName s r] r
-          , InsertChilds m f b True pk chs r
-          , Applicative f
-          , NamesGrecLens (Snds rs)
-                          (RecParentAutoIns b pk r rs)
-                          (RecAutoIns b pk r)
-          ) => InsertChilds m f b True pk ( '(s, '(td,rs)) ': chs) r where
-  insertChilds sai (SCons (STuple2 sname (STuple2 std srs)) schs) mbk rs = do
-    rs' <- fmap ( liftA2 (\r r' -> r & grecLens fn .~ r') rs
+type family InsChildConsT b pk s td rs chs r where
+  InsChildConsT b pk s td rs chs r
+    = InsChildConsT' b pk s td rs chs r (Fsts rs) (FieldByName s r) (RecAutoIns b pk r)
+
+type family InsChildConsT' b pk s td rs chs r frs fld rai where
+  InsChildConsT' b pk s td rs chs r frs fld rai
+    = InsChildConsT'' b pk s td rs chs r frs fld rai (RecParent rai rs)
+
+type family InsChildConsT'' b pk s td rs chs r frs fld rai rpai where
+  InsChildConsT'' b pk s td rs chs r frs fld rai rpai =
+    ( InsertTree b td (AddParentAutoIns frs rpai fld)
+    , GrecLens s [fld] r
+    , InsertChilds b True chs pk r
+    , NamesGrecLens (Snds rs) rpai rai
+    )
+type family AddParentAutoIns frs rpai fld where
+  AddParentAutoIns frs rpai fld = (Tagged frs rpai, GrecWithout frs (Grec fld))
+
+instance InsChildConsT b pk s td rs chs r
+      => InsertChilds b True ( '(s, '(td,rs)) ': chs) pk r where
+  insertChilds {-sai (SCons (STuple2 sname (STuple2 std srs)) schs) -}mbk rs = do
+    rs' <- fmap ( liftA2 (\r r' -> r & grecLens @s .~ r') rs
                 . fmap getZipList
                 . getCompose
                 . fmap (unGrec . unGWO . snd)
                 )
-        $ insertTreeMany' std
+        $ insertTreeManyF @b @td
         $ Compose $ newRec <$> ks <*> rs
 
-    insertChilds sai schs mbk rs'
+    insertChilds @b @'True @chs mbk rs'
    where
-    fn = Proxy :: Proxy s
-    newRec :: Tagged pk (GenKey b) -> r -> ZipList (AddParentAutoIns b pk s rs r)
-    newRec k r = (\r' -> (tr, GWO (grec r')))
-            <$> ZipList (view (grecLens fn) r)
+    newRec :: Tagged pk (GenKey b) -> r
+          -> ZipList  ( AddParentAutoIns
+                          (Fsts rs)
+                          (RecParent (RecAutoIns b pk r) rs)
+                          (FieldByName s r)
+                      )
+    newRec k r = (\r' -> (tr, GWO (Grec r')))
+            <$> ZipList (view (grecLens @s) r)
      where
-      tr = Tagged (namesGrecGet (Proxy :: Proxy (Snds rs))
-                  (k, GWO (grec r) :: GrecWithout pk (GrecF r)))
+      tr = Tagged (namesGrecGet @(Snds rs)
+                  (k, GWO (Grec r) :: GrecWithout pk (Grec r)))
     ks = fromMaybe (error $ "There is no key value (Nothing) in insertChilds"
                   ++ " but parent has AutoIns flag") mbk

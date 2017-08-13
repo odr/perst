@@ -10,6 +10,7 @@
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TypeApplications          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeInType                #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
@@ -18,8 +19,8 @@
 module Main where
 
 -- main :: IO ()
-
 -- main = return ()
+
 import           Control.Applicative
 import           Data.Bifunctor
 import           Data.Functor.Compose
@@ -32,168 +33,37 @@ import           Data.List                     (sort)
 import           Data.Proxy                    (Proxy (..))
 import           Data.Singletons.CustomStar    (singletonStar)
 import           Data.Singletons.Prelude
-import           Data.Singletons.Prelude.List
+-- import           Data.Singletons.Prelude.List
 import           Data.Singletons.Prelude.Maybe
 import           Data.Tagged                   (Tagged (..))
 import           GHC.Generics                  (Generic)
 
 import           Data.Text                     hiding (map)
 import           Data.Type.Grec
-import           Perst.Database.Constraints    (InsConstr)
-import           Perst.Database.DataDef        (DataD (..), DdAutoIns, DdKey,
-                                                DelCons (..), Subrec, TableD)
+-- import           Perst.Database.Constraints    (InsConstr)
+import           Perst.Database.DataDef        (DataAutoIns, DataDef' (..),
+                                                DataDefInfo (..), DataInfo (..),
+                                                DelCons (..), FK (..))
 import           Perst.Database.DbOption       (DbOption (..), DbTypeName,
-                                                SessionMonad)
+                                                DbTypeNames (..), SessionMonad)
 import           Perst.Database.DDL            as DDL
 import           Perst.Database.DML
 import           Perst.Database.TreeDef
 import           Perst.Types
 
+import           DB
+import           Tabs
 ----------------------
-data DB
-
-db :: Proxy DB
-db = Proxy
-
-type instance DbTypeName DB Int64      = "INTEGER"
-type instance DbTypeName DB Text       = "TEXT"
-type instance DbTypeName DB Double     = "DOUBLE"
-
-data DBData = DBNull | DBText Text | DBInteger Int64 | DBDouble Double
-
-instance Convert DBData Int64 where
-  convert (DBInteger x) = x
-
-instance Convert Int64 DBData  where
-  convert = DBInteger
-
-instance Convert DBData Double where
-  convert (DBDouble x) = x
-
-instance Convert Double DBData  where
-  convert = DBDouble
-
-instance Convert DBData Text where
-  convert (DBText x) = x
-
-instance Convert Text DBData  where
-  convert = DBText
-
-instance Convert a DBData => Convert (Maybe a) DBData where
-  convert Nothing  = DBNull
-  convert (Just a) = convert a
-
-instance Convert DBData a => Convert DBData (Maybe a) where
-  convert DBNull = Nothing
-  convert x      = Just $ convert x
-
-singletonStar [''Text, ''Double, ''Int64, ''Maybe]
-
-instance DbOption DB where
-    type SessionParams DB   = Text
-    type Conn DB            = DB
-    type FieldDB DB         = DBData
-    type PrepCmd DB         = DB
-    type GenKey DB          = Int64
 ----------------------
 
-data Customer = Customer
-  { id    :: Int64
-  , names :: GrecGroup Names
-  -- , email :: T.Text
-  } deriving (Show, Generic)
 
-data Names = Names
-  { name      :: T.Text
-  , shortname :: Maybe T.Text
-  } deriving (Show, Generic)
 
-data Orders = Order -- name ORDER is disbled in sqlite!
-  { id           :: Int64
-  , num          :: T.Text
-  , customerId   :: Int64
-  , coCustomerId :: Maybe Int64
-  , date         :: T.Text
-  } deriving (Show, Generic)
 
-data Article = Article
-  { id    :: Int64
-  , name  :: T.Text
-  , price :: Double
-  } deriving (Show, Generic)
 
-data OrderPosition = OrderPosition
-  { orderId   :: Int64
-  , articleId :: Int64
-  , quantity  :: Int64
-  , cost      :: Double
-  } deriving (Show, Generic, Eq, Ord)
-
-data Address = Address
-  { id         :: Int64
-  , customerId :: Int64
-  , street     :: T.Text
-  } deriving (Show, Generic, Eq, Ord)
-
-type TCustomerTab = TableD Customer '["id"] '[ '["name"]] False
-type TCustomer = DataD TCustomerTab '[]
-
-type TOrderTab = TableD Orders '["id"] '[ '["customerId", "num"]] True
-type TOrder = DataD TOrderTab
-                    '[ '(TCustomerTab, '[ '("customerId", "id")],  DcCascade)
-                     , '(TCustomerTab, '[ '("coCustomerId", "id")], DcSetNull)
-                     ]
-
-type TArticleTab = TableD Article '["id"] '[ '["name"]] False
-type TArticle = DataD TArticleTab '[]
-
-type TOrderPosition
-  = DataD (TableD OrderPosition '["orderId","articleId"] '[] False)
-          '[ '(TOrderTab, '[ '("orderId"  ,"id")], DcCascade)
-           , '(TArticleTab,  '[ '("articleId","id")], DcRestrict)
-           ]
-
-type TAddressTab = TableD Address '["id"] '[] False
-type TAddress = DataD TAddressTab
-                      '[ '(TCustomerTab, '[ '("customerId", "id")], DcCascade)]
-
-pCustomer = sing :: Sing TCustomer
-pOrder    = sing :: Sing TOrder
-pArticle  = sing :: Sing TArticle
-pOrderPosition = sing :: Sing TOrderPosition
-pAddress  = sing :: Sing TAddress
-
-data CustomerTree = CustomerTree
-  { id        :: Int64
-  , name      :: T.Text
-  , shortname :: Maybe T.Text
-  -- , email     :: T.Text
-  , orders    :: [OrderTree]
-  , address   :: [Address]
-  } deriving (Show, Generic, Eq, Ord)
-
-data OrderTree = OrderTree
-  { id        :: Int64
-  , num       :: T.Text
-  , date      :: T.Text
-  , positions :: [OrderPosition]
-  } deriving (Show, Generic, Eq, Ord)
-
-type TCustomerTree = TreeDefC TCustomer
-  '[ '( "orders", '( TOrderTree, '[ '("customerId","id") ]))
-   , '( "address", '( TreeDefC TAddress '[], '[ '("customerId","id") ]))
-   ]
-type TOrderTree = TreeDefC TOrder
-  -- '[]
-  '[ '("positions", '( TreeDefC TOrderPosition '[], '[ '("orderId", "id") ]))]
-
-sCustomerTree = sing :: Sing TCustomerTree
-pCustomerTree = Proxy :: Proxy TCustomerTree
-
-createTab :: (DDL IO b a) => Sing a -> SessionMonad b IO ()
-createTab (p :: Sing a) = do
-  catch (DDL.drop p) (\(_::SomeException) -> return ())
-  create p
+createTab :: DDL DB a => Proxy a -> SessionMonad DB IO ()
+createTab (p :: Proxy a) = do
+  catch (DDL.drop @DB @a) (\(_::SomeException) -> return ())
+  create @DB @a
 
 o1 = Order 0 "1" 1 Nothing
 
@@ -245,13 +115,13 @@ ct = [ CustomerTree 1 "odr" (Just "odr") -- "odr@ru"
 -- checkGL2 = Proxy
 
 main :: IO ()
-main = runSession db "test.db" $ do
+main = runSession @DB "test.db" $ do
   -- createTab pTab
-  createTab pCustomer
-  createTab pOrder
-  createTab pArticle
-  createTab pOrderPosition
-  createTab pAddress
+  createTab (Proxy :: Proxy TCustomer)
+  createTab (Proxy :: Proxy TOrder)
+  createTab (Proxy :: Proxy TArticle)
+  createTab (Proxy :: Proxy TOrderPosition)
+  createTab (Proxy :: Proxy TAddress)
 
 {-
   insertManyR pCustomer [ Customer 1 (GrecGroup $ Names "odr" (Just "odr")) "x"
@@ -276,10 +146,9 @@ main = runSession db "test.db" $ do
                         ]
 -}
 
-  insertTreeManyR sCustomerTree ct
+  insertTreeManyR @DB @TCustomerTree ct
 
-  ct' <- selectTreeMany sCustomerTree
-                (Proxy :: Proxy CustomerTree)
+  ct' <- selectTreeMany @DB @TCustomerTree @CustomerTree
                 (map Tagged [1..3] :: [Tagged '["id"] Int64])
         -- >>= liftIO . putStrLn . ("Check CustomerTree: " ++) . show
                    -- . (== map (:[]) ct) . sort

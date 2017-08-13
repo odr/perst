@@ -49,15 +49,14 @@ type RecConstr m (b :: Type) (t :: DataDef) (r :: Type) =
 
 type family RecConstr' t fnr ftr where
   RecConstr' t fnr ftr =
-    ( {- Submap fnr (DdRec t) ~ Just ftr
-    , -}SingI fnr
+    ( Submap fnr (DdRec t) ~ Just ftr
+    , SingI fnr
     )
 
 
 type InsConstr m b (t :: DataDef) r =
   ( DbOptionConstr m b t
   , SingI (DdKey t)
-  -- , SingI (DdAutoIns t)
   , InsConstr' b t (FieldNamesConvGrec r) (FieldTypesConvGrec r)
   , ConvFromGrec r [FieldDB b]
   )
@@ -65,33 +64,17 @@ type InsConstr m b (t :: DataDef) r =
 type family InsConstr' b t fnr ftr where
   InsConstr' b t fnr ftr =
     ( RecConstr' t fnr ftr
-    -- , IsSub fnr (DdUpd t) ~ True
+    , IsSub fnr (DdUpd t) ~ True
     -- -- inserted record contains all mandatory fields
-    -- -- , IsSub (Mandatory (DdRec t) :\\ If (DdAutoIns t) (DdKey t) '[]) fnr
-    -- --     ~ True
--- <<<<<<< HEAD
-    -- , If (IsSub (Mandatory (DdRec t) :\\ If (DdAutoIns t) (DdKey t) '[]) fnr)
-    --     (() :: Constraint)
-    --     (TypeError
-    --         ( Text "Inserted record doesn't contain all mandatory fields."
-    --           :$$: Text "Inserted record fields: " :<>: ShowType fnr
-    --           :$$: Text "Mandatory fields: " :<>: ShowType (Mandatory (DdRec t) :\\ If (DdAutoIns t) (DdKey t) '[])
-    --           :$$: Text "Table definition: " :<>: ShowType (Dd t)
-    --         ))
-    -- , If (DdAutoIns t)
-    --     (Submap (DdKey t) (DdRec t) ~ Just '[GenKey b])
-    --     (() :: Constraint)
--- =======
-    -- , If (CheckInsMandatory NullableSym0 t fnr) (() :: Constraint)
-    --     (TypeError
-    --         ( Text "Inserted record doesn't contain all mandatory fields."
-    --           :$$: Text "Inserted record fields: " :<>: ShowType fnr
-    --           :$$: Text "Mandatory fields: "
-    --               :<>: ShowType (CheckInsMandatory NullableSym0 t fnr)
-    --           :$$: Text "Table definition: " :<>: ShowType (Dd t)
-    --         ))
-    -- , If (DdAutoIns t) (KeyType t ~ Just '[GenKey b]) (() :: Constraint)
--- >>>>>>> singletonize
+    , If (CheckInsMandatory NullableSym0 t fnr) (() :: Constraint)
+        (TypeError
+            ( Text "Inserted record doesn't contain all mandatory fields."
+              :$$: Text "Inserted record fields: " :<>: ShowType fnr
+              :$$: Text "Mandatory fields: "
+                  :<>: ShowType (CheckInsMandatory NullableSym0 t fnr)
+              :$$: Text "Table definition: " :<>: ShowType (Dd t)
+            ))
+    , If (DdAutoIns t) (KeyType t ~ Just '[GenKey b]) (() :: Constraint)
     )
 
 type UpdConstr m b t r k =
@@ -104,13 +87,13 @@ type UpdConstr m b t r k =
 type family UpdConstr' t fnr ftr fnk ftk where
   UpdConstr' t fnr ftr fnk ftk =
     ( SingI fnk
-    -- , IsSub fnr (DdUpd t) ~ True
-    -- , Submap fnk (DdRec t) ~ Just ftk
+    , IsSub fnr (DdUpd t) ~ True
+    , Submap fnk (DdRec t) ~ Just ftk
     )
 
 type UpdByKeyConstr m b t r k =
   ( UpdConstr m b t r k
-  -- , Elem (FieldNamesConvGrec k) (AllKeys t) ~ True
+  , Elem (FieldNamesConvGrec k) (AllKeys t) ~ True
   )
 
 type UpdByKeyDiffConstr m b t r k =
@@ -125,7 +108,7 @@ type DelConstr m b t k =
 
 type DelByKeyConstr m b t (k :: Type) =
   ( DelConstr m b t k
-  -- , Elem (FieldNamesConvGrec k) (AllKeys t) ~ True
+  , Elem (FieldNamesConvGrec k) (AllKeys t) ~ True
   )
 
 type SelConstr m b t r (k :: Type) =

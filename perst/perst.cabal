@@ -17,15 +17,19 @@ library
   hs-source-dirs:      src
   exposed-modules:     Perst.Database.DataDef
                       , Perst.Database.DbOption
-                      , Perst.Database.Constraints
+                      -- , Perst.Database.Constraints
                       , Perst.Types
                       -- , Perst.Lens
                       , Perst.Database.DDL
                       , Perst.Database.DML
+                      , Perst.Database.DML.Insert
+                      , Perst.Database.DML.Update
+                      , Perst.Database.DML.Delete
+                      , Perst.Database.DML.Select
                       , Perst.Database.TreeDef
                       , Perst.Database.Tree.Def
-                      , Perst.Database.Tree.Insert
                       , Perst.Database.Tree.Select
+                      , Perst.Database.Tree.Insert
                       , Perst.Database.Tree.Update
                       , Perst.Database.Tree.Delete
 
@@ -66,6 +70,11 @@ executable perst-exe
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -O
                       --  -fplugin=Perst.Plugin -plugin-package perst-plugin
+  default-extensions:   DataKinds
+                      , MultiParamTypeClasses
+                      , TypeFamilies
+                      , FlexibleContexts
+                      , FlexibleInstances
   build-depends:       base
                      , perst
                      , grec

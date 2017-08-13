@@ -45,7 +45,10 @@ library
                       , singletons
                       , ghc-prim
                       , microlens
+                      -- , lens-simple
                       , containers
+                      , template-haskell
+                      , text
   default-language:    Haskell2010
 
 executable grec-exe

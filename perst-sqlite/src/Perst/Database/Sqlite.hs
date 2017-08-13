@@ -1,11 +1,10 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE InstanceSigs              #-}
--- {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
 {-# LANGUAGE UndecidableInstances      #-}
 module Perst.Database.Sqlite
-    ( Sqlite, sqlite, SQLData
+    ( Sqlite, SQLData
     )
     where
 
@@ -17,24 +16,24 @@ import           Data.ByteString             (ByteString)
 import           Data.Int                    (Int64)
 import           Data.Monoid                 ((<>))
 import           Data.Proxy                  (Proxy (..))
--- import           Data.Singletons.CustomStar (singletonStar)
 import           Data.Singletons.TypeRepStar
 import           Data.Text                   (Text)
-import           Data.Text.Format            (Only (..), format)
-import           Data.Text.Lazy              (toStrict)
+import           Data.Text.Format            (Only (..))
 import           Data.Type.Grec              (Convert (..))
 import           Database.SQLite3            (Database, SQLData (..), Statement,
                                               StepResult (..), bind, close,
                                               columns, exec, finalize,
                                               lastInsertRowId, open, prepare,
                                               reset, step)
-import           Perst.Database.Constraints
+
+-- import           Perst.Database.Constraints
+import           Perst.Database.DataDef      (formatS)
 import           Perst.Database.DbOption     (DBEnum, DbOption (..), DbTypeName)
 
 data Sqlite
 
-sqlite :: Proxy Sqlite
-sqlite = Proxy
+-- sqlite :: Proxy Sqlite
+-- sqlite = Proxy
 
 type instance DbTypeName Sqlite Int64      = "INTEGER"
 type instance DbTypeName Sqlite Text       = "TEXT"
@@ -79,25 +78,25 @@ instance Convert SQLData a => Convert SQLData (Maybe a) where
   convert x       = Just $ convert x
 
 instance DbOption Sqlite where
-    type SessionParams Sqlite   = Text
-    type Conn Sqlite            = Database
-    type FieldDB Sqlite         = SQLData
-    type PrepCmd Sqlite         = Statement
-    type GenKey Sqlite          = Int64
+    type SessionParams Sqlite = Text
+    type Conn Sqlite          = Database
+    type FieldDB Sqlite       = SQLData
+    type PrepCmd Sqlite       = Statement
+    type GenKey Sqlite        = Int64
 
-    paramName _                 = format "?{}" . Only . (+1)
-    afterCreateTableText _      = "IF NOT EXISTS"
-    deleteConstraintText _ _    = ""
-    runSession _ par sm         = do
+    paramName                 = formatS "?{}" . Only . (+1)
+    afterCreateTableText      = "IF NOT EXISTS"
+    deleteConstraintText _    = ""
+    runSession par sm         = do
       liftIO $ print "Make Sqlite Connection!"
       conn <- liftIO $ open par
       -- liftIO $ catch (exec conn "PRAGMA foreign_keys = ON;")
       --             (\(_::SomeException) -> return ())
-      catch (runReaderT sm (Proxy, conn) <* liftIO (close conn >> print "closed!!!"))
+      catch (runReaderT sm conn <* liftIO (close conn >> print "closed!!!"))
             (\(e::SomeException) -> liftIO (close conn >> print "closed!!!") >> throwM e)
     prepareCommand cmd = do
       liftIO $ print $ "prepareCommand: " <> cmd
-      ask >>= \(_,conn) -> liftIO (prepare conn $ toStrict cmd)
+      ask >>= \conn -> liftIO (prepare conn cmd)
     preRunInAuto = return ()
     runPrepared stat ps = liftIO $ do
       putStrLn "runPrepared"
@@ -120,7 +119,7 @@ instance DbOption Sqlite where
           then return (frs [])
           else fmap (\r -> frs . (r:)) (columns p) >>= loop
 
-    getLastKey = ask >>= \(_,conn) -> liftIO (lastInsertRowId conn)
+    getLastKey = ask >>= \conn -> liftIO (lastInsertRowId conn)
     execCommand cmd = do
       liftIO $ print $ "execCommand: " <> cmd
-      ask >>= \(_,conn) -> liftIO (exec conn $ toStrict cmd)
+      ask >>= \conn -> liftIO (exec conn cmd)

@@ -1,13 +1,17 @@
+{-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE UndecidableInstances       #-}
 module Perst.Database.DbOption
     (
     -- * Backend definition
 
       DbOption(..)
-    , DbOptionConstr
+    -- , DbOptionConstr
 
     -- * Singletons type machinery
 
@@ -16,12 +20,14 @@ module Perst.Database.DbOption
 
     -- * Functions to take info in runtime
 
-    , dbTypeNames, dbTypeNames'
+    -- , dbTypeNames, dbTypeNames'
+    , DbTypeNames(..)
+    -- , DbRecInfo(..)
 
     -- * Session
 
     , SessionMonad
-    , runCommand
+    , MonadCons
 
     -- * DBFields
 
@@ -38,14 +44,15 @@ import           Data.Proxy                 (Proxy (..))
 import           Data.Singletons.Prelude
 import           Data.Singletons.TH         (genDefunSymbols)
 import           Data.String                (IsString)
-import           Data.Text.Lazy             (Text, pack, unpack)
+import           Data.Text                  (Text, unpack)
+-- import           Data.Text.Lazy             (Text, pack, unpack)
 import           GHC.Generics               (Generic)
 
-import           Data.Type.Grec             (Convert (..), FieldsGrec)
+import           Data.Type.Grec             (Convert (..), FieldsConvGrec)
 import           Perst.Database.DataDef
 import           Perst.Types                (BackTypes)
 
-type SessionMonad b m = ReaderT (Proxy b, Conn b) m
+type SessionMonad b m = ReaderT (Conn b) m
 
 -- | Options for backend
 class DbOption (back :: Type) where
@@ -54,10 +61,10 @@ class DbOption (back :: Type) where
   type SessionParams back :: Type
   type PrepCmd back       :: Type
   type GenKey back        :: Type -- set to () if generation is impossible
-  paramName :: Proxy back -> Int -> Text -- ^ How to create param name (like "?1") from param num
+  paramName :: Int -> Text -- ^ How to create param name (like "?1") from param num
 
-  afterCreateTableText :: Proxy back -> Text
-  afterCreateTableText _ = ""
+  afterCreateTableText :: Text
+  afterCreateTableText = ""
 
   -- deleteConstraintText :: Proxy back -> DeleteConstraint -> Text
   -- deleteConstraintText _ DCRestrict = "ON DELETE RESTRICT"
@@ -65,7 +72,7 @@ class DbOption (back :: Type) where
   -- deleteConstraintText _ DCSetNull  = "ON DELETE SET NULL"
 
   runSession :: (MonadIO m, MonadCatch m)
-          => Proxy back -> SessionParams back -> SessionMonad back m a -> m a
+          => SessionParams back -> SessionMonad back m a -> m a
   prepareCommand :: MonadIO m => Text -> SessionMonad back m (PrepCmd back)
   -- | Executed before runPrepared in insertAuto operation.
   --   We can get there new key and put it into monad.
@@ -77,16 +84,15 @@ class DbOption (back :: Type) where
   finalizePrepared :: MonadIO m => PrepCmd back -> SessionMonad back m ()
   getLastKey :: MonadIO m => SessionMonad back m (GenKey back)
   execCommand :: MonadIO m => Text -> SessionMonad back m ()
-  deleteConstraintText :: Proxy back -> DelCons -> Text
-  deleteConstraintText _ DcRestrict = "ON DELETE RESTRICT"
-  deleteConstraintText _ DcCascade  = "ON DELETE CASCADE"
-  deleteConstraintText _ DcSetNull  = "ON DELETE SET NULL"
+  deleteConstraintText :: DelCons -> Text
+  deleteConstraintText DcRestrict = "ON DELETE RESTRICT"
+  deleteConstraintText DcCascade  = "ON DELETE CASCADE"
+  deleteConstraintText DcSetNull  = "ON DELETE SET NULL"
 
-runCommand :: (DbOption back, MonadIO m)
-            => Text -> [FieldDB back] -> SessionMonad back m ()
-runCommand sql pars = do
-  cmd <- prepareCommand sql
-  runPrepared cmd pars
+  runCommand :: MonadIO m => Text -> [FieldDB back] -> SessionMonad back m ()
+  runCommand sql pars = do
+    cmd <- prepareCommand @back sql
+    runPrepared @back cmd pars
 
 type family DbTypeName (b::Type) (a::Type) :: Symbol
 type family Nullable a :: (Type, Bool) where
@@ -95,23 +101,29 @@ type family Nullable a :: (Type, Bool) where
 
 genDefunSymbols [''DbTypeName, ''Nullable]
 
+type MonadCons m = (MonadIO m, MonadMask m)
 
-dbTypeNames :: SingI (BackTypes b NullableSym0 DbTypeNameSym0 (DdRec t))
-            => Proxy (b :: Type) -> Sing t -> [(String, Bool)]
-dbTypeNames (_ :: Proxy b) (_ :: Sing t)
-  = fromSing (sing :: Sing (BackTypes b NullableSym0 DbTypeNameSym0 (DdRec t)))
+class SingI (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsConvGrec t))
+      => DbTypeNames b t where
+  dbTypeNames :: [(Text, Bool)]
+  dbTypeNames = fromSing (sing :: Sing (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsConvGrec t)))
 
-dbTypeNames' :: SingI (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsGrec r))
-            => Proxy (b :: Type) -> Proxy r -> [(String, Bool)]
-dbTypeNames' (_ :: Proxy b) (_ :: Proxy r)
-  = fromSing (sing :: Sing (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsGrec r)))
+instance SingI (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsConvGrec t))
+      => DbTypeNames b t
+-- class (SingI (FieldNamesConvGrec (GrecF r)), SingI (Typ r)) => DbRecInfo r where
+--
+--   tableName :: Text
+--   tableName = fromSing (sing :: Sing (Typ r))
+--
+--   fieldNames :: [Text]
+--   fieldNames = fromSing (sing :: Sing (FieldNamesConvGrec (GrecF r)))
 
-type DbOptionConstr m b d =
-  ( DbOption b
-  -- , DataDefConstr d
-  , SingI (BackTypes b NullableSym0 DbTypeNameSym0 (DdRec d))
-  , MonadIO m, MonadMask m
-  )
+-- type DbOptionConstr m b d =
+--   ( DbOption b
+--   -- , DataDefConstr d
+--   , SingI (BackTypes b NullableSym0 DbTypeNameSym0 (FieldsConvGrec d))
+--   , MonadCons m
+--   )
 
 newtype DBEnum (a :: [Symbol]) = DBEnum { getDBEnum :: Text }
   deriving (Show, Eq, Ord, Generic, IsString)
@@ -122,7 +134,7 @@ instance (Convert a Text, SingI ss) => Convert a (DBEnum ss) where
       ss = showProxy (Proxy :: Proxy ss)
       check s
         = fromMaybe (error $ "Invalid value '" ++ unpack s ++ "' for DBEnum" ++ show ss)
-        $ find (== s) $ map pack ss
+        $ find (== s) ss
 
 instance Convert Text a => Convert (DBEnum ss) a where
   convert = convert . getDBEnum
