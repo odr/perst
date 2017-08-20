@@ -18,9 +18,8 @@ import           Data.Type.Grec          (ConvFromGrec, ConvGrecInfo, Grec,
 import           Perst.Database.DataDef  (DataDef' (..), DataInfo (..),
                                           DelCons (..), FK (..))
 import           Perst.Database.DbOption (DbOption (..))
-import           Perst.Database.DML      (DeleteByKey (..), Insert (..),
-                                          SelectByKey (..),
-                                          UpdateByKeyDiff (..))
+import           Perst.Database.DDL      (DDL (..))
+import           Perst.Database.DML      (DML (..))
 import           Perst.Database.Sqlite   (Sqlite)
 
 data Orders = Order -- name ORDER is disabled in sqlite!
@@ -54,19 +53,7 @@ type TOrderPosition =
              ]
   )
 
-instance (ConvGrecInfo r, ConvFromGrec r [FieldDB Sqlite])
-        => Insert Sqlite TOrder r
-instance (ConvGrecInfo r, ConvFromGrec r [FieldDB Sqlite])
-        => Insert Sqlite TOrderPosition r
-
-instance (ConvGrecInfo r1, ConvGrecInfo r2
-        , ConvFromGrec r1 [FieldDB Sqlite], ConvFromGrec r2 [FieldDB Sqlite])
-        => UpdateByKeyDiff Sqlite TOrder r1 r2
-instance (ConvGrecInfo r1, ConvGrecInfo r2
-        , ConvFromGrec r1 [FieldDB Sqlite], ConvFromGrec r2 [FieldDB Sqlite])
-        => UpdateByKeyDiff Sqlite TOrderPosition r1 r2
-
-instance (ConvGrecInfo r, ConvFromGrec r [FieldDB Sqlite])
-        => DeleteByKey Sqlite TOrder r
-instance (ConvGrecInfo r, ConvFromGrec r [FieldDB Sqlite])
-        => DeleteByKey Sqlite TOrderPosition r
+instance DML Sqlite TOrder Orders
+instance DML Sqlite TOrderPosition OrderPosition
+instance DDL Sqlite TOrder
+instance DDL Sqlite TOrderPosition

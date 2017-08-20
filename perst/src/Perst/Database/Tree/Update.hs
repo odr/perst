@@ -1,113 +1,96 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE DefaultSignatures    #-}
 {-# LANGUAGE MagicHash            #-}
+{-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Perst.Database.Tree.Update where
 
-import           Control.Applicative        (ZipList (..))
-import           Data.Bifunctor             (bimap, first)
+import           Data.Bifunctor             (bimap)
 import qualified Data.Map.Strict            as M
-import           Data.Maybe                 (fromJust, isJust)
--- import           Data.Proxy                 (Proxy (..))
+import           Data.Maybe                 (catMaybes)
+import           Data.Singletons.Prelude    (SingI)
 import           Data.Tagged                (Tagged (..))
 import           GHC.Prim                   (Proxy#, proxy#)
 import           Lens.Micro.Extras          (view)
 
-import           Data.Type.Grec             (Grec (..), GrecLens (..),
+import           Data.Type.Grec             (FieldNamesConvGrec, FieldNamesGrec,
+                                             Grec (..), GrecLens (..),
                                              GrecWith (..), GrecWithout (..),
-                                             NamesGrecLens (..), gwPairs)
-
--- import           Perst.Database.Constraints (DelByKeyConstr, UpdByKeyDiffConstr)
--- import           Perst.Database.DataDef     (DdAutoIns)
+                                             NamesGrecLens (..), gwPairs,
+                                             gwTPairs)
 import           Perst.Database.DbOption    (MonadCons, SessionMonad)
-import           Perst.Database.DML         (UpdateByPKDiff (..))
-import           Perst.Database.Tree.Def    (FieldByName, GrecChilds, TdData,
-                                             TopKey, TopNotPK, TopPK,
-                                             TopPKPairs, TreeDef)
-import           Perst.Database.Tree.Delete (DeleteTree (..))
-import           Perst.Database.Tree.Insert (AddParent, InsertTree (..),
-                                             RecParent)
+import           Perst.Database.DML         (DML (..), RecCons)
+import           Perst.Database.Tree.Def    (FieldByName, GrecChilds, KwoR,
+                                             Pair, RecParent', TdData, TopKey,
+                                             TopPK, TopPKPairs, TreeDef)
+import           Perst.Database.Tree.Delete (DelTreeCons, deleteTreeManyDef)
+import           Perst.Database.Tree.Insert (InsTreeCons, insertTreeManyDef)
 import           Perst.Types                (Fsts, Snds)
 
-type {- family UpdateTreeConstraint b t r where -}
-  UpdateTreeConstraint b t r =
-    UpdateTreeConstraint' b t r (TopPKPairs t r) (GrecChilds t r) (TopPK t r) (TopKey t) (TdData t)
-
-type {- family UpdateTreeConstraint' b t r tpkp gc tpk tk d where -}
-  UpdateTreeConstraint' b t r tpkp gc tpk tk d =
-    ( Ord tpkp
-    , InsertTree b t r
-    , DeleteTree b t r
-    , NamesGrecLens tk tpkp tpk
-    , UpdateByPKDiff b d r
-    , UpdateChilds b gc r
+type UpdTreeCons b t k r =
+    ( InsTreeCons b t k r
+    , DelTreeCons b t k r
+    , UpdTreeCons' b k r (TopPKPairs t (Pair k r)) (TopPK t (Pair k r))
+                          (TopKey t)
+    , UpdateChilds b (GrecChilds t (Pair k r)) k r
     )
 
-{-
-updateTree doesn't return data because
-- there are some difficults in implementation
-- anyway better to select data after update because of the
-  possibility of db-triggers and so on
-Maybe in future we can change it...
--}
-class UpdateTree b t r where
-  updateTreeMany :: MonadCons m => [r] -> [r] -> SessionMonad b m ()
-  default updateTreeMany :: (MonadCons m, UpdateTreeConstraint b t r)
-                          => [r] -> [r] -> SessionMonad b m ()
-  updateTreeMany = updateTreeManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
+type UpdTreeCons' b k r tpkp tpk tk =
+    ( Ord tpkp
+    , NamesGrecLens tk tpkp tpk
+    , SingI (FieldNamesConvGrec (Tagged tk tpkp))
+    , RecCons b (Tagged tk tpkp)
+    )
 
-class UpdateTree b t (Grec r) => UpdateTreeR b t r where
-  updateTreeManyR :: MonadCons m => [r] -> [r] -> SessionMonad b m ()
-  updateTreeManyR olds = updateTreeMany @b @t (map Grec olds) . map Grec
-
-instance UpdateTree b t (Grec r) => UpdateTreeR b t r
-
-updateTreeManyDef :: (MonadCons m, UpdateTreeConstraint b t r)
-                => Proxy# b -> Proxy# t -> [r] -> [r] -> SessionMonad b m ()
-updateTreeManyDef (_ :: Proxy# b) (_ :: Proxy# t) (olds :: [r]) news = do
-  deleteTreeMany @b @t $ filter (not . (`M.member` news') . pairs) olds
-  updateByPKDiffMany @b @(TdData t) us
-  updateChilds @b @(GrecChilds t r) us
-  insertTreeMany @b @t $ filter (not . (`M.member` olds') . pairs) news
+updateTreeManyDef :: (MonadCons m, UpdTreeCons b t k r)
+                => Proxy# b -> Proxy# t -> [(k,r)] -> [(k,r)] -> SessionMonad b m ()
+updateTreeManyDef (pb :: Proxy# b) (pt :: Proxy# t) (olds :: [(k,r)]) news = do
+  deleteTreeManyDef pb pt $ filter (not . (`M.member` news') . pairs) olds
+  updateDiffMany @b @(TdData t) @r $ map (\(o,n) -> (pairsT o, o, n)) us
+  updateChilds @b @(GrecChilds t (Pair k r)) us
+  insertTreeManyDef pb pt $ filter (not . (`M.member` olds') . pairs) news
   return ()
  where
-  pairs (n :: r) = gwPairs (GW n :: TopPK t r)
-  mkMap = M.fromList . fmap (\r -> (pairs r, r))
+  pairs  ((k,r)::(k,r))
+    = gwPairs  (GW (GWO k :: KwoR k r, Grec r) :: TopPK t (Pair k r))
+  pairsT ((k,r)::(k,r))
+    = gwTPairs (GW (GWO k :: KwoR k r, Grec r) :: TopPK t (Pair k r))
+  mkMap = M.fromList . fmap (\x -> (pairs x, x))
   olds' = mkMap olds
   news' = mkMap news
-  us  = map (first fromJust)
-      $ filter (isJust . fst)
-      $ fmap (\n -> (M.lookup (pairs n) olds', n)) news
+  us  = catMaybes $ map (\o -> sequence (o, M.lookup (pairs o) news')) olds
 
+class UpdateChilds b chs k r where
+  updateChilds  :: MonadCons m => [((k,r),(k,r))] -> SessionMonad b m ()
 
-class UpdateChilds b chs r where
-  updateChilds  :: MonadCons m => [(r,r)] -> SessionMonad b m ()
-
-instance UpdateChilds b '[] r where
+instance UpdateChilds b '[] k r where
   updateChilds _ = return ()
 
-type {- family UpdChildCons b s td rs chs r where -}
-  UpdChildCons b s td rs chs r
-    = UpdChildCons' b s td rs chs r (RecParent r rs) (FieldByName s r)
+type UpdChildCons b s td rs chs k r =
+  ( UpdChildCons' b s td rs chs (RecParent' k r rs) (FieldByName s (Pair k r))
+                               (Pair k r)
+  , UpdateChilds b chs k r
+  )
 
-type {- family UpdChildCons' b s td rs chs r rp fld where -}
-  UpdChildCons' b s td rs chs r rp fld =
-    ( UpdateTree b td (AddParent (Fsts rs) rp fld)
-    , GrecLens s [fld] r
-    , UpdateChilds b chs r
-    , NamesGrecLens (Snds rs) rp r
-    )
-instance UpdChildCons b s td rs chs r
-      => UpdateChilds b ('(s,'(td,rs)) ': chs) r where
+type UpdChildCons' b s td rs chs rp fld p =
+  ( UpdTreeCons b td (Tagged (Fsts rs) rp) fld
+  , GrecLens s [fld] p
+  , NamesGrecLens (Snds rs) rp p
+  )
+
+instance UpdChildCons b s td rs chs k r
+      => UpdateChilds b ('(s,'(td,rs)) ': chs) k r where
   updateChilds rs = do
-    updateTreeMany @b @td olds news
+    updateTreeManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# td) olds news
     updateChilds @b @chs rs
    where
     (olds,news) = bimap concat concat $ unzip $ map (bimap newRec newRec) rs
     --
-    newRec :: r -> [AddParent (Fsts rs) (RecParent r rs) (FieldByName s r)]
-    newRec r = (\r' -> (tr, GWO (Grec r'))) <$> view (grecLens @s) r
-     where
-      tr = Tagged (namesGrecGet @(Snds rs) r)
+    newRec :: (k,r) -> [ ( Tagged (Fsts rs) (RecParent' k r rs)
+                         , FieldByName s (Pair k r)
+                         )
+                       ]
+    newRec (k,r)
+      = (Tagged (namesGrecGet @(Snds rs) (GWO k :: KwoR k r, Grec r)),)
+      <$> view (grecLens @s) (GWO k :: KwoR k r, Grec r)

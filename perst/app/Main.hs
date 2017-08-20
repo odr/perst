@@ -47,8 +47,8 @@ import           Perst.Database.DataDef        (DataAutoIns, DataDef' (..),
 import           Perst.Database.DbOption       (DbOption (..), DbTypeName,
                                                 DbTypeNames (..), SessionMonad)
 import           Perst.Database.DDL            as DDL
-import           Perst.Database.DML
-import           Perst.Database.TreeDef
+import           Perst.Database.DML            (DML (..))
+import           Perst.Database.DMLTree        (DMLTree (..))
 import           Perst.Types
 
 import           DB
@@ -146,7 +146,7 @@ main = runSession @DB "test.db" $ do
                         ]
 -}
 
-  insertTreeManyR @DB @TCustomerTree ct
+  insertTreeMany @DB @TCustomerTree ct
 
   ct' <- selectTreeMany @DB @TCustomerTree @CustomerTree
                 (map Tagged [1..3] :: [Tagged '["id"] Int64])

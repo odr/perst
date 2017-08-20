@@ -13,6 +13,7 @@ type instance DbTypeName DB Text       = "TEXT"
 type instance DbTypeName DB Double     = "DOUBLE"
 
 data DBData = DBNull | DBText Text | DBInteger Int64 | DBDouble Double
+  deriving Eq
 
 instance Convert DBData Int64 where
   convert (DBInteger x) = x

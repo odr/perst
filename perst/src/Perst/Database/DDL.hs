@@ -35,10 +35,14 @@ import           Perst.Database.DbOption (DbOption (..), DbTypeNames (..),
 type DDLConsV b t = (DbOption b, DataDefInfo t)
 type DDLCons b t = (DDLConsV b t, DbTypeNames b (Grec (Fst t)))
 
-class DDLConsV b t => DDL b t where
+class DDLCons b t => DDL b t where
   create      :: MonadCons m => SessionMonad b m ()
   drop        :: MonadCons m => SessionMonad b m ()
   createText  :: Text
+  createText
+    | isTable @t = createTextTable (proxy# :: Proxy# b) (proxy# :: Proxy# t)
+    | otherwise = createTextView (proxy# :: Proxy# b) (proxy# :: Proxy# t)
+
   dropText    :: Text
   dropCreate :: MonadCons m => SessionMonad b m ()
   dropCreate = do
@@ -50,17 +54,17 @@ class DDLConsV b t => DDL b t where
   drop   = execCommand @b (dropText   @b @t)
 
 
-instance DDLCons b '(r, DataDefC (TableInfo p u ai) f)
-    => DDL b '(r, DataDefC (TableInfo p u ai) f) where
-  createText = createTextTable
-      (proxy# :: Proxy# b)
-      (proxy# :: Proxy# '(r, DataDefC (TableInfo p u ai) f))
-
-instance DDLConsV b '(r, DataDefC (ViewInfo (Just s) upd p u ai) f)
-      => DDL b '(r, DataDefC (ViewInfo (Just s) upd p u ai) f) where
-  createText = createTextView
-      (proxy# :: Proxy# b)
-      (proxy# :: Proxy# '(r, DataDefC (ViewInfo (Just s) upd p u ai) f))
+-- instance DDLCons b '(r, DataDefC (TableInfo p u ai) f)
+--     => DDL b '(r, DataDefC (TableInfo p u ai) f) where
+--   createText = createTextTable
+--       (proxy# :: Proxy# b)
+--       (proxy# :: Proxy# '(r, DataDefC (TableInfo p u ai) f))
+--
+-- instance DDLConsV b '(r, DataDefC (ViewInfo (Just s) upd p u ai) f)
+--       => DDL b '(r, DataDefC (ViewInfo (Just s) upd p u ai) f) where
+--   createText = createTextView
+--       (proxy# :: Proxy# b)
+--       (proxy# :: Proxy# '(r, DataDefC (ViewInfo (Just s) upd p u ai) f))
 
 createTextTable :: DDLCons b t => Proxy# b -> Proxy# t -> Text
 createTextTable (_ :: Proxy# b) (_ :: Proxy# t)

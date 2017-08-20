@@ -16,8 +16,8 @@ import           Data.Type.Grec          (ConvFromGrec, ConvGrecInfo)
 import           Perst.Database.DataDef  (DataDef' (..), DataInfo (..),
                                           DelCons (..))
 import           Perst.Database.DbOption (DbOption (..))
-import           Perst.Database.DML      (DeleteByKey (..), Insert (..),
-                                          UpdateByKeyDiff (..))
+import           Perst.Database.DDL      (DDL (..))
+import           Perst.Database.DML      (DML)
 import           Perst.Database.Sqlite   (Sqlite)
 
 
@@ -36,12 +36,5 @@ data Article = Article
 
 type TArticle = '(Article, DataDefC (TableInfo '["id"] '[ '["name"]] False) '[])
 
-instance (ConvGrecInfo r, ConvFromGrec r [FieldDB Sqlite])
-        => Insert Sqlite TArticle r
-
-instance (ConvGrecInfo r1, ConvGrecInfo r2
-        , ConvFromGrec r1 [FieldDB Sqlite], ConvFromGrec r2 [FieldDB Sqlite])
-        => UpdateByKeyDiff Sqlite TArticle r1 r2
-
-instance (ConvGrecInfo r, ConvFromGrec r [FieldDB Sqlite])
-        => DeleteByKey Sqlite TArticle r
+instance DML Sqlite TArticle Article
+instance DDL Sqlite TArticle

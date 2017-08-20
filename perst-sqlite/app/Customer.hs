@@ -19,9 +19,8 @@ import           Data.Type.Grec          (ConvFromGrec, ConvGrecInfo, Grec,
 import           Perst.Database.DataDef  (DataDef' (..), DataInfo (..),
                                           DelCons (..), FK (..))
 import           Perst.Database.DbOption (DbOption (..))
-import           Perst.Database.DML      (DeleteByKey (..), Insert (..),
-                                          SelectByKey (..),
-                                          UpdateByKeyDiff (..))
+import           Perst.Database.DDL      (DDL (..))
+import           Perst.Database.DML      (DML (..))
 import           Perst.Database.Sqlite   (Sqlite)
 
 data Customer = Customer
@@ -29,6 +28,7 @@ data Customer = Customer
   , names :: GrecGroup Names
   , note  :: Maybe T.Text
   , note2 :: Maybe T.Text
+  , note3 :: Maybe T.Text
   -- , email :: T.Text
   } deriving (Show, Generic)
 
@@ -68,19 +68,7 @@ type TAddress =
             '[ FKC "customer" DcCascade '[ '("customerId", "id")]]
   )
 
-instance (ConvGrecInfo r, ConvFromGrec r [FieldDB Sqlite])
-        => Insert Sqlite TCustomer r
-instance (ConvGrecInfo r, ConvFromGrec r [FieldDB Sqlite])
-        => Insert Sqlite TAddress r
-
-instance (ConvGrecInfo r1, ConvGrecInfo r2
-        , ConvFromGrec r1 [FieldDB Sqlite], ConvFromGrec r2 [FieldDB Sqlite])
-        => UpdateByKeyDiff Sqlite TCustomer r1 r2
-instance (ConvGrecInfo r1, ConvGrecInfo r2
-        , ConvFromGrec r1 [FieldDB Sqlite], ConvFromGrec r2 [FieldDB Sqlite])
-        => UpdateByKeyDiff Sqlite TAddress r1 r2
-
-instance (ConvGrecInfo r, ConvFromGrec r [FieldDB Sqlite])
-        => DeleteByKey Sqlite TCustomer r
-instance (ConvGrecInfo r, ConvFromGrec r [FieldDB Sqlite])
-        => DeleteByKey Sqlite TAddress r
+instance DML Sqlite TCustomer Customer
+instance DML Sqlite TAddress Address
+instance DDL Sqlite TCustomer
+instance DDL Sqlite TAddress

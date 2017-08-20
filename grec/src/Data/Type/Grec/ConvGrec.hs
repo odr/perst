@@ -15,6 +15,12 @@ class ConvToGrec a b where
 class ConvFromGrec a b where
   convFromGrec :: a -> b
 
+instance ConvFromGrec () [a] where
+  convFromGrec = const []
+
+instance ConvToGrec [a] () where
+  convToGrec = const ()
+
 instance Convert (ConvList a, Grec r) (ConvList a)
       => ConvFromGrec (Grec r) [a] where
   convFromGrec = unConvList . convert . (,) (ConvList ([]::[a]))
@@ -36,8 +42,8 @@ instance (ConvFromGrec a c, ConvFromGrec b c, Semigroup c)
   convFromGrec (a,b) = convFromGrec a <> convFromGrec b
 
 instance  ( Convert (ConvList c) (ConvList c, a)
-          , Convert (ConvList c) (ConvList c, b)
+          , ConvToGrec [c] b
           )
           => ConvToGrec [c] (a,b) where
   convToGrec cs = let (cs' :: ConvList c, a) = convert (ConvList cs) in
-                    (a, snd (convert cs' :: (ConvList c, b)))
+                    (a, convToGrec $ unConvList cs')

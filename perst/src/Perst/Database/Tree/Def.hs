@@ -6,21 +6,24 @@
 module Perst.Database.Tree.Def where
 
 import           Data.Kind                     (Type)
-import           Data.List                     (nub)
+-- import           Data.List                     (nub)
 import           Data.Maybe                    (fromMaybe)
 import           Data.Singletons.Prelude
-import           Data.Singletons.Prelude.List  (FindSym0, LookupSym0, NubSym0,
-                                                sNub)
+import           Data.Singletons.Prelude.List  (FindSym0, LookupSym0, NubBySym0,
+                                                NubSym0)
 import           Data.Singletons.Prelude.Maybe (FromMaybeSym0, sFromMaybe)
 import           Data.Singletons.TH            (promoteOnly, singletons)
 
-import           Data.Type.Grec                (FieldNamesNotConvGrec,
-                                                FieldsGrec, FieldsSym0, GWPairs,
-                                                Grec (..), GrecWith,
-                                                GrecWithout, InternalType,
-                                                IsSubSym0, ListToTaggedPairs,
-                                                Submap2, Submap2Sym0, isSub,
-                                                sIsSub, sSubmap2, submap2)
+import           Data.Type.Grec                (FieldNamesGrec,
+                                                FieldNamesNotConvGrec,
+                                                FieldsGrec, FieldsGrecSym0,
+                                                FieldsSym0, GWPairs, Grec (..),
+                                                GrecWith, GrecWithout,
+                                                InternalType, IsSubSym0,
+                                                ListToPairs, ListToTaggedPairs,
+                                                Submap2, Submap2Sym0,
+                                                SubmapSym0, isSub, sIsSub,
+                                                sSubmap2, submap2)
 import           Perst.Database.DataDef        (DataDef', DataKey, DdInfo)
 --, DdFldsSym0, DdKey,
 --                                                DdRecSym0, ddFlds, ddRec,
@@ -87,6 +90,11 @@ promoteOnly [d|
         Nothing -> error "Some keys in the definition of relation are not in the description of table row"
         Just x -> x
 
+  getParentTypes :: [(Symbol,Symbol)] -> Type -> [Type]
+  getParentTypes rs r = fromMaybe
+    (error "Invalid parent fields in InsertChilds!")
+    $ submap (map snd rs) $ nubBy (\a b -> fst a == fst b) $ fieldsGrec r
+
   |]
 
 type GrecChilds t r = GrecChilds' t (FieldNamesNotConvGrec r)
@@ -107,3 +115,9 @@ type TopKey t         = DataKey (TdData t)
 type TopPK t r        = GrecWith (TopKey t) r
 type TopNotPK t r     = GrecWithout (TopKey t) r
 type TopPKPairs t r   = GWPairs (TopKey t) r
+
+type KwoR k r = GrecWithout (FieldNamesGrec (Grec r)) k
+type Pair k r = (KwoR k r, Grec r)
+
+type RecParent k r rs = ListToPairs (GetParentTypes rs (k, Grec r))
+type RecParent' k r rs = ListToPairs (GetParentTypes rs (Pair k r))

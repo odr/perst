@@ -19,14 +19,13 @@ library
                       , Perst.Database.DbOption
                       -- , Perst.Database.Constraints
                       , Perst.Types
-                      -- , Perst.Lens
                       , Perst.Database.DDL
                       , Perst.Database.DML
                       , Perst.Database.DML.Insert
                       , Perst.Database.DML.Update
                       , Perst.Database.DML.Delete
                       , Perst.Database.DML.Select
-                      , Perst.Database.TreeDef
+                      , Perst.Database.DMLTree
                       , Perst.Database.Tree.Def
                       , Perst.Database.Tree.Select
                       , Perst.Database.Tree.Insert

@@ -9,6 +9,7 @@ module Perst.Database.DML.Insert where
 import           Control.Monad           (when)
 import           Control.Monad.Catch     (finally)
 import           Data.List               ((\\))
+import           Data.Singletons.Prelude (SingI)
 import qualified Data.Text               as T
 import           GHC.Prim                (Proxy#, proxy#)
 
@@ -24,27 +25,21 @@ type InsTextCons b t r = (DbOption b, ConvGrecInfo r, DataDefInfo t)
 
 type InsCons m b t r
   = ( InsTextCons b t r, MonadCons m, ConvFromGrec r [FieldDB b]
-    , ConvFromGrec (WithoutKey t r) [FieldDB b]
+    , SingI (DataKey t) -- ConvFromGrec (WithoutKey t r) [FieldDB b]
     )
 
 type InsManyCons m f b t r = ( Traversable f, InsCons m b t r)
 
-class Insert b t r where
-
-  insertMany :: (MonadCons m, Traversable f)
-            => f r -> SessionMonad b m (Maybe (f (GenKey b)))
-  default insertMany :: InsManyCons m f b t r
-                    => f r -> SessionMonad b m (Maybe (f (GenKey b)))
-  insertMany = insertManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
-
-  insert :: MonadCons m => r -> SessionMonad b m (Maybe (GenKey b))
-  insert r = fmap head <$> insertMany @b @t [r]
-
-  -- insertText :: T.Text
-  -- default insertText :: InsTextCons b t r => T.Text
-  -- insertText = insertTextDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
-  --                            (proxy# :: Proxy# r)
-
+-- class Insert b t r where
+--
+--   insertMany :: (MonadCons m, Traversable f)
+--             => f r -> SessionMonad b m (Maybe (f (GenKey b)))
+--   default insertMany :: InsManyCons m f b t r
+--                     => f r -> SessionMonad b m (Maybe (f (GenKey b)))
+--   insertMany = insertManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
+--
+--   insert :: MonadCons m => r -> SessionMonad b m (Maybe (GenKey b))
+--   insert r = fmap head <$> insertMany @b @t [r]
 
 insertTextDef :: InsTextCons b t r
         => Proxy# b -> Proxy# t -> Proxy# r -> T.Text
@@ -83,13 +78,13 @@ insertManyDef (pb :: Proxy# b) (pt :: Proxy# t) (rs :: f r) = do
 --         => Sing t-> f r -> SessionMonad b m (Maybe (f (GenKey b)))
 -- insertManySafe = insertMany
 
-class Insert b t (Grec r) => InsertR b t r where
-  insertManyR :: (Insert b t (Grec r), MonadCons m, Traversable f)
-              => f r -> SessionMonad b m (Maybe (f (GenKey b)))
-  insertManyR = insertMany @b @t . fmap Grec
-
-  insertR :: InsCons m b t (Grec r)
-          => r -> SessionMonad b m (Maybe (GenKey b))
-  insertR = insert @b @t . Grec
-
-instance Insert b t (Grec r) => InsertR b t r
+-- class Insert b t (Grec r) => InsertR b t r where
+--   insertManyR :: (Insert b t (Grec r), MonadCons m, Traversable f)
+--               => f r -> SessionMonad b m (Maybe (f (GenKey b)))
+--   insertManyR = insertMany @b @t . fmap Grec
+--
+--   insertR :: InsCons m b t (Grec r)
+--           => r -> SessionMonad b m (Maybe (GenKey b))
+--   insertR = insert @b @t . Grec
+--
+-- instance Insert b t (Grec r) => InsertR b t r

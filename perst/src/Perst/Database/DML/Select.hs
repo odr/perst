@@ -27,12 +27,12 @@ type SelManyCons m f b t r k
   = ( MonadCons m, Traversable f, SelCons b t r k)
 
 
-class SelectByKey b t r k where
-  selectMany :: (MonadCons m, Traversable f) => f k -> SessionMonad b m (f [r])
-  default selectMany :: SelManyCons m f b t r k
-                     => f k -> SessionMonad b m (f [r])
-  selectMany = selectManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
-                             (proxy# :: Proxy# r)
+-- class SelectByKey b t r k where
+--   selectMany :: (MonadCons m, Traversable f) => f k -> SessionMonad b m (f [r])
+--   default selectMany :: SelManyCons m f b t r k
+--                      => f k -> SessionMonad b m (f [r])
+--   selectMany = selectManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
+--                              (proxy# :: Proxy# r)
 
 -- instance SelCons b t (r1,r2) k
 --     => SelectByKey b t (r1,r2) k where
@@ -65,9 +65,9 @@ selectManyDef (pb :: Proxy# b) (pt :: Proxy# t) (pr :: Proxy# r) (ks :: f k)
 --                => Sing t -> Proxy r -> f k -> SessionMonad b m (f [r])
 -- selectManySafe = selectMany
 
-class SelectByKey b t (Grec r) k => SelectByKeyR b t r k where
-  selectManyR :: (MonadCons m, Traversable f)
-              => f k -> SessionMonad b m (f [r])
-  selectManyR = fmap (fmap $ map unGrec) . selectMany @b @t @(Grec r)
-
-instance SelectByKey b t (Grec r) k => SelectByKeyR b t r k
+-- class SelectByKey b t (Grec r) k => SelectByKeyR b t r k where
+--   selectManyR :: (MonadCons m, Traversable f)
+--               => f k -> SessionMonad b m (f [r])
+--   selectManyR = fmap (fmap $ map unGrec) . selectMany @b @t @(Grec r)
+--
+-- instance SelectByKey b t (Grec r) k => SelectByKeyR b t r k

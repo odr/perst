@@ -14,9 +14,10 @@ import           Perst.Database.DataDef  (DataAutoIns, DataDef' (..),
                                           DataDefInfo (..), DataInfo (..),
                                           DelCons (..), FK (..))
 import           Perst.Database.DbOption (DbTypeNames (..))
-import           Perst.Database.DML      (Insert (..), SelectByKey (..))
-import           Perst.Database.TreeDef  (InsertTree (..), InsertTreeR (..),
-                                          SelectTree (..), TreeDef' (..))
+import           Perst.Database.DDL      (DDL (..))
+import           Perst.Database.DML      (DML (..))
+import           Perst.Database.DMLTree  (DMLTree (..))
+import           Perst.Database.Tree.Def (TreeDef' (..))
 
 import           DB
 
@@ -85,6 +86,12 @@ type TAddress =
   , DataDefC (TableInfo '["id"] '[] False)
             '[ FKC "customer" DcCascade '[ '("customerId", "id")]]
   )
+instance DDL DB TCustomer
+instance DDL DB TOrder
+instance DDL DB TOrderPosition
+instance DDL DB TArticle
+instance DDL DB TAddress
+
 
 data CustomerTree = CustomerTree
   { id        :: Int64
@@ -109,54 +116,59 @@ type TCustomerTree = TreeDefC TCustomer
 type TOrderTree = TreeDefC TOrder
   '[ '("positions", '(TreeDefC TOrderPosition '[],  '[ '("orderId", "id") ]))]
 
-instance Insert DB TCustomer (Grec CustomerTree)
+instance DML DB TCustomer CustomerTree
+instance DML DB TOrder OrderTree
+instance DML DB TOrderPosition OrderPosition
+instance DML DB TAddress Address
 
-type TCustomerOrderTree =
-  ( Tagged '["customerId"] Int64
-  , GrecWithout '["customerId"] (Grec OrderTree)
-  )
-instance Insert DB TOrder TCustomerOrderTree
+-- instance InsertTree DB TCustomerTree CustomerTree
+-- instance InsertTree DB TOrderTree CustomerTree
+-- instance SelectTree DB TCustomerTree CustomerTree (Tagged '["id"] Int64)
+-- instance SelectTree DB TOrderTree OrderTree
+--                   (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
+-- instance SelectTree DB ('TreeDefC TAddress '[]) Address
+--                   (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
+-- instance SelectTree DB ('TreeDefC TOrderPosition '[]) OrderPosition
+--                   (GrecWith '["orderId"] (Tagged '["orderId"] Int64))
 
-type TOrderOrderPosTree =
-  ( Tagged '["orderId"] Int64
-  , GrecWithout '["orderId"] (Grec OrderPosition)
-  )
-instance Insert DB TOrderPosition TOrderOrderPosTree
+instance DMLTree DB TCustomerTree CustomerTree
+
+-- type TCustomerOrderTree =
+--   ( Tagged '["customerId"] Int64
+--   , GrecWithout '["customerId"] (Grec OrderTree)
+--   )
+--
+-- type TOrderOrderPosTree =
+--   ( Tagged '["orderId"] Int64
+--   , GrecWithout '["orderId"] (Grec OrderPosition)
+--   )
 -- instance InsertTree DB (TreeDefC TOrderPosition '[]) TOrderOrderPosTree
 
 -- instance InsertTree DB TOrderTree TCustomerOrderTree
-instance InsertTree DB TCustomerTree (Grec CustomerTree)
 
-type TCustomerAddressTree =
-  ( Tagged '["customerId"] Int64
-  , GrecWithout '["customerId"] (Grec Address)
-  )
-instance Insert DB TAddress TCustomerAddressTree
+-- type TCustomerAddressTree =
+--   ( Tagged '["customerId"] Int64
+--   , GrecWithout '["customerId"] (Grec Address)
+--   )
+-- instance Insert DB TAddress TCustomerAddressTree
 -- instance InsertTree DB (TreeDefC TAddress '[]) TCustomerAddressTree
 
 -- instance InsertTreeR DB TCustomerTree CustomerTree
 
-instance SelectTree DB TCustomerTree CustomerTree (Tagged '["id"] Int64)
-instance SelectTree DB TOrderTree OrderTree
-                  (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
-instance SelectTree DB ('TreeDefC TAddress '[]) Address
-                  (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
-instance SelectTree DB ('TreeDefC TOrderPosition '[]) OrderPosition
-                  (GrecWith '["orderId"] (Tagged '["orderId"] Int64))
 
 
---------------------
-
--- by PK
-instance SelectByKey DB TCustomer (Tagged '["id"] Int64, Grec CustomerTree)
-                                  (Tagged '["id"] Int64)
-
--- by FK with PK
-instance SelectByKey DB TOrder (Tagged '["id"] Int64, Grec OrderTree)
-                     (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
-
-instance SelectByKey DB TAddress (Tagged ('[] :: [Symbol]) (), Grec Address)
-                      (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
-
-instance SelectByKey DB TOrderPosition (Tagged ('[] :: [Symbol]) (), Grec OrderPosition)
-                      (GrecWith '["orderId"] (Tagged '["orderId"] Int64))
+-- --------------------
+--
+-- -- by PK
+-- instance SelectByKey DB TCustomer (Tagged '["id"] Int64, Grec CustomerTree)
+--                                   (Tagged '["id"] Int64)
+--
+-- -- by FK with PK
+-- instance SelectByKey DB TOrder (Tagged '["id"] Int64, Grec OrderTree)
+--                      (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
+--
+-- instance SelectByKey DB TAddress (Tagged ('[] :: [Symbol]) (), Grec Address)
+--                       (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
+--
+-- instance SelectByKey DB TOrderPosition (Tagged ('[] :: [Symbol]) (), Grec OrderPosition)
+--                       (GrecWith '["orderId"] (Tagged '["orderId"] Int64))

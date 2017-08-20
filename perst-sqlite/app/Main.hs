@@ -29,8 +29,8 @@ import           Perst.Database.DbOption       (DbOption (..), DbTypeName,
                                                 SessionMonad)
 import           Perst.Database.DDL            as DDL
 import           Perst.Database.DML
+import           Perst.Database.DMLTree
 import           Perst.Database.Sqlite
-import           Perst.Database.TreeDef
 import           Perst.Types
 
 import           Article
@@ -84,16 +84,20 @@ main = runSession @Sqlite "test.db" $ do
   dropCreate @Sqlite @TOrderPosition
   dropCreate @Sqlite @TAddress
 
-  insertTreeManyR @Sqlite @TCustomerTree ct
+  insertTreeMany @Sqlite @TCustomerTree ct
 
   ct' <- selectTreeMany @Sqlite @TCustomerTree @CustomerTree
                         (map Tagged [1..3] :: [Tagged '["id"] Int64])
-  liftIO $ putStrLn $ "Check CustomerTree: " ++
-    if ct' == map (:[]) ct
-      then "Checked"
-      else "ct' = " ++ show ct'
+  liftIO $ do
+    putStrLn ""
+    putStrLn ""
+    putStrLn $ "Check CustomerTree: " ++
+      if ct' == map (:[]) ct
+        then "Checked"
+        else "Not Checked!!! ct' = " ++ show ct'
+    putStrLn ""
 
-  updateTreeManyR @Sqlite @TCustomerTree (Prelude.drop 2 ct) [ct3]
+  updateTreeMany @Sqlite @TCustomerTree (Prelude.drop 2 ct) [ct3]
   ct' <- selectTreeMany @Sqlite @TCustomerTree @CustomerTree
             (map Tagged [1..3] :: [Tagged '["id"] Int64])
   liftIO $ do
