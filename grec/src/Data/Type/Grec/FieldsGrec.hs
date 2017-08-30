@@ -131,23 +131,28 @@ type GWOPairs ns a = ListToPairs (Map SndSym0 (FieldsGrec (GrecWithout ns a)))
 -- (GwPairsL ns a) --
 -- (GwoPairsL ns a) --
 
-gwPairs :: (NamesGrecLens ns (GWPairs ns a) (GrecWith ns a))
+gwPairs :: (NamesGrecLens ns (GWPairs ns a) a)
         => GrecWith ns a -> GWPairs ns a
-gwPairs (x :: GrecWith ns a) = namesGrecGet @ns x :: GWPairs ns a
+gwPairs (x :: GrecWith ns a) = namesGrecGet @ns (unGW x) :: GWPairs ns a
 
-gwTPairs :: (NamesGrecLens ns (GWPairs ns a) (GrecWith ns a))
+gwTPairs :: (NamesGrecLens ns (GWPairs ns a) a)
         => GrecWith ns a -> Tagged ns (GWPairs ns a)
 gwTPairs = Tagged . gwPairs
 
-instance  ( Eq (GWPairs ns a)
-          , NamesGrecLens ns (GWPairs ns a) (GrecWith ns a)
-          )
-          => Eq (GrecWith ns a) where
+gwoPairs :: (NamesGrecLens (FieldNamesGrec a :\\ ns) (GWOPairs ns a) a)
+        => GrecWithout ns a -> GWOPairs ns a
+gwoPairs (x :: GrecWithout ns a)
+  = namesGrecGet @(FieldNamesGrec a :\\ ns) (unGWO x) :: GWOPairs ns a
+
+gwoTPairs :: (NamesGrecLens (FieldNamesGrec a :\\ ns) (GWOPairs ns a) a)
+  => GrecWithout ns a -> Tagged (FieldNamesGrec a :\\ ns) (GWOPairs ns a)
+gwoTPairs = Tagged . gwoPairs
+
+instance (Eq (GWPairs ns a), NamesGrecLens ns (GWPairs ns a) a)
+      => Eq (GrecWith ns a) where
   (==) = (==) `on` gwPairs
 
-instance  ( Ord (GWPairs ns a)
-          , NamesGrecLens ns (GWPairs ns a) (GrecWith ns a)
-          )
+instance (Ord (GWPairs ns a), NamesGrecLens ns (GWPairs ns a) a)
       => Ord (GrecWith ns a) where
   compare = comparing gwPairs
 

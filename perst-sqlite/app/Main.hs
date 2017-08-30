@@ -37,6 +37,7 @@ import           Article
 import           Customer
 import           CustomerTree
 import           Order
+import           OrderTree
 
 -- newtype NInt = NInt Int64 deriving (Show, Eq, Ord, Generic)
 -- type instance DbTypeName Sqlite NInt = "INTEGER"

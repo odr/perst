@@ -38,7 +38,7 @@ type UpdTreeCons b t k r =
 
 type UpdTreeCons' b k r tpkp tpk tk =
     ( Ord tpkp
-    , NamesGrecLens tk tpkp tpk
+    , NamesGrecLens tk tpkp (Pair k r)
     , SingI (FieldNamesConvGrec (Tagged tk tpkp))
     , RecCons b (Tagged tk tpkp)
     )
