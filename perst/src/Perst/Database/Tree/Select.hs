@@ -12,8 +12,7 @@ import           GHC.Prim                (Proxy#, proxy#)
 import           GHC.TypeLits            (Symbol)
 import           Lens.Micro              ((.~))
 
-import           Data.Type.Grec          (ConvGrecInfo, ConvList, Convert,
-                                          Grec (..), GrecLens (..),
+import           Data.Type.Grec          (ConvGrecInfo, Convert, GrecLens (..),
                                           GrecWith (..))
 import           Perst.Database.DbOption (DbOption (..), MonadCons,
                                           SessionMonad)
@@ -30,9 +29,9 @@ type SelTreeCons b t k r =
   )
 
 type SelTreeCons' b t r k tapk =
-  ( Convert (ConvList (FieldDB b)) (ConvList (FieldDB b), tapk)
+  ( Convert [FieldDB b] ([FieldDB b], tapk)
   , ConvGrecInfo tapk
-  , SelectChilds b (GrecChilds t (Grec r)) tapk r
+  , SelectChilds b (GrecChilds t r) tapk r
   )
 
 selectTreeManyDef :: (AppCons f, MonadCons m, SelTreeCons b t k r)
@@ -43,7 +42,7 @@ selectTreeManyDef (_::Proxy# b) (_::Proxy# t) (_::Proxy# r) (ks::f k) = do
     <$> selectMany @b @(TdData t) @r
                   (proxy# :: Proxy# (TaggedAllParentKeys t)) ks
   fmap (fmap getZipList . getCompose)
-    $ selectChilds @b @(GrecChilds t (Grec r)) ps
+    $ selectChilds @b @(GrecChilds t r) ps
 
 
 class SelectChilds b (chs :: [(Symbol, (TreeDef, [(Symbol,Symbol)]))]) k r where
@@ -53,12 +52,12 @@ instance SelectChilds b '[] k r where
   selectChilds = return . fmap snd
 
 type SelectChildsConstraint b s td rs nk vk r =
-    SelectChildsConstraint' b s td rs nk vk r (FieldByName s (Grec r))
+    SelectChildsConstraint' b s td rs nk vk r (FieldByName s (r))
 
 type SelectChildsConstraint' b s td rs nk vk r r'  =
   ( SelTreeCons b td
       (GrecWith (Fsts rs) (Tagged (ChildByParents rs nk) vk)) r'
-  , GrecLens s [r'] (Grec r)
+  , GrecLens s [r'] (r)
   )
 
 instance ( SelectChildsConstraint b s td rs nk vk r
@@ -68,7 +67,7 @@ instance ( SelectChildsConstraint b s td rs nk vk r
   selectChilds compKR = do
     r <- liftA2 updRec compKR
         <$> selectTreeManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# td)
-              (proxy# :: Proxy# (FieldByName s (Grec r))) newkey
+              (proxy# :: Proxy# (FieldByName s r)) newkey
     selectChilds @b @chs r
    where
     newkey = fmap
@@ -77,5 +76,5 @@ instance ( SelectChildsConstraint b s td rs nk vk r
       . (retag :: Tagged nk vk -> Tagged (ChildByParents rs nk) vk)
       . fst
       ) compKR
-    updRec :: (Tagged nk vk, r) -> [FieldByName s (Grec r)] -> (Tagged nk vk, r)
-    updRec (k,r) rs' = (k, unGrec $ (grecLens @s .~ rs') $ Grec r)
+    updRec :: (Tagged nk vk, r) -> [FieldByName s r] -> (Tagged nk vk, r)
+    updRec (k,r) rs' = (k, (grecLens @s .~ rs')  r)

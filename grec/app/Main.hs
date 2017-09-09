@@ -16,6 +16,7 @@ test = 1
 data Dat0 = Rec0 deriving (Show, Eq, Generic)
 -- vd0 = Refl :: Fields Dat0 :~: '[]
 
+data Pis = Pis Int String deriving (Eq, Show, Ord, Generic)
 
 data Dat1 = Rec1 { f11 :: Int } deriving (Show, Eq, Generic)
 vd1 = Refl :: FieldsGrec (Grec Dat1) :~: '["f11":::Int]
@@ -23,18 +24,18 @@ vd1 = Refl :: FieldsGrec (Grec Dat1) :~: '["f11":::Int]
 data Dat2 = Rec2
     { f21 :: Int
     , f22 :: Char
-    , f23 :: (Int,String)
+    , f23 :: Pis
     } deriving (Show, Eq, Generic)
 --instance Lensed Dat2
-vr2 = Rec2 1 'x' (2,"test") :: Dat2
-vd2 = Refl :: FieldsGrec (Grec Dat2) :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
+vr2 = Rec2 1 'x' (Pis 2 "test") :: Dat2
+vd2 = Refl :: FieldsGrec (Grec Dat2) :~: '[ '("f21",Int),'("f22",Char), "f23":::Pis]
 -- vr221 = vr2 ^. nlens (FieldName :: FieldName "f21")
 -- vr2212 = vr2 ^. nlens (fromLabel (proxy# :: Proxy# "f21") :: Proxy "f21")
 -- vr2213 = vr2 ^. #f22
 gpe = Refl :: FieldsGrec (Grec Dat2)
-          :~: FieldsGrec (Tagged ["f21","f22","f23"] (Int,(Char,(Int,String))))
+          :~: FieldsGrec (Tagged ["f21","f22","f23"] (Int,(Char,Pis)))
 
-data X = XInt Int | XChar Char | XIS (Int,String) | XS String deriving (Eq,Show)
+data X = XInt Int | XChar Char | XIS Pis | XS String deriving (Eq,Show)
 
 instance Convert X Int where
   convert (XInt x) = x
@@ -48,7 +49,7 @@ instance Convert X String where
   convert (XS x) = x
   convert _      = error "not converted"
 
-instance Convert X (Int,String) where
+instance Convert X Pis where
   convert (XIS x) = x
   convert _       = error "not converted"
 
@@ -61,27 +62,30 @@ instance Convert Char X where
 instance Convert String X where
   convert = XS
 
-instance Convert (Int,String) X where
+instance Convert Pis X where
   convert = XIS
 
-pair = convToGrec [XInt 1, XInt 2, XChar 'x', XIS (4,"xxx")] :: (Tagged '["x"] Int, Grec Dat2)
+pair = convToGrec [XInt 1, XInt 2, XChar 'x', XIS (Pis 4 "xxx")] :: (Tagged '["x"] Int, Grec Dat2)
 
-pair2 = convToGrec [XInt 1, XInt 1, XChar '1', XInt 2, XChar 'x', XIS (4,"xxx")]
+pair2' = convToGrec [XInt 1, XInt 1, XChar '1', XInt 2, XChar 'x', XIS (Pis 4 "xxx")]
+      :: Tagged '["x","y","z"] (Int,Int,Char)
+
+pair2 = convToGrec [XInt 1, XInt 1, XChar '1', XInt 2, XChar 'x', XIS (Pis 4 "xxx")]
       :: (Tagged '["x","y","z"] (Int,Int,Char), Grec Dat2)
 
-pair3 = convToGrec [XInt 1, XInt 1, XIS (1,"x"), XInt 2, XChar 'x', XIS (4,"xxx")]
-      :: (Tagged '["x","y","z"] (Int,Int,(Int,String)), Grec Dat2)
+pair3 = convToGrec [XInt 1, XInt 1, XIS (Pis 1 "x"), XInt 2, XChar 'x', XIS (Pis 4 "xxx")]
+      :: (Tagged '["x","y","z"] (Int,Int,Pis), Grec Dat2)
 
 -- zz = convert
 --     (Tagged ([XInt 5, XChar 'z', XIS (7,"odr")], Rec2)
 --       :: Tagged (FieldTypesGrec (Grec Dat2)) ([X], Int -> Char -> (Int,String) -> Dat2))
 --     :: Dat2
 
-vr2' = convToGrec [XInt 5, XChar 'z', XIS (7,"odr")] :: Grec Dat2
+vr2' = convToGrec [XInt 5, XChar 'z', XIS (Pis 7 "odr")] :: Grec Dat2
 x2 = convFromGrec vr2' :: [X]
 
 newtype Nt1 = Nt1 { unNt1 :: Dat2 } deriving (Show, Eq, Generic)
-vnt1 = Refl :: FieldsGrec (Grec Nt1) :~: '[ '("f21",Int),'("f22",Char), "f23":::(Int,String)]
+vnt1 = Refl :: FieldsGrec (Grec Nt1) :~: '[ '("f21",Int),'("f22",Char), "f23":::Pis]
 rnt1 = Nt1 vr2
 -- nt11 = Nt1 vr2 ^. #f23
 -- nt1 = listToGrec [XInt 5, XChar 'z', XIS (7,"odr")] :: Grec Nt1
@@ -93,47 +97,47 @@ data DatS = Rd1 Int | Rd2 deriving (Show, Eq, Generic)
 data DatBig = RecBig
     { fb1  :: Int
     , fb2  :: Char
-    , fb3  :: (Int,String)
+    , fb3  :: Pis
     , fb4  :: Int
     , fb5  :: Char
-    , fb6  :: (Int,String)
+    , fb6  :: Pis
     , fb7  :: Int
     , fb8  :: Char
-    , fb9  :: (Int,String)
+    , fb9  :: Pis
     , fb10 :: Int
     , fb11 :: Char
-    , fb12 :: (Int,String)
+    , fb12 :: Pis
     , fb13 :: Int
     , fb14 :: Char
-    , fb15 :: (Int,String)
+    , fb15 :: Pis
     , fb16 :: Int
     , fb17 :: Char
-    , fb18 :: (Int,String)
+    , fb18 :: Pis
     , fb19 :: Int
     , fb20 :: Int
     , fb21 :: Char
-    , fb22 :: (Int,String)
+    , fb22 :: Pis
     , fb23 :: Int
     , fb24 :: Char
-    , fb25 :: (Int,String)
+    , fb25 :: Pis
     , fb26 :: Int
     , fb27 :: Char
-    , fb28 :: (Int,String)
+    , fb28 :: Pis
     , fb29 :: Int
     -- ,f30::Int,f31::Int,f32::Int,f33::Int,f34::Int,f35::Int,f36::Int,f37::Int,f38::Int,f39::Int
     } deriving (Show, Generic)
 vdb = Refl :: (FieldsGrec (Grec DatBig) :~: '[
-    "fb1":::Int,"fb2":::Char,"fb3":::(Int,String),"fb4":::Int,"fb5":::Char,"fb6":::(Int,String)
-    ,"fb7":::Int,"fb8":::Char,"fb9":::(Int,String)
-    ,"fb10":::Int,"fb11":::Char,"fb12":::(Int,String),"fb13":::Int,"fb14":::Char
-    ,"fb15":::(Int,String),"fb16":::Int,"fb17":::Char,"fb18":::(Int,String),"fb19":::Int
-    ,"fb20":::Int         ,"fb21":::Char,"fb22":::(Int,String),"fb23":::Int         ,"fb24":::Char
-    ,"fb25":::(Int,String),"fb26":::Int ,"fb27":::Char        ,"fb28":::(Int,String),"fb29":::Int
+    "fb1":::Int,"fb2":::Char,"fb3":::Pis,"fb4":::Int,"fb5":::Char,"fb6":::Pis
+    ,"fb7":::Int,"fb8":::Char,"fb9":::Pis
+    ,"fb10":::Int,"fb11":::Char,"fb12":::Pis,"fb13":::Int,"fb14":::Char
+    ,"fb15":::Pis,"fb16":::Int,"fb17":::Char,"fb18":::Pis,"fb19":::Int
+    ,"fb20":::Int         ,"fb21":::Char,"fb22":::Pis,"fb23":::Int         ,"fb24":::Char
+    ,"fb25":::Pis,"fb26":::Int ,"fb27":::Char        ,"fb28":::Pis,"fb29":::Int
     -- ,"f30":::Int,"f31":::Int,"f32":::Int,"f33":::Int,"f34":::Int,"f35":::Int,"f36":::Int,"f37":::Int,"f38":::Int,"f39":::Int
     ])
-rdb = RecBig 1 'x' (2,"y") 1 'x' (2,"y") 1 'x' (2,"y")
-       1 'x' (2,"y") 1 'x' (2,"y") 1 'x' (2,"y") 2
-       1 'x' (2,"y") 1 'x' (2,"y") 1 'x' (2,"y") 2
+rdb = RecBig 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y")
+       1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 2
+       1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 2
       --  1 2 3 4 5 6 7 8 9 0
 -- xdb = rdb ^. #fb5
 
@@ -173,3 +177,8 @@ dd2 = DD2 1 "'x'"
 --                       'TreeTC '[ '("d01", Int), '("d02", Char)] '[])]),
 --           '("d24",
 --             'TreeTC '[ '("d01", Int), '("d02", Char)] '[])]
+
+f :: AllC '[(Show a),(Show b)] => (a,b) -> String
+f = show
+
+x = convert (Tagged 'x' :: Tagged '["x"] Char) :: [X]

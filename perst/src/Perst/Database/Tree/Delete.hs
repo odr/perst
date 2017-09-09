@@ -13,8 +13,8 @@ import           Data.Tagged             (Tagged (..))
 import           GHC.Prim                (Proxy#, proxy#)
 import           Lens.Micro.Extras       (view)
 
-import           Data.Type.Grec          (FieldNamesConvGrec, Grec (..),
-                                          GrecLens (..), GrecWith (..), IsSub,
+import           Data.Type.Grec          (FieldNamesConvGrec, GrecLens (..),
+                                          GrecWith (..), IsSub,
                                           NamesGrecLens (..))
 import           Perst.Database.DbOption (MonadCons, SessionMonad)
 import           Perst.Database.DML      (DML (..), RecCons)
@@ -24,16 +24,15 @@ import           Perst.Types             (Fsts, Snds)
 
 type DelTreeCons b t k r =
   ( DML b (TdData t) r
-  , RecCons b (TopPK t (k,Grec r))
-  , DeleteChilds b (GrecChilds t (k, Grec r)) k r
+  , RecCons b (TopPK t (k,r))
+  , DeleteChilds b (GrecChilds t (k, r)) k r
   )
 
 deleteTreeManyDef :: (MonadCons m , AppCons f, DelTreeCons b t k r)
                 => Proxy# b -> Proxy# t -> f (k,r) -> SessionMonad b m ()
 deleteTreeManyDef (_ :: Proxy# b) (_ :: Proxy# t) (rs :: f (k,r)) = do
-  deleteChilds @b @(GrecChilds t (k, Grec r)) rs
-  deleteMany @b @(TdData t) @r $ fmap ( (GW :: (k,Grec r) -> TopPK t (k,Grec r))
-                                      . second Grec
+  deleteChilds @b @(GrecChilds t (k, r)) rs
+  deleteMany @b @(TdData t) @r $ fmap ( (GW :: (k,r) -> TopPK t (k,r))
                                       ) rs
 
 class DeleteChilds b chs k r where
@@ -44,10 +43,10 @@ instance DeleteChilds b '[] k r where
 
 type DelChildCons b s td rs chs k r =
   ( DelTreeCons b td (Tagged (Fsts rs) (RecParent k r rs))
-                     (FieldByName s (k, Grec r))
-  , GrecLens s [FieldByName s (k, Grec r)] (k, Grec r)
+                     (FieldByName s (k, r))
+  , GrecLens s [FieldByName s (k, r)] (k, r)
   , DeleteChilds b chs k r
-  , NamesGrecLens (Snds rs) (RecParent k r rs) (k, Grec r)
+  , NamesGrecLens (Snds rs) (RecParent k r rs) (k, r)
   )
 
 instance  DelChildCons b s td rs chs k r
@@ -58,7 +57,7 @@ instance  DelChildCons b s td rs chs k r
     deleteChilds @b @chs rs
    where
     delRec :: (k,r) -> ZipList ( Tagged (Fsts rs) (RecParent k r rs)
-                               , FieldByName s (k, Grec r)
+                               , FieldByName s (k, r)
                                )
-    delRec (k,r) = (Tagged (namesGrecGet @(Snds rs) (k, Grec r)),)
-                 <$> ZipList (view (grecLens @s) (k, Grec r))
+    delRec (k,r) = (Tagged (namesGrecGet @(Snds rs) (k, r)),)
+                 <$> ZipList (view (grecLens @s) (k, r))

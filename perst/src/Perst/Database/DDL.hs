@@ -33,7 +33,7 @@ import           Perst.Database.DbOption (DbOption (..), DbTypeNames (..),
                                           MonadCons, SessionMonad)
 
 type DDLConsV b t = (DbOption b, DataDefInfo t)
-type DDLCons b t = (DDLConsV b t, DbTypeNames b (Grec (Fst t)))
+type DDLCons b t = (DDLConsV b t, DbTypeNames b (Fst t))
 
 class DDLCons b t => DDL b t where
   create      :: MonadCons m => SessionMonad b m ()
@@ -74,7 +74,7 @@ createTextTable (_ :: Proxy# b) (_ :: Proxy# t)
       , T.intercalate ","
           $ zipWith (\n (t,b) -> formatS "{} {} {} NULL"
                                           (n,t, if b then T.empty else "NOT"))
-                    (fieldNames @t) (dbTypeNames @b @(Grec (Fst t)))
+                    (fieldNames @t) (dbTypeNames @b @(Fst t))
       , T.intercalate "," $ primaryKey @t
       , foldMap (formatS ",UNIQUE ({})" . Only . T.intercalate ",")
           $ uniqKeys @t

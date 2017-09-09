@@ -1,23 +1,18 @@
-{-# LANGUAGE UndecidableInstances #-}
 module Data.Type.Grec.Grec( Grec(..)) where
 
-import           Data.Bifunctor                    (bimap)
-import           Data.Kind                         (Type)
+-- import           Data.Bifunctor                    (first)
 import           Data.Type.Grec.Convert            (Convert (..))
-import           Data.Type.Grec.ConvList           (ConvList (..))
+-- import           Data.Type.Grec.ConvList           (ConvList (..))
 import           GHC.Generics                      (Generic, Rep, from, to)
-import           GHC.TypeLits                      (Symbol)
 
 import           Data.Type.Grec.Internal.GGrecList (GListFromGrec (..),
                                                     GListToGrec (..))
-import           Data.Type.Grec.Type               (Fields)
 
-newtype Grec a = Grec { unGrec :: a } deriving (Eq, Show)
+newtype Grec a = Grec { unGrec :: a } deriving (Eq, Show, Ord)
 
-instance (GListToGrec a (Rep r), Generic r)
-    => Convert (ConvList a) (ConvList a, Grec r) where
-  convert = bimap ConvList (Grec . to) . gListToGrec . unConvList
+instance (GListToGrec a (Rep r), Generic r) => Convert [a] ([a], Grec r) where
+  convert = fmap (Grec . to) . gListToGrec
 
 instance (GListFromGrec a (Rep r), Generic r)
-    => Convert (ConvList a, Grec r) (ConvList a) where
-  convert (x,y) = x `mappend` ConvList (gListFromGrec $ from $ unGrec y)
+    => Convert (Grec r) [a] where
+  convert = gListFromGrec . from . unGrec

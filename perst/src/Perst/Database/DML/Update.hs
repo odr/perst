@@ -16,7 +16,7 @@ import qualified Data.Text               as T
 import           GHC.Prim                (Proxy#, proxy#)
 
 import           Data.Type.Grec          as Grec (ConvFromGrec (..),
-                                                  ConvGrecInfo (..), Grec (..),
+                                                  ConvGrecInfo (..),
                                                   GrecWith (..),
                                                   GrecWithout (..))
 import           Perst.Database.DataDef  (DataDef, DataDefInfo (..), WithKey,
@@ -30,12 +30,19 @@ import           Perst.Database.DbOption (DbOption (..), MonadCons,
 type UpdTextCons b t r k
   = (DbOption b, ConvGrecInfo r, ConvGrecInfo k, DataDefInfo t)
 
-type UpdCons m b t r k
-  = ( MonadCons m, UpdTextCons b t r k
-    , ConvFromGrec k [FieldDB b], ConvFromGrec r [FieldDB b]
-    )
+type UpdDiffTextCons0 b t r k = ( UpdTextCons b t r k
+                               , ConvFromGrec r [FieldDB b]
+                               , ConvFromGrec k [FieldDB b]
+                               )
 
-type UpdManyCons m f b t r k = ( UpdCons m b t r k, Traversable f)
+type UpdDiffTextCons b t r k = (UpdDiffTextCons0 b t r k, Eq (FieldDB b))
+
+type UpdDiffManyCons m b t r k = (MonadCons m, UpdDiffTextCons b t r k)
+
+type UpdManyCons m f b t r k = ( MonadCons m
+                               , UpdDiffTextCons0 b t r k
+                               , Traversable f
+                               )
 
 --
 -- class UpdateByKey b t r k where
@@ -78,12 +85,6 @@ updateManyDef (pb :: Proxy# b) (pt :: Proxy# t) (rs :: f (k,r)) = do
 -- updateByKeyManySafe :: (UpdByKeyConstr m b t r k, Traversable f)
 --                     => Sing t -> f (k,r)  -> SessionMonad b m ()
 -- updateByKeyManySafe = updateByKeyMany
-
-type UpdDiffTextCons b t r k = ( UpdTextCons b t r k, ConvFromGrec r [FieldDB b]
-                               , ConvFromGrec k [FieldDB b], Eq (FieldDB b)
-                               )
-
-type UpdDiffManyCons m b t r k = (MonadCons m, UpdDiffTextCons b t r k)
 
 -- class UpdateByKeyDiff b t r k where
 --   updateByKeyDiffMany :: MonadCons m => [(k,r,r)] -> SessionMonad b m ()

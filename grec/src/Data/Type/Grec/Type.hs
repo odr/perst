@@ -16,8 +16,8 @@ module Data.Type.Grec.Type
     -- )
     where
 
-import           Data.Kind                     (Type)
-import           Data.List                     (nub)
+import           Data.Kind                     (Constraint, Type)
+import           Data.List                     (find, nub)
 import           Data.Maybe                    (fromJust, isNothing)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
@@ -99,7 +99,7 @@ type family ListToPairs (t :: [Type]) :: Type where
 
 type ListToTaggedPairs t = Tagged (Map FstSym0 t) (ListToPairs (Map SndSym0 t))
 
-singletons
+promote
   [d| isSub :: Eq a => [a] -> [a] -> Bool
       isSub as bs = all (`elem` bs) as -- null $ aa \\ bs
 
@@ -108,14 +108,32 @@ singletons
       --all (`isSub` ps) ass
 
       submap :: Eq a => [a] -> [(a,b)] -> Maybe [b]
-      submap as ps = let rs = map (`lookup` ps) as in
-        if any_ isNothing rs then Nothing else Just (map fromJust rs)
+      submap [] ps = Just []
+      submap (a:as) ps = case lookup a ps of
+        Nothing -> Nothing
+        Just x  -> case submap as ps of
+          Nothing -> Nothing
+          Just xs -> Just (x : xs)
+
+      -- submap as ps = let rs = map (`lookup` ps) as in
+      --   if any_ isNothing rs then Nothing else Just (map fromJust rs)
 
       submap2 :: Eq a => [a] -> [(a,b)] -> Maybe [(a,b)]
-      submap2 as ps = case submap as ps of
+      submap2 [] _ = Just []
+      submap2 (a:as) ps = case find ((a==).fst) ps of
         Nothing -> Nothing
-        Just rs -> Just (zip as rs)
+        Just x  -> case submap2 as ps of
+          Nothing -> Nothing
+          Just xs -> Just (x : xs)
+
+      -- submap2 as ps = case submap as ps of
+      --   Nothing -> Nothing
+      --   Just rs -> Just (zip as rs)
   |]
 
 type Contain a b = Submap (Map FstSym0 b) a ~ Just (Map SndSym0 b)
 genDefunSymbols [''Contain]
+
+type family AllC (cs :: [Constraint]) :: Constraint where
+  AllC '[] = ()
+  AllC (c ': cs) = (c, AllC cs)

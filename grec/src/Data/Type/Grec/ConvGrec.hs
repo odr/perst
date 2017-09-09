@@ -1,13 +1,12 @@
+{-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Type.Grec.ConvGrec( ConvToGrec(..), ConvFromGrec(..)) where
 
-import           Data.Semigroup          (Semigroup (..))
-import           Data.Tagged             (Tagged (..))
-import           GHC.TypeLits            (Nat, Symbol)
+import           Data.Semigroup         (Semigroup (..))
+import           Data.Tagged            (Tagged)
 
-import           Data.Type.Grec.Convert  (Convert (..))
-import           Data.Type.Grec.ConvList (ConvList (..))
-import           Data.Type.Grec.Grec     (Grec (..))
+import           Data.Type.Grec.Convert (Convert (..))
+import           Data.Type.Grec.Grec    (Grec)
 
 class ConvToGrec a b where
   convToGrec :: a -> b
@@ -15,35 +14,27 @@ class ConvToGrec a b where
 class ConvFromGrec a b where
   convFromGrec :: a -> b
 
-instance ConvFromGrec () [a] where
-  convFromGrec = const []
+instance ConvFromGrec () [b] where
+  convFromGrec _ = []
 
-instance ConvToGrec [a] () where
-  convToGrec = const ()
+instance ConvToGrec [b] ([b],()) where
+  convToGrec = (,())
 
-instance Convert (ConvList a, Grec r) (ConvList a)
-      => ConvFromGrec (Grec r) [a] where
-  convFromGrec = unConvList . convert . (,) (ConvList ([]::[a]))
+instance Convert (Grec r) [a] => ConvFromGrec (Grec r) [a] where
+  convFromGrec = convert
 
-instance Convert (ConvList a) (ConvList a, Grec r)
-      => ConvToGrec [a] (Grec r) where
-  convToGrec = snd . (convert :: ConvList a -> (ConvList a, Grec r)) . ConvList
+instance Convert (Tagged ns bs) [a] => ConvFromGrec (Tagged ns bs) [a] where
+  convFromGrec = convert
 
-instance Convert (ConvList a, Tagged ns b) (ConvList a)
-      => ConvFromGrec (Tagged (ns :: [Symbol]) b) [a] where
-  convFromGrec = unConvList . convert . (,) (ConvList ([]::[a]))
+instance Convert [a] ([a],Grec r) => ConvToGrec [a] (Grec r) where
+  convToGrec = snd . (convert :: [a] -> ([a],Grec r))
 
-instance Convert (ConvList a) (ConvList a, Tagged ns b)
-      => ConvToGrec [a] (Tagged (ns :: [Symbol]) b) where
-  convToGrec = snd . (convert :: ConvList a -> (ConvList a, Tagged ns b)) . ConvList
+instance Convert [a] ([a],Tagged ns bs) => ConvToGrec [a] (Tagged ns bs) where
+  convToGrec = snd . (convert :: [a] -> ([a],Tagged ns bs))
 
 instance (ConvFromGrec a c, ConvFromGrec b c, Semigroup c)
     => ConvFromGrec (a,b) c where
   convFromGrec (a,b) = convFromGrec a <> convFromGrec b
 
-instance  ( Convert (ConvList c) (ConvList c, a)
-          , ConvToGrec [c] b
-          )
-          => ConvToGrec [c] (a,b) where
-  convToGrec cs = let (cs' :: ConvList c, a) = convert (ConvList cs) in
-                    (a, convToGrec $ unConvList cs')
+instance (Convert [c] ([c],a), ConvToGrec [c] b) => ConvToGrec [c] (a,b) where
+  convToGrec cs = let (cs'::[c], a) = convert cs in (a, convToGrec cs')

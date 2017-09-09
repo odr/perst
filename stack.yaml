@@ -10,6 +10,7 @@ extra-deps:
 # - Cabal-2.0.0.2
 # - process-1.6.1.0
 # - cabal-helper-0.7.3.0
+# - dotgen-0.4.2
 
 # resolver: lts-8.7
 resolver: nightly-2017-08-08

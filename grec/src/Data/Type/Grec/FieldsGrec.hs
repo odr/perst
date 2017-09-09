@@ -43,11 +43,11 @@ import           Data.Singletons.Prelude.Maybe (IsJust)
 import           Data.Singletons.TH            (genDefunSymbols, promoteOnly,
                                                 singletons)
 import           Data.Tagged                   (Tagged (..))
+import           Data.Text                     (Text)
+import qualified Data.Text.Lazy                as TL
 import           Lens.Micro                    (set)
 import           Lens.Micro.Extras             (view)
 
-import           Data.Text                     (Text)
-import qualified Data.Text.Lazy                as TL
 import           Data.Type.Grec.Convert        (IsConvSym0)
 import           Data.Type.Grec.ConvGrec       (ConvFromGrec (..))
 import           Data.Type.Grec.Grec           (Grec (..))
@@ -65,8 +65,9 @@ singletons
 
       with :: Eq a => [a] -> [(a,b)] -> [(a,b)]
       with ns = filter ((`elem` ns) . fst)
-
-      split :: Eq a => [a] -> [(a,b)] -> ([(a,b)], [(a,b)])
+  |]
+promoteOnly
+  [d| split :: Eq a => [a] -> [(a,b)] -> ([(a,b)], [(a,b)])
       split ns = partition ((`elem` ns) . fst)
 
       filterBySnd :: (b -> Bool) -> [(a,b)] -> [(a,b)]
@@ -74,6 +75,19 @@ singletons
 
       filterByNotSnd :: (b -> Bool) -> [(a,b)] -> [(a,b)]
       filterByNotSnd f = filter (not . f . snd)
+
+      fsts :: [(a,b)] -> [a]
+      fsts = map fst
+      snds :: [(a,b)] -> [b]
+      snds = map snd
+
+      fieldNamesConvGrec', fieldNamesNotConvGrec' :: (b -> Bool) -> [(a,b)] -> [a]
+      fieldTypesConvGrec', fieldTypesNotConvGrec' :: (b -> Bool) -> [(a,b)] -> [b]
+      fieldNamesConvGrec'    f = map fst . filter (f . snd)
+      fieldTypesConvGrec'    f = map snd . filter (f . snd)
+      fieldNamesNotConvGrec' f = map fst . filter (not . f . snd)
+      fieldTypesNotConvGrec' f = map snd . filter (not . f . snd)
+
   |]
 
 -- class GrecInfo a where
@@ -85,7 +99,8 @@ singletons
 --   type FieldsGrecInfo (Tagged (ns :: [Symbol]) b) = TaggedToList (Tagged ns b)
 --   sGrec _ = sing :: Sing (TaggedToList (Tagged ns b))
 
-type family FieldsGrec a :: [(Symbol, Type)] where
+type family FieldsGrec (a::k) :: [(Symbol, Type)] where
+  FieldsGrec (xs :: [(Symbol,Type)]) = xs
   FieldsGrec () = '[]
   FieldsGrec (Tagged (ns :: [Symbol]) b) = TaggedToList (Tagged ns b)
   FieldsGrec (GrecWithout ns a) = Without ns (FieldsGrec a)
@@ -95,27 +110,30 @@ type family FieldsGrec a :: [(Symbol, Type)] where
 
 genDefunSymbols [''FieldsGrec]
 
-type FieldNamesGrec a = Map FstSym0 (FieldsGrec a)
+type FieldNamesGrec a = Fsts (FieldsGrec a)
 
-type FieldTypesGrec a = Map SndSym0 (FieldsGrec a)
+type FieldTypesGrec a = Snds (FieldsGrec a)
 
 type FieldsConvGrec a = FilterBySnd IsConvSym0 (FieldsGrec a)
-
-type FieldNamesConvGrec a = Map FstSym0 (FieldsConvGrec a)
-
-type FieldTypesConvGrec a = Map SndSym0 (FieldsConvGrec a)
-
 type FieldsNotConvGrec a = FilterByNotSnd IsConvSym0 (FieldsGrec a)
 
-type FieldNamesNotConvGrec a = Map FstSym0 (FieldsNotConvGrec a)
+type FieldNamesConvGrec a = FieldNamesConvGrec' IsConvSym0 (FieldsGrec a)
+type FieldTypesConvGrec a = FieldTypesConvGrec' IsConvSym0 (FieldsGrec a)
+type FieldNamesNotConvGrec a = FieldNamesNotConvGrec' IsConvSym0 (FieldsGrec a)
+type FieldTypesNotConvGrec a = FieldTypesNotConvGrec' IsConvSym0 (FieldsGrec a)
 
-type FieldTypesNotConvGrec a = Map SndSym0 (FieldsNotConvGrec a)
+-- type FieldNamesConvGrec a = Map FstSym0 (FieldsConvGrec a)
+-- type FieldTypesConvGrec a = Map SndSym0 (FieldsConvGrec a)
+-- type FieldNamesNotConvGrec a = Map FstSym0 (FieldsNotConvGrec a)
+-- type FieldTypesNotConvGrec a = Map SndSym0 (FieldsNotConvGrec a)
 
 genDefunSymbols
   [ ''FieldNamesGrec, ''FieldTypesGrec
   , ''FieldsConvGrec, ''FieldNamesConvGrec, ''FieldTypesConvGrec
   , ''FieldsNotConvGrec, ''FieldNamesNotConvGrec, ''FieldTypesNotConvGrec
   ]
+
+-- grecToTagged :: ListToTaggedPairs (FieldsGrec r)
 
 ---------------
 -- promoteOnly [d|
@@ -180,21 +198,17 @@ class GrecLens n a b where
 instance NLensed n b a => GrecLens n a (Grec b) where
   grecLens f = fmap Grec . nlens @n f . unGrec
 
---------------
-class GrecLens' (eq::Bool) n a b where
-  grecLens' :: Functor f => (a -> f a) -> b -> f b
-
-instance GrecLens' True n a (Tagged (n ': ns) (a,b)) where
-  grecLens' f (Tagged (a,b)) = Tagged . (,b) <$> f a
+instance GrecLens '(True, n) a (Tagged (n ': ns) (a,b)) where
+  grecLens f (Tagged (a,b)) = Tagged . (,b) <$> f a
 
 instance GrecLens n a (Tagged ns b)
-      => GrecLens' False n a (Tagged (n' ': ns) (a',b)) where
-  grecLens' f (Tagged (a,b)) = Tagged . (a,) . unTagged
+      => GrecLens '(False, n) a (Tagged (n' ': ns) (a',b)) where
+  grecLens f (Tagged (a,b)) = Tagged . (a,) . unTagged
                             <$> grecLens @n f (Tagged b :: Tagged ns b)
 
-instance GrecLens' (n :== n') n a (Tagged (n' ': n1' ': ns) (a',b))
+instance GrecLens '((n :== n'), n) a (Tagged (n' ': n1' ': ns) (a',b))
       => GrecLens n a (Tagged (n' ': n1' ': ns) (a',b)) where
-  grecLens = grecLens' @(n :== n') @n
+  grecLens = grecLens @'(n :== n', n)
 
 instance GrecLens n a (Tagged (n ': '[]) a) where
   grecLens f = fmap Tagged . f . unTagged
@@ -209,15 +223,15 @@ instance (Elem n ns ~ 'True, GrecLens n a b)
   grecLens f = fmap GW . grecLens @n f . unGW
 
 ------------
-instance GrecLens n a b1 => GrecLens' True n a (b1,b2) where
-  grecLens' f (b1,b2) = (,b2) <$> grecLens @n f b1
+instance GrecLens n a b1 => GrecLens '(True, n) a (b1,b2) where
+  grecLens f (b1,b2) = (,b2) <$> grecLens @n f b1
 
-instance GrecLens n a b2 => GrecLens' False n a (b1,b2) where
-  grecLens' f (b1,b2) = (b1,) <$> grecLens @n f b2
+instance GrecLens n a b2 => GrecLens '(False, n) a (b1,b2) where
+  grecLens f (b1,b2) = (b1,) <$> grecLens @n f b2
 
-instance GrecLens' (IsJust (Lookup n (FieldsGrec b1))) n a (b1,b2)
+instance GrecLens '(IsJust (Lookup n (FieldsGrec b1)), n) a (b1,b2)
       => GrecLens n a (b1,b2) where
-  grecLens = grecLens' @(IsJust (Lookup n (FieldsGrec b1))) @n
+  grecLens = grecLens @'(IsJust (Lookup n (FieldsGrec b1)), n)
 
 -----------
 class NamesGrecLens (ns :: [Symbol]) a b where

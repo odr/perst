@@ -22,35 +22,19 @@ import           Data.Type.Grec                (FieldNamesGrec,
                                                 InternalType, IsSubSym0,
                                                 ListToPairs, ListToTaggedPairs,
                                                 Submap2, Submap2Sym0,
-                                                SubmapSym0, isSub, sIsSub,
-                                                sSubmap2, submap2)
+                                                SubmapSym0, isSub, submap2)
 import           Perst.Database.DataDef        (DataDef', DataKey, DdInfo)
---, DdFldsSym0, DdKey,
---                                                DdRecSym0, ddFlds, ddRec,
---                                                sDdFlds, sDdRec)
 
 type AppCons f = (Applicative f, Traversable f)
 
 singletons [d|
   data TreeDef' s t = TreeDefC
-    { tdData :: (t, DataDef' s)
+    { tdData :: ([(s,t)], DataDef' s)
     , tdChilds :: [(s, (TreeDef' s t, [(s,s)]))]
     }
-  -- data TreeDef' s t = TreeDefC (DataDef' s t) [(s, (TreeDef' s t, [(s,s)]))] [(s,t)]
-
-  -- tdData    (TreeDefC d _ _) = d
-  -- tdChilds  (TreeDefC _ c _) = c
-  -- allParentKeys (TreeDefC _ _ k) = k
-
-  -- mkTreeDef :: Eq s => TreeDef0 s t -> TreeDef' s t
-  -- mkTreeDef t@(TreeDefC0 dd ch)
-  --   = TreeDefC dd (map (\(s,(t,ss)) -> (s,(mkTreeDef t,ss))) ch) (allParentKeys0 t)
-
   |]
 
 type TreeDef = TreeDef' Symbol Type
-
--- type family AllParentKeys (t :: TreeDef) :: [(Symbol, Type)]
 
 promoteOnly [d|
   child :: Eq s => s -> TreeDef' s t -> (TreeDef' s t, [(s,s)])
@@ -63,12 +47,6 @@ promoteOnly [d|
 
   parentKeys :: Eq s => s -> TreeDef' s t -> [s]
   parentKeys s = map snd . snd . child s
-
-  -- checkTree' :: (Eq s) => TreeDef' s t -> Bool
-  -- checkTree' t
-  --   = all (\(_,(a,b)) -> isSub (map fst b) (ddFlds $ tdData t)
-  --                     && checkTree' a
-  --         ) $ tdChilds t
 
   fieldByName' :: Eq s => s -> [(s,a)] -> a
   fieldByName' s xs = case lookup s xs of
@@ -84,9 +62,9 @@ promoteOnly [d|
     where
       ck = map (\(a,b) -> (b,a)) rs
 
-  allParentKeys' :: Eq s => (t -> [(s,t)]) -> TreeDef' s t -> [(s,t)]
-  allParentKeys' f (TreeDefC d ch)
-    = case submap2 (nub $ concatMap (map snd . snd . snd) ch) $ f (fst d) of
+  allParentKeys :: Eq s => TreeDef' s t -> [(s,t)]
+  allParentKeys (TreeDefC d ch)
+    = case submap2 (nub $ concatMap (map snd . snd . snd) ch) $ fst d of
         Nothing -> error "Some keys in the definition of relation are not in the description of table row"
         Just x -> x
 
@@ -99,15 +77,9 @@ promoteOnly [d|
 
 type GrecChilds t r = GrecChilds' t (FieldNamesNotConvGrec r)
 
--- type CheckTree a = CheckTree' a ~ True
-
--- type family TreeDefI (t :: TreeDef)
-
 type MbFieldByName s r = Lookup s (FieldsGrec r)
 
 type FieldByName s r = InternalType (FieldByName' s (FieldsGrec r))
-
-type AllParentKeys t = AllParentKeys' FieldsSym0 t
 
 type TaggedAllParentKeys t = ListToTaggedPairs (AllParentKeys t)
 
@@ -116,8 +88,8 @@ type TopPK t r        = GrecWith (TopKey t) r
 type TopNotPK t r     = GrecWithout (TopKey t) r
 type TopPKPairs t r   = GWPairs (TopKey t) r
 
-type KwoR k r = GrecWithout (FieldNamesGrec (Grec r)) k
-type Pair k r = (KwoR k r, Grec r)
+type KwoR k r = GrecWithout (FieldNamesGrec r) k
+type Pair k r = (KwoR k r, r)
 
-type RecParent k r rs = ListToPairs (GetParentTypes rs (k, Grec r))
+type RecParent k r rs = ListToPairs (GetParentTypes rs (k, r))
 type RecParent' k r rs = ListToPairs (GetParentTypes rs (Pair k r))

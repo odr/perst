@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeOperators         #-}
 module Tabs where
 
 import           Data.Int                (Int64)
@@ -8,8 +9,9 @@ import qualified Data.Text               as T
 import           GHC.Generics            (Generic)
 import           GHC.TypeLits            (Symbol)
 
-import           Data.Type.Grec          (Grec (..), GrecGroup (..),
-                                          GrecWith (..), GrecWithout (..))
+import           Data.Type.Grec          ((:::), Fields, Grec (..),
+                                          GrecGroup (..), GrecWith (..),
+                                          GrecWithout (..))
 import           Perst.Database.DataDef  (DataAutoIns, DataDef' (..),
                                           DataDefInfo (..), DataInfo (..),
                                           DelCons (..), FK (..))
@@ -21,69 +23,92 @@ import           Perst.Database.Tree.Def (TreeDef' (..))
 
 import           DB
 
-
-data Customer = Customer
-  { id    :: Int64
-  , names :: GrecGroup Names
-  -- , email :: T.Text
-  } deriving (Show, Generic)
-
-data Names = Names
-  { name      :: T.Text
-  , shortname :: Maybe T.Text
-  } deriving (Show, Generic)
-
-data Orders = Order -- name ORDER is disbled in sqlite!
-  { id           :: Int64
-  , num          :: T.Text
-  , customerId   :: Int64
-  , coCustomerId :: Maybe Int64
-  , date         :: T.Text
-  } deriving (Show, Generic)
-
-data Article = Article
-  { id    :: Int64
-  , name  :: T.Text
-  , price :: Double
-  } deriving (Show, Generic)
-
+-- data Customer = Customer
+--   { id    :: Int64
+--   , names :: GrecGroup Names
+--   -- , email :: T.Text
+--   } deriving (Show, Generic)
+--
+-- data Names = Names
+--   { name      :: T.Text
+--   , shortname :: Maybe T.Text
+--   } deriving (Show, Generic)
+--
+-- data Order = Order -- name ORDER is disbled in sqlite!
+--   { id           :: Int64
+--   , num          :: T.Text
+--   , customerId   :: Int64
+--   , coCustomerId :: Maybe Int64
+--   , date         :: T.Text
+--   } deriving (Show, Generic)
+--
+-- data Article = Article
+--   { id    :: Int64
+--   , name  :: T.Text
+--   , price :: Double
+--   } deriving (Show, Generic)
+--
 data OrderPosition = OrderPosition
-  { orderId   :: Int64
-  , articleId :: Int64
-  , quantity  :: Int64
-  , cost      :: Double
+  { orderId   :: !Int64
+  , articleId :: !Int64
+  , quantity  :: !Int64
+  , cost      :: !Double
   } deriving (Show, Generic, Eq, Ord)
-
+--
 data Address = Address
-  { id         :: Int64
-  , customerId :: Int64
-  , street     :: T.Text
+  { id         :: !Int64
+  , customerId :: !Int64
+  , street     :: !T.Text
   } deriving (Show, Generic, Eq, Ord)
 
-type TCustomer = '(Customer, DataDefC (TableInfo '["id"] '[ '["name"]] False) '[])
+type TCustomer
+  = '( '[ "id"        ::: Int64
+        , "name"      ::: T.Text
+        , "shortname" ::: Maybe T.Text
+        ]
+    , DataDefC (TableInfo "customer" '["id"] '[ '["name"]] False) '[]
+    )
 -- instance DbTypeNames DB (TCustomer)
 
 type TOrder =
-  '(Orders
-  , DataDefC (TableInfo '["id"] '[ '["customerId", "num"]] True)
+  '( '[ "id"            ::: Int64
+      , "num"           ::: T.Text
+      , "customerId"    ::: Int64
+      , "coCustomerId"  ::: Maybe Int64
+      , "date"          ::: T.Text
+      ]
+  , DataDefC (TableInfo "orders" '["id"] '[ '["customerId", "num"]] True)
              '[ FKC "customer" DcCascade '[ '("customerId", "id")]
              ,  FKC "customer" DcSetNull '[ '("coCustomerId", "id")]
              ]
    )
 
-type TArticle = '(Article, DataDefC (TableInfo '["id"] '[ '["name"]] False) '[])
+type TArticle
+  = '( '[ "id"    ::: Int64
+        , "name"  ::: T.Text
+        , "price" ::: Double
+        ]
+    , DataDefC (TableInfo "article" '["id"] '[ '["name"]] False) '[]
+    )
 
 type TOrderPosition =
-  '(OrderPosition
-  , DataDefC (TableInfo '["orderId","articleId"] '[] False)
+  '( '[ "orderId"   ::: Int64
+      , "articleId" ::: Int64
+      , "quantity"  ::: Int64
+      , "cost"      ::: Double
+      ]
+  , DataDefC (TableInfo "OrderPosition" '["orderId","articleId"] '[] False)
             '[ FKC "orders" DcCascade '[ '("orderId"  ,"id")]
              , FKC "article" DcRestrict '[ '("articleId","id")]
              ]
   )
 
 type TAddress =
-  '(Address
-  , DataDefC (TableInfo '["id"] '[] False)
+  '( '[ "id"         ::: Int64
+      , "customerId" ::: Int64
+      , "street"     ::: T.Text
+      ]
+  , DataDefC (TableInfo "address" '["id"] '[] False)
             '[ FKC "customer" DcCascade '[ '("customerId", "id")]]
   )
 instance DDL DB TCustomer
@@ -92,21 +117,20 @@ instance DDL DB TOrderPosition
 instance DDL DB TArticle
 instance DDL DB TAddress
 
-
-data CustomerTree = CustomerTree
-  { id        :: Int64
-  , name      :: T.Text
+data CustomerTree = CustomerTree {-  # UNPACK # -}
+  { id        :: !Int64
+  , name      :: !T.Text
   , shortname :: Maybe T.Text
   -- , email     :: T.Text
-  , orders    :: [OrderTree]
-  , address   :: [Address]
+  , orders    :: [Grec OrderTree]
+  , address   :: [Grec Address]
   } deriving (Show, Generic, Eq, Ord)
 
-data OrderTree = OrderTree
-  { id        :: Int64
-  , num       :: T.Text
-  , date      :: T.Text
-  , positions :: [OrderPosition]
+data OrderTree = OrderTree  {-  # UNPACK #  -}
+  { id        :: !Int64
+  , num       :: !T.Text
+  , date      :: !T.Text
+  , positions :: [Grec OrderPosition]
   } deriving (Show, Generic, Eq, Ord)
 
 type TCustomerTree = TreeDefC TCustomer
@@ -116,59 +140,28 @@ type TCustomerTree = TreeDefC TCustomer
 type TOrderTree = TreeDefC TOrder
   '[ '("positions", '(TreeDefC TOrderPosition '[],  '[ '("orderId", "id") ]))]
 
-instance DML DB TCustomer CustomerTree
-instance DML DB TOrder OrderTree
-instance DML DB TOrderPosition OrderPosition
-instance DML DB TAddress Address
-
--- instance InsertTree DB TCustomerTree CustomerTree
--- instance InsertTree DB TOrderTree CustomerTree
--- instance SelectTree DB TCustomerTree CustomerTree (Tagged '["id"] Int64)
--- instance SelectTree DB TOrderTree OrderTree
---                   (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
--- instance SelectTree DB ('TreeDefC TAddress '[]) Address
---                   (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
--- instance SelectTree DB ('TreeDefC TOrderPosition '[]) OrderPosition
---                   (GrecWith '["orderId"] (Tagged '["orderId"] Int64))
-
-instance DMLTree DB TCustomerTree CustomerTree
-
--- type TCustomerOrderTree =
---   ( Tagged '["customerId"] Int64
---   , GrecWithout '["customerId"] (Grec OrderTree)
---   )
---
--- type TOrderOrderPosTree =
---   ( Tagged '["orderId"] Int64
---   , GrecWithout '["orderId"] (Grec OrderPosition)
---   )
--- instance InsertTree DB (TreeDefC TOrderPosition '[]) TOrderOrderPosTree
-
--- instance InsertTree DB TOrderTree TCustomerOrderTree
-
--- type TCustomerAddressTree =
---   ( Tagged '["customerId"] Int64
---   , GrecWithout '["customerId"] (Grec Address)
---   )
--- instance Insert DB TAddress TCustomerAddressTree
--- instance InsertTree DB (TreeDefC TAddress '[]) TCustomerAddressTree
-
--- instance InsertTreeR DB TCustomerTree CustomerTree
+instance DML DB TCustomer       (Grec CustomerTree)
+instance DML DB TOrder          (Grec OrderTree)
+instance DML DB TOrderPosition  (Grec OrderPosition)
+instance DML DB TAddress        (Grec Address)
+instance DMLTree DB TCustomerTree (Grec CustomerTree)
 
 
+type CustomerTree'
+  = Tagged '["id","name","shortname","orders","address"]
+            (Int64,(T.Text,(Maybe T.Text,([OrderTree'],[Address']))))
+type OrderTree'
+  = Tagged '["id","num","date","positions"]
+            (Int64,(T.Text,(T.Text,[OrderPosition'])))
+type Address'
+  = Tagged '["id","customerId","street"]
+            (Int64,(Int64,T.Text))
+type OrderPosition'
+  = Tagged '["orderId","articleId","quantity","cost"]
+            (Int64,(Int64,(Int64,Double)))
 
--- --------------------
---
--- -- by PK
--- instance SelectByKey DB TCustomer (Tagged '["id"] Int64, Grec CustomerTree)
---                                   (Tagged '["id"] Int64)
---
--- -- by FK with PK
--- instance SelectByKey DB TOrder (Tagged '["id"] Int64, Grec OrderTree)
---                      (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
---
--- instance SelectByKey DB TAddress (Tagged ('[] :: [Symbol]) (), Grec Address)
---                       (GrecWith '["customerId"] (Tagged '["customerId"] Int64))
---
--- instance SelectByKey DB TOrderPosition (Tagged ('[] :: [Symbol]) (), Grec OrderPosition)
---                       (GrecWith '["orderId"] (Tagged '["orderId"] Int64))
+-- instance DML DB TCustomer CustomerTree'
+-- instance DML DB TOrder OrderTree'
+-- instance DML DB TOrderPosition OrderPosition'
+-- instance DML DB TAddress Address'
+-- instance DMLTree DB TCustomerTree CustomerTree'

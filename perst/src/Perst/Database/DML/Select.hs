@@ -12,7 +12,7 @@ import           GHC.Prim                  (Proxy#, proxy#)
 
 import           Data.Type.Grec            as Grec (ConvFromGrec (..),
                                                     ConvGrecInfo (..),
-                                                    ConvToGrec (..), Grec (..),
+                                                    ConvToGrec (..),
                                                     GrecWith (..))
 import           Perst.Database.DataDef    (WithKey, formatS, tableName)
 import           Perst.Database.DbOption   (DbOption (..), MonadCons,

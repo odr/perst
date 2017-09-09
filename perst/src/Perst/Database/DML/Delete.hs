@@ -13,7 +13,7 @@ import qualified Data.Text               as T
 import           GHC.Prim                (Proxy#, proxy#)
 
 import           Data.Type.Grec          as Grec (ConvFromGrec (..),
-                                                  ConvGrecInfo (..), Grec (..),
+                                                  ConvGrecInfo (..),
                                                   GrecWith (..))
 import           Perst.Database.DataDef  (DataDef, DataDefInfo (..), WithKey,
                                           formatS)

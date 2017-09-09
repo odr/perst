@@ -15,8 +15,8 @@ import           GHC.Prim                   (Proxy#, proxy#)
 import           Lens.Micro.Extras          (view)
 
 import           Data.Type.Grec             (FieldNamesConvGrec, FieldNamesGrec,
-                                             Grec (..), GrecLens (..),
-                                             GrecWith (..), GrecWithout (..),
+                                             GrecLens (..), GrecWith (..),
+                                             GrecWithout (..),
                                              NamesGrecLens (..), gwPairs,
                                              gwTPairs)
 import           Perst.Database.DbOption    (MonadCons, SessionMonad)
@@ -33,7 +33,7 @@ type UpdTreeCons b t k r =
     , DelTreeCons b t k r
     , UpdTreeCons' b k r (TopPKPairs t (Pair k r)) (TopPK t (Pair k r))
                           (TopKey t)
-    , UpdateChilds b (GrecChilds t (Pair k r)) k r
+    -- , UpdateChilds b (GrecChilds t (Pair k r)) k r
     )
 
 type UpdTreeCons' b k r tpkp tpk tk =
@@ -48,14 +48,14 @@ updateTreeManyDef :: (MonadCons m, UpdTreeCons b t k r)
 updateTreeManyDef (pb :: Proxy# b) (pt :: Proxy# t) (olds :: [(k,r)]) news = do
   deleteTreeManyDef pb pt $ filter (not . (`M.member` news') . pairs) olds
   updateDiffMany @b @(TdData t) @r $ map (\(o,n) -> (pairsT o, o, n)) us
-  updateChilds @b @(GrecChilds t (Pair k r)) us
+  -- updateChilds @b @(GrecChilds t (Pair k r)) us
   insertTreeManyDef pb pt $ filter (not . (`M.member` olds') . pairs) news
   return ()
  where
   pairs  ((k,r)::(k,r))
-    = gwPairs  (GW (GWO k :: KwoR k r, Grec r) :: TopPK t (Pair k r))
+    = gwPairs  (GW (GWO k :: KwoR k r, r) :: TopPK t (Pair k r))
   pairsT ((k,r)::(k,r))
-    = gwTPairs (GW (GWO k :: KwoR k r, Grec r) :: TopPK t (Pair k r))
+    = gwTPairs (GW (GWO k :: KwoR k r, r) :: TopPK t (Pair k r))
   mkMap = M.fromList . fmap (\x -> (pairs x, x))
   olds' = mkMap olds
   news' = mkMap news
@@ -92,5 +92,5 @@ instance UpdChildCons b s td rs chs k r
                          )
                        ]
     newRec (k,r)
-      = (Tagged (namesGrecGet @(Snds rs) (GWO k :: KwoR k r, Grec r)),)
-      <$> view (grecLens @s) (GWO k :: KwoR k r, Grec r)
+      = (Tagged (namesGrecGet @(Snds rs) (GWO k :: KwoR k r, r)),)
+      <$> view (grecLens @s) (GWO k :: KwoR k r, r)

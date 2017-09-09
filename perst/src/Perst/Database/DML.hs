@@ -13,9 +13,8 @@ import           Data.Singletons.Prelude   (SingI)
 import           GHC.Prim                  (Proxy#, proxy#)
 
 import           Data.Type.Grec            (ConvFromGrec (..),
-                                            ConvGrecInfo (..), ConvList (..),
-                                            ConvToGrec (..), Convert (..),
-                                            FieldNamesConvGrec, Grec (..),
+                                            ConvGrecInfo (..), ConvToGrec (..),
+                                            Convert (..), FieldNamesConvGrec,
                                             GrecWith (..), GrecWithout (..))
 import           Perst.Database.DataDef    (DataDefInfo (..), DataKey)
 import           Perst.Database.DbOption   (DbOption (..), MonadCons,
@@ -28,9 +27,9 @@ import           Perst.Database.DML.Update as DML
 
 type RecCons b r = (ConvFromGrec r [FieldDB b], ConvGrecInfo r)
 type DMLCons b t r
-  = ( DbOption b, DataDefInfo t, RecCons b (Grec r)
+  = ( DbOption b, DataDefInfo t, RecCons b r
     , SingI (DataKey t) -- for insert
-    , ConvToGrec [FieldDB b] (Grec r) -- for select
+    , ConvToGrec [FieldDB b] r -- for select
     , Eq (FieldDB b) -- for updateDiff
     )
 
@@ -46,7 +45,7 @@ class DMLCons b t r => DML b t r where
               => f (k,r) -> SessionMonad b m (Maybe (f (GenKey b)))
   insertMany (fkr :: f (k,r))
     = insertManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
-    $ fmap (second $ gwok (proxy# :: Proxy# k) . Grec) fkr
+    $ fmap (second $ gwok (proxy# :: Proxy# k)) fkr
 
   deleteMany  :: (MonadCons m, Traversable f, RecCons b k)
               => f k -> SessionMonad b m ()
@@ -60,7 +59,7 @@ class DMLCons b t r => DML b t r where
               => f (k,(k1,r)) -> SessionMonad b m ()
   updateMany (fkkr :: f (k,(k1,r)))
     = updateManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
-    $ fmap (second $ gwok (proxy# :: Proxy# k) . second Grec) fkkr
+    $ fmap (second $ gwok (proxy# :: Proxy# k)) fkkr
 
   updateDiffMany :: (MonadCons m
                     , RecCons b k, SingI (FieldNamesConvGrec k)
@@ -71,16 +70,15 @@ class DMLCons b t r => DML b t r where
     = updateDiffManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
     $ fmap (\(k, r1, r2) -> (k, gwokgrek r1, gwokgrek r2)) krrs
    where
-    gwokgrek = gwok (proxy# :: Proxy# k) . second Grec
+    gwokgrek = gwok (proxy# :: Proxy# k)
 
   selectMany :: (MonadCons m, Traversable f, RecCons b k
-                , Convert (ConvList (FieldDB b)) (ConvList (FieldDB b), r1)
+                , Convert [FieldDB b] ([FieldDB b], r1)
                 , ConvGrecInfo r1
                 )
               => Proxy# r1 -> f k -> SessionMonad b m (f [(r1,r)])
-  selectMany (_ :: Proxy# r1) = fmap (fmap (map (second unGrec)))
-             . selectManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
-                             (proxy# :: Proxy# (r1,Grec r))
+  selectMany (_ :: Proxy# r1) = selectManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
+                                              (proxy# :: Proxy# (r1,r))
 
   insertMany' :: (MonadCons m, Traversable f)
               => f r -> SessionMonad b m (Maybe (f (GenKey b)))

@@ -17,7 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:      Data.Type.Grec
                       , Data.Type.Grec.ConvGrec
-                      , Data.Type.Grec.ConvList
+                      -- , Data.Type.Grec.ConvList
                       , Data.Type.Grec.Convert
                       , Data.Type.Grec.FieldsGrec
                       , Data.Type.Grec.Grec
@@ -64,7 +64,7 @@ executable grec-exe
                       , OverloadedLabels
                       , DeriveGeneric
                       -- , TypeFamilies
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fprint-potential-instances
                       --  -fplugin=Perst.Plugin -plugin-package perst-plugin
   build-depends:       base
                       , grec

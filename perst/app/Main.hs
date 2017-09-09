@@ -65,24 +65,24 @@ createTab (p :: Proxy a) = do
   catch (DDL.drop @DB @a) (\(_::SomeException) -> return ())
   create @DB @a
 
-o1 = Order 0 "1" 1 Nothing
+-- o1 = Order 0 "1" 1 Nothing
 
-ct = [ CustomerTree 1 "odr" (Just "odr") -- "odr@ru"
-        [ OrderTree 1 "1" "01.01.2017"
-          [ OrderPosition 1 1 2 11.11
-          , OrderPosition 1 2 5 12.22
+ct = [ Grec $ CustomerTree 1 "odr" (Just "odr") -- "odr@ru"
+        [ Grec $ OrderTree 1 "1" "01.01.2017"
+          [ Grec $ OrderPosition 1 1 2 11.11
+          , Grec $ OrderPosition 1 2 5 12.22
           ]
-        , OrderTree 2 "2" "01.02.2017" [ OrderPosition 2 1 1 5.0 ]
-        , OrderTree 3 "3" "01.03.2017" []
+        , Grec $ OrderTree 2 "2" "01.02.2017" [ Grec $ OrderPosition 2 1 1 5.0 ]
+        , Grec $ OrderTree 3 "3" "01.03.2017" []
         ]
-        [ Address 1 1 "My street"
-        , Address 2 1 "My second street"
+        [ Grec $ Address 1 1 "My street"
+        , Grec $ Address 2 1 "My second street"
         ]
-    , CustomerTree 2 "dro" Nothing -- "dro@ru"
-        [ OrderTree 4 "1" "01.04.2017" []
+    , Grec $ CustomerTree 2 "dro" Nothing -- "dro@ru"
+        [ Grec $ OrderTree 4 "1" "01.04.2017" []
         ]
-        [ Address 3 2 "Some street"]
-    , CustomerTree 3 "zev" Nothing -- "zev@zev"
+        [ Grec $ Address 3 2 "Some street"]
+    , Grec $ CustomerTree 3 "zev" Nothing -- "zev@zev"
         [] []
     ]
 -- pct = Proxy :: Proxy (FieldsTree r)
@@ -148,7 +148,7 @@ main = runSession @DB "test.db" $ do
 
   insertTreeMany @DB @TCustomerTree ct
 
-  ct' <- selectTreeMany @DB @TCustomerTree @CustomerTree
+  ct' <- selectTreeMany @DB @TCustomerTree @(Grec CustomerTree)
                 (map Tagged [1..3] :: [Tagged '["id"] Int64])
         -- >>= liftIO . putStrLn . ("Check CustomerTree: " ++) . show
                    -- . (== map (:[]) ct) . sort
