@@ -48,7 +48,7 @@ updateTreeManyDef :: (MonadCons m, UpdTreeCons b t k r)
 updateTreeManyDef (pb :: Proxy# b) (pt :: Proxy# t) (olds :: [(k,r)]) news = do
   deleteTreeManyDef pb pt $ filter (not . (`M.member` news') . pairs) olds
   updateDiffMany @b @(TdData t) @r $ map (\(o,n) -> (pairsT o, o, n)) us
-  -- updateChilds @b @(GrecChilds t (Pair k r)) us
+  updateChilds @b @(GrecChilds t (Pair k r)) us
   insertTreeManyDef pb pt $ filter (not . (`M.member` olds') . pairs) news
   return ()
  where
