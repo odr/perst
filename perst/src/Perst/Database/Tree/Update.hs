@@ -33,7 +33,7 @@ type UpdTreeCons b t k r =
     , DelTreeCons b t k r
     , UpdTreeCons' b k r (TopPKPairs t (Pair k r)) (TopPK t (Pair k r))
                           (TopKey t)
-    -- , UpdateChilds b (GrecChilds t (Pair k r)) k r
+    , UpdateChilds b (GrecChilds t (Pair k r)) k r
     )
 
 type UpdTreeCons' b k r tpkp tpk tk =
