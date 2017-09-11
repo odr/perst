@@ -12,7 +12,7 @@ import qualified Data.Text               as T
 import           GHC.Generics            (Generic)
 -- import           GHC.TypeLits            (Symbol)
 
--- import           Data.Type.Grec          (Grec, GrecWith, GrecWithout)
+import           Data.Type.Grec          (Grec)
 import           Perst.Database.DML      (DML (..))
 import           Perst.Database.DMLTree  (DMLTree (..))
 import           Perst.Database.Sqlite   (Sqlite)
@@ -25,8 +25,8 @@ data CustomerTree = CustomerTree
   { id        :: Int64
   , name      :: T.Text
   , shortname :: Maybe T.Text
-  , orders    :: [OrderTree]
-  , address   :: [Address]
+  , orders    :: [Grec OrderTree]
+  , address   :: [Grec Address]
   } deriving (Show, Generic, Eq, Ord)
 
 type TCustomerTree = TreeDefC TCustomer
@@ -35,6 +35,6 @@ type TCustomerTree = TreeDefC TCustomer
    ]
 --
 
-instance DML Sqlite TCustomer CustomerTree
+instance DML Sqlite TCustomer (Grec CustomerTree)
 
-instance DMLTree Sqlite TCustomerTree CustomerTree
+instance DMLTree Sqlite TCustomerTree (Grec CustomerTree)

@@ -56,26 +56,25 @@ import           OrderTree
 -- pTab = sing
 --
 
+-- o1 = Order 0 "1" 1 Nothing
 
-o1 = Order 0 "1" 1 Nothing
-
-ct = [ CustomerTree 1 "odr" (Just "odr")
-        [ OrderTree 1 "1" "01.01.2017"
-          [ OrderPosition 1 1 2 11.11
-          , OrderPosition 1 2 5 12.22
+ct = [ Grec $ CustomerTree 1 "odr" (Just "odr")
+        [ Grec $ OrderTree 1 "1" "01.01.2017"
+          [ Grec $ OrderPosition 1 1 2 11.11
+          , Grec $ OrderPosition 1 2 5 12.22
           ]
-        , OrderTree 2 "2" "01.02.2017" [ OrderPosition 2 1 1 5.0 ]
-        , OrderTree 3 "3" "01.03.2017" []
+        , Grec $ OrderTree 2 "2" "01.02.2017" [ Grec $ OrderPosition 2 1 1 5.0 ]
+        , Grec $ OrderTree 3 "3" "01.03.2017" []
         ]
-        [ Address 1 1 "My street" "11B"
-        , Address 2 1 "My second street" "10"
+        [ Grec $ Address 1 1 "My street" "11B"
+        , Grec $ Address 2 1 "My second street" "10"
         ]
-    , CustomerTree 2 "dro" Nothing
-        [ OrderTree 4 "1" "01.04.2017" [] ]
-        [ Address 3 2 "Some street" "12C"]
-    , CustomerTree 3 "zev" Nothing [] []
+    , Grec $ CustomerTree 2 "dro" Nothing
+        [ Grec $ OrderTree 4 "1" "01.04.2017" [] ]
+        [ Grec $ Address 3 2 "Some street" "12C"]
+    , Grec $ CustomerTree 3 "zev" Nothing [] []
     ]
-ct3 = CustomerTree 3 "zev1" (Just "zev") [] []
+ct3 = Grec $ CustomerTree 3 "zev1" (Just "zev") [] []
 
 main :: IO ()
 main = runSession @Sqlite "test.db" $ do
@@ -87,7 +86,7 @@ main = runSession @Sqlite "test.db" $ do
 
   insertTreeMany @Sqlite @TCustomerTree ct
 
-  ct' <- selectTreeMany @Sqlite @TCustomerTree @CustomerTree
+  ct' <- selectTreeMany @Sqlite @TCustomerTree @(Grec CustomerTree)
                         (map Tagged [1..3] :: [Tagged '["id"] Int64])
   liftIO $ do
     putStrLn ""
@@ -99,7 +98,7 @@ main = runSession @Sqlite "test.db" $ do
     putStrLn ""
 
   updateTreeMany @Sqlite @TCustomerTree (Prelude.drop 2 ct) [ct3]
-  ct' <- selectTreeMany @Sqlite @TCustomerTree @CustomerTree
+  ct' <- selectTreeMany @Sqlite @TCustomerTree @(Grec CustomerTree)
             (map Tagged [1..3] :: [Tagged '["id"] Int64])
   liftIO $ do
     putStrLn "After update:"

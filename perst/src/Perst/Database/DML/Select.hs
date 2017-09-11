@@ -1,9 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE DefaultSignatures    #-}
-{-# LANGUAGE MagicHash            #-}
-{-# LANGUAGE TypeApplications     #-}
-{-# LANGUAGE TypeInType           #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MagicHash        #-}
+{-# LANGUAGE TypeApplications #-}
 module Perst.Database.DML.Select where
 
 import           Control.Monad.Catch       (finally)
@@ -26,19 +22,6 @@ type SelCons b t r k
 type SelManyCons m f b t r k
   = ( MonadCons m, Traversable f, SelCons b t r k)
 
-
--- class SelectByKey b t r k where
---   selectMany :: (MonadCons m, Traversable f) => f k -> SessionMonad b m (f [r])
---   default selectMany :: SelManyCons m f b t r k
---                      => f k -> SessionMonad b m (f [r])
---   selectMany = selectManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
---                              (proxy# :: Proxy# r)
-
--- instance SelCons b t (r1,r2) k
---     => SelectByKey b t (r1,r2) k where
---   selectMany = selectManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
---                              (proxy# :: Proxy# (r1,r2))
-
 selectText :: UpdTextCons b t r k
            => Proxy# b -> Proxy# t -> Proxy# r -> Proxy# k -> T.Text
 selectText (_ :: Proxy# b) (_ :: Proxy# t) (_ :: Proxy# r) (_ :: Proxy# k)
@@ -50,7 +33,6 @@ selectText (_ :: Proxy# b) (_ :: Proxy# t) (_ :: Proxy# r) (_ :: Proxy# k)
                   [0..] $ Grec.fieldNames @k
     )
 
-
 selectManyDef :: SelManyCons m f b t r k
             => Proxy# b -> Proxy# t -> Proxy# r -> f k -> SessionMonad b m (f [r])
 selectManyDef (pb :: Proxy# b) (pt :: Proxy# t) (pr :: Proxy# r) (ks :: f k)
@@ -60,14 +42,3 @@ selectManyDef (pb :: Proxy# b) (pt :: Proxy# t) (pr :: Proxy# r) (ks :: f k)
               <$> mapM (runSelect @b cmd) (fmap convFromGrec ks)
             )
             (finalizePrepared @b cmd)
---
--- selectManySafe :: (SelConstr m b t r k, Traversable f)
---                => Sing t -> Proxy r -> f k -> SessionMonad b m (f [r])
--- selectManySafe = selectMany
-
--- class SelectByKey b t (Grec r) k => SelectByKeyR b t r k where
---   selectManyR :: (MonadCons m, Traversable f)
---               => f k -> SessionMonad b m (f [r])
---   selectManyR = fmap (fmap $ map unGrec) . selectMany @b @t @(Grec r)
---
--- instance SelectByKey b t (Grec r) k => SelectByKeyR b t r k

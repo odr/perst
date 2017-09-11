@@ -17,12 +17,13 @@ import           Data.Singletons.TH            (promoteOnly, singletons)
 import           Data.Type.Grec                (FieldNamesGrec,
                                                 FieldNamesNotConvGrec,
                                                 FieldsGrec, FieldsGrecSym0,
-                                                FieldsSym0, GWPairs, Grec (..),
-                                                GrecWith, GrecWithout,
-                                                InternalType, IsSubSym0,
-                                                ListToPairs, ListToTaggedPairs,
-                                                Submap2, Submap2Sym0,
-                                                SubmapSym0, isSub, submap2)
+                                                FieldsSym0, GWPairs, GWTagged,
+                                                Grec (..), GrecWith,
+                                                GrecWithout, InternalType,
+                                                IsSubSym0, ListToPairs,
+                                                ListToTaggedPairs, Submap2,
+                                                Submap2Sym0, SubmapSym0, isSub,
+                                                submap2)
 import           Perst.Database.DataDef        (DataDef', DataKey, DdInfo)
 
 type AppCons f = (Applicative f, Traversable f)
@@ -87,6 +88,7 @@ type TopKey t         = DataKey (TdData t)
 type TopPK t r        = GrecWith (TopKey t) r
 type TopNotPK t r     = GrecWithout (TopKey t) r
 type TopPKPairs t r   = GWPairs (TopKey t) r
+type TopPKTagged t r  = GWTagged (TopKey t) r
 
 type KwoR k r = GrecWithout (FieldNamesGrec r) k
 type Pair k r = (KwoR k r, r)

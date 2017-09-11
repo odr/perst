@@ -13,14 +13,13 @@ import           Data.Tagged             (Tagged (..))
 import           GHC.Prim                (Proxy#, proxy#)
 import           Lens.Micro.Extras       (view)
 
-import           Data.Type.Grec          (FieldNamesConvGrec, GrecLens (..),
-                                          GrecWith (..), IsSub,
-                                          NamesGrecLens (..))
+import           Data.Type.Grec          (FieldNamesConvGrec, Fsts,
+                                          GrecLens (..), GrecWith (..), IsSub,
+                                          NamesGrecLens (..), Snds)
 import           Perst.Database.DbOption (MonadCons, SessionMonad)
 import           Perst.Database.DML      (DML (..), RecCons)
 import           Perst.Database.Tree.Def (AppCons, FieldByName, GrecChilds,
                                           RecParent, TdData, TopPK, TreeDef)
-import           Perst.Types             (Fsts, Snds)
 
 type DelTreeCons b t k r =
   ( DML b (TdData t) r

@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeOperators         #-}
 module Article where
 
 import           Data.Int                (Int64)
@@ -12,7 +13,8 @@ import           Data.Int                (Int64)
 import qualified Data.Text               as T
 import           GHC.Generics            (Generic)
 
-import           Data.Type.Grec          (ConvFromGrec, ConvGrecInfo)
+import           Data.Type.Grec          ((:::), ConvFromGrec, ConvGrecInfo,
+                                          Grec)
 import           Perst.Database.DataDef  (DataDef' (..), DataInfo (..),
                                           DelCons (..))
 import           Perst.Database.DbOption (DbOption (..))
@@ -29,12 +31,16 @@ data Article = Article
   , note     :: Maybe T.Text
   } deriving (Show, Generic)
 
--- pArticle       = sing :: Sing TArticle
---
--- type TArticleTab = TableD Article '["id"] '[ '["name"]] False
--- type TArticle = DataD TArticleTab '[]
+-- type TArticle = '(Article, DataDefC (TableInfo '["id"] '[ '["name"]] False) '[])
+type TArticle
+  = '( '[ "id"    ::: Int64
+        , "name"  ::: T.Text
+        , "price" ::: Double
+        , "producer" ::: T.Text
+        , "note"     ::: Maybe T.Text
+        ]
+    , DataDefC (TableInfo "article" '["id"] '[ '["name"]] False) '[]
+    )
 
-type TArticle = '(Article, DataDefC (TableInfo '["id"] '[ '["name"]] False) '[])
-
-instance DML Sqlite TArticle Article
+instance DML Sqlite TArticle (Grec Article)
 instance DDL Sqlite TArticle

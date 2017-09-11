@@ -47,10 +47,10 @@ import           Data.Text.Format              (Format, format)
 import           Data.Text.Format.Params       (Params)
 import qualified Data.Text.Lazy                as TL
 import           Data.Type.Grec                (AllIsSub, FieldNamesConvGrec,
-                                                FieldsGrec, Grec, GrecWith,
-                                                GrecWithout, IsSub, IsSubSym0,
-                                                ListToPairs, Submap, SubmapSym0,
-                                                Typ)
+                                                FieldsGrec, Fsts, Grec,
+                                                GrecWith, GrecWithout, IsSub,
+                                                IsSubSym0, ListToPairs, Submap,
+                                                SubmapSym0, Typ)
 import           GHC.Generics                  (Generic)
 import           GHC.TypeLits                  (ErrorMessage (..), KnownSymbol,
                                                 TypeError)
@@ -118,7 +118,7 @@ type WithoutKey t r = GrecWithout (DataKey t) r
 
 type DataAutoIns t = DiAutoIns (DdInfo (Snd t))
 
-class (SingI (Snd t), SingI (Map FstSym0 (Fst t)))
+class (SingI (Snd t), SingI (Fsts (Fst t)))
     => DataDefInfo (t :: ([(Symbol,Type)], DataDef)) where
   singDataDef :: Sing (Snd t)
   singDataDef = sing
@@ -155,9 +155,9 @@ class (SingI (Snd t), SingI (Map FstSym0 (Fst t)))
   tableName = diName (dataInfo @t) -- fromSing (sing :: Sing (Typ (Fst t)))
 
   fieldNames :: [Text]
-  fieldNames = fromSing (sing :: Sing (Map FstSym0 (Fst t)))
+  fieldNames = fromSing (sing :: Sing (Fsts (Fst t)))
 
-instance (SingI (Snd t), SingI (Map FstSym0 (Fst t))) => DataDefInfo t
+instance (SingI (Snd t), SingI (Fsts (Fst t))) => DataDefInfo t
 
 showProxy :: (SingI t, SingKind k) => Proxy (t :: k) -> Demote k
 showProxy (_ :: Proxy t) = fromSing (sing :: Sing t)

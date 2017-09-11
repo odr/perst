@@ -15,14 +15,14 @@ import           GHC.Prim                (Proxy#, proxy#)
 import           Lens.Micro              ((&), (.~))
 import           Lens.Micro.Extras       (view)
 
-import           Data.Type.Grec          (FieldNamesConvGrec, GrecLens (..),
-                                          NamesGrecLens (..))
+import           Data.Type.Grec          (FieldNamesConvGrec, Fsts,
+                                          GrecLens (..), NamesGrecLens (..),
+                                          Snds)
 import           Perst.Database.DataDef  (DataAutoIns)
 import           Perst.Database.DbOption (GenKey, MonadCons, SessionMonad)
 import           Perst.Database.DML      (DML (..), RecCons)
 import           Perst.Database.Tree.Def (AppCons, FieldByName, GrecChilds,
                                           RecParent, TdData, TopKey, TreeDef)
-import           Perst.Types             (Fsts, Snds)
 
 type InsTreeCons b t k r =
   ( DML b (TdData t) r

@@ -109,6 +109,13 @@ promote
 
       submap :: Eq a => [a] -> [(a,b)] -> Maybe [b]
       submap [] ps = Just []
+      -- submap (a:as) ps = go $ lookup a ps
+      --  where
+      --   go Nothing = Nothing
+      --   go (Just x) = go' $ submap as ps
+      --    where
+      --     go' Nothing   = Nothing
+      --     go' (Just xs) = Just (x : xs)
       submap (a:as) ps = case lookup a ps of
         Nothing -> Nothing
         Just x  -> case submap as ps of

@@ -12,15 +12,14 @@ import           GHC.Prim                (Proxy#, proxy#)
 import           GHC.TypeLits            (Symbol)
 import           Lens.Micro              ((.~))
 
-import           Data.Type.Grec          (ConvGrecInfo, Convert, GrecLens (..),
-                                          GrecWith (..))
+import           Data.Type.Grec          (ConvGrecInfo, Convert, Fsts,
+                                          GrecLens (..), GrecWith (..))
 import           Perst.Database.DbOption (DbOption (..), MonadCons,
                                           SessionMonad)
 import           Perst.Database.DML      (DML (..), RecCons (..))
 import           Perst.Database.Tree.Def (AppCons, ChildByParents, FieldByName,
                                           GrecChilds, TaggedAllParentKeys,
                                           TdData, TreeDef)
-import           Perst.Types             (Fsts)
 
 type SelTreeCons b t k r =
   ( DML b (TdData t) r

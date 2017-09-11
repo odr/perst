@@ -63,7 +63,7 @@ executable perst-sqlite-exe
                       -- , FlexibleContexts
                       -- , FlexibleInstances
                       -- , FlexibleInstances
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -O0
                       -- -v2
                       --  -fplugin=Perst.Plugin -plugin-package perst-plugin
   build-depends:       base

@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeOperators         #-}
 module Customer where
 
 import           Data.Int                (Int64)
@@ -14,8 +15,8 @@ import qualified Data.Text               as T
 import           GHC.Generics            (Generic)
 import           GHC.TypeLits            (Symbol)
 
-import           Data.Type.Grec          (ConvFromGrec, ConvGrecInfo, Grec,
-                                          GrecGroup (..))
+import           Data.Type.Grec          ((:::), ConvFromGrec, ConvGrecInfo,
+                                          Grec, GrecGroup (..))
 import           Perst.Database.DataDef  (DataDef' (..), DataInfo (..),
                                           DelCons (..), FK (..))
 import           Perst.Database.DbOption (DbOption (..))
@@ -47,28 +48,36 @@ data Address = Address
   , house      :: T.Text
   } deriving (Show, Generic, Eq, Ord)
 
--- instance SymLens "id" Address Int64 where
---   symLens _ f a = (\b -> (a :: Address) { Customer.id = b })
---               <$> f (Customer.id (a :: Address))
---
--- pAddress       = sing :: Sing TAddress
-
--- type TCustomerTab = TableD Customer '["id"] '[ '["name"]] False
--- type TCustomer = DataD TCustomerTab '[]
---
--- type TAddressTab = TableD Address '["id"] '[] False
--- type TAddress = DataD TAddressTab
---                       '[ '(TCustomerTab, '[ '("customerId", "id")], DcCascade)]
-
-type TCustomer = '(Customer, DataDefC (TableInfo '["id"] '[ '["name"]] False) '[])
+type TCustomer
+  = '( '[ "id"        ::: Int64
+        , "name"      ::: T.Text
+        , "shortname" ::: Maybe T.Text
+        , "note"      ::: Maybe T.Text
+        , "note2"     ::: Maybe T.Text
+        , "note3"     ::: Maybe T.Text
+        ]
+    , DataDefC (TableInfo "customer" '["id"] '[ '["name"]] False) '[]
+    )
 
 type TAddress =
-  '(Address
-  , DataDefC (TableInfo '["id"] '[] False)
+  '( '[ "id"         ::: Int64
+      , "customerId" ::: Int64
+      , "street"     ::: T.Text
+      , "house"      ::: T.Text
+      ]
+  , DataDefC (TableInfo "address" '["id"] '[] False)
             '[ FKC "customer" DcCascade '[ '("customerId", "id")]]
   )
 
-instance DML Sqlite TCustomer Customer
-instance DML Sqlite TAddress Address
+-- type TCustomer = '(Customer, DataDefC (TableInfo '["id"] '[ '["name"]] False) '[])
+--
+-- type TAddress =
+--   '(Address
+--   , DataDefC (TableInfo '["id"] '[] False)
+--             '[ FKC "customer" DcCascade '[ '("customerId", "id")]]
+--   )
+
+-- instance DML Sqlite TCustomer (Grec Customer)
+instance DML Sqlite TAddress (Grec Address)
 instance DDL Sqlite TCustomer
 instance DDL Sqlite TAddress

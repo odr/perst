@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
--- {-# LANGUAGE DefaultSignatures   #-}
 {-# LANGUAGE MagicHash           #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeApplications    #-}

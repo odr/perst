@@ -9,6 +9,7 @@
 module Data.Type.Grec.FieldsGrec
     ( GrecWith(..)
     , GrecWithout(..)
+    , GrecWithSecond(..)
     , GrecLens(..)
     , NamesGrecLens(..)
     , ConvGrecInfo(..)
@@ -30,7 +31,10 @@ module Data.Type.Grec.FieldsGrec
     , FieldTypesNotConvGrec
     , FieldNamesNotConvGrecSym0
     , FieldTypesNotConvGrecSym0
-    , GWPairs, gwPairs, gwTPairs
+    , GWPairs, gwPairs, GWTagged, gwTagged
+    , GWOPairs, gwoPairs, GWOTagged, gwoTagged
+    , GWSPairs, gwsPairs, GWSTagged, gwsTagged
+    , Fsts, Snds
     ) where
 
 import           Data.Function                 (on)
@@ -39,9 +43,9 @@ import           Data.List                     (intersect, partition, (\\))
 import           Data.Ord                      (comparing)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.List
-import           Data.Singletons.Prelude.Maybe (IsJust)
-import           Data.Singletons.TH            (genDefunSymbols, promoteOnly,
-                                                singletons)
+import           Data.Singletons.Prelude.Maybe
+import           Data.Singletons.TH            (genDefunSymbols, promote,
+                                                promoteOnly, singletons)
 import           Data.Tagged                   (Tagged (..))
 import           Data.Text                     (Text)
 import qualified Data.Text.Lazy                as TL
@@ -57,14 +61,29 @@ import           Data.Type.Grec.Type           (Fields, IsSub, ListToPairs,
 
 newtype GrecWith    (ns :: [Symbol]) a = GW  { unGW :: a } deriving (Show)
 newtype GrecWithout (ns :: [Symbol]) a = GWO { unGWO :: a } deriving (Show)
+newtype GrecWithSecond (ns :: [(Symbol, Symbol)]) a
+  = GWS  { unGWS :: a } deriving (Show) -- | subset by second symbols, renamed to firsts symbols
+
 
 -------------
+-- withSecond :: Eq a => [(a,a)] -> [(a,b)] -> [(a,b)]
+-- withSecond ns xs = foldr (\(a1,a2) rs -> case lookup a2 xs of
+--         Just b -> (a1,b) : rs
+--         _      -> rs
+--       ) [] ns
+
 singletons
   [d| without :: Eq a => [a] -> [(a,b)] -> [(a,b)]
       without ns = filter ((`notElem` ns) . fst)
 
       with :: Eq a => [a] -> [(a,b)] -> [(a,b)]
       with ns = filter ((`elem` ns) . fst)
+
+      withSecond :: Eq a => [(a,a)] -> [(a,b)] -> [(a,b)]
+      withSecond ns xs = foldr (\(a1,a2) rs -> case lookup a2 xs of
+              Just b  -> (a1,b) : rs
+              Nothing -> rs
+        ) [] ns
   |]
 promoteOnly
   [d| split :: Eq a => [a] -> [(a,b)] -> ([(a,b)], [(a,b)])
@@ -83,10 +102,18 @@ promoteOnly
 
       fieldNamesConvGrec', fieldNamesNotConvGrec' :: (b -> Bool) -> [(a,b)] -> [a]
       fieldTypesConvGrec', fieldTypesNotConvGrec' :: (b -> Bool) -> [(a,b)] -> [b]
-      fieldNamesConvGrec'    f = map fst . filter (f . snd)
-      fieldTypesConvGrec'    f = map snd . filter (f . snd)
-      fieldNamesNotConvGrec' f = map fst . filter (not . f . snd)
-      fieldTypesNotConvGrec' f = map snd . filter (not . f . snd)
+      fieldNamesConvGrec' f
+        -- = foldr (\(a,b) xs -> if f b then a : xs else xs) []
+        = map fst . filter (f . snd)
+      fieldTypesConvGrec' f
+        -- = foldr (\(a,b) xs -> if f b then b : xs else xs) []
+        = map snd . filter (f . snd)
+      fieldNamesNotConvGrec' f
+        -- = foldr (\(a,b) xs -> if not (f b) then a : xs else xs) []
+        = map fst . filter (not . f . snd)
+      fieldTypesNotConvGrec' f
+        -- = foldr (\(a,b) xs -> if not (f b) then b : xs else xs) []
+        = map snd . filter (not . f . snd)
 
   |]
 
@@ -105,6 +132,7 @@ type family FieldsGrec (a::k) :: [(Symbol, Type)] where
   FieldsGrec (Tagged (ns :: [Symbol]) b) = TaggedToList (Tagged ns b)
   FieldsGrec (GrecWithout ns a) = Without ns (FieldsGrec a)
   FieldsGrec (GrecWith ns a) = With ns (FieldsGrec a)
+  FieldsGrec (GrecWithSecond ns a) = WithSecond ns (FieldsGrec a)
   FieldsGrec (Grec a) = Fields a
   FieldsGrec (a,b) = FieldsGrec a :++ FieldsGrec b
 
@@ -133,38 +161,40 @@ genDefunSymbols
   , ''FieldsNotConvGrec, ''FieldNamesNotConvGrec, ''FieldTypesNotConvGrec
   ]
 
--- grecToTagged :: ListToTaggedPairs (FieldsGrec r)
-
 ---------------
--- promoteOnly [d|
---   gwPairsL :: [Symbol] -> Type -> [Type]
---   gwPairsL ns r = map snd $ nubBy (\a b -> fst a == fst b)
---                 $ filter ((`elem` ns). fst) $ fieldsGrec r
---   gwoPairsL :: [Symbol] -> Type -> [Type]
---   gwoPairsL ns r = map snd $ nubBy (\a b -> fst a == fst b)
---                  $ filter (not . (`elem` ns). fst) $ fieldsGrec r
---   |]
-type GWPairs ns a  = ListToPairs (Map SndSym0 (FieldsGrec (GrecWith    ns a)))
-type GWOPairs ns a = ListToPairs (Map SndSym0 (FieldsGrec (GrecWithout ns a)))
--- (GwPairsL ns a) --
--- (GwoPairsL ns a) --
+type GWPairs ns a  = ListToPairs (Snds (FieldsGrec (GrecWith    ns a)))
+type GWOPairs ns a = ListToPairs (Snds (FieldsGrec (GrecWithout ns a)))
+type GWSPairs ns a = ListToPairs (Snds (FieldsGrec (GrecWithSecond ns a)))
 
-gwPairs :: (NamesGrecLens ns (GWPairs ns a) a)
-        => GrecWith ns a -> GWPairs ns a
+type GWTagged ns a = Tagged (Fsts (FieldsGrec (GrecWith ns a))) (GWPairs ns a)
+type GWOTagged ns a = Tagged (Fsts (FieldsGrec (GrecWithout ns a)))
+                             (GWOPairs ns a)
+type GWSTagged ns a = Tagged (Fsts (FieldsGrec (GrecWithSecond ns a)))
+                             (GWSPairs ns a)
+
+gwPairs :: NamesGrecLens ns (GWPairs ns a) a => GrecWith ns a -> GWPairs ns a
 gwPairs (x :: GrecWith ns a) = namesGrecGet @ns (unGW x) :: GWPairs ns a
 
-gwTPairs :: (NamesGrecLens ns (GWPairs ns a) a)
-        => GrecWith ns a -> Tagged ns (GWPairs ns a)
-gwTPairs = Tagged . gwPairs
+gwTagged :: NamesGrecLens ns (GWPairs ns a) a => GrecWith ns a -> GWTagged ns a
+gwTagged = Tagged . gwPairs
 
-gwoPairs :: (NamesGrecLens (FieldNamesGrec a :\\ ns) (GWOPairs ns a) a)
-        => GrecWithout ns a -> GWOPairs ns a
+gwoPairs :: NamesGrecLens (FieldNamesGrec a :\\ ns) (GWOPairs ns a) a
+         => GrecWithout ns a -> GWOPairs ns a
 gwoPairs (x :: GrecWithout ns a)
   = namesGrecGet @(FieldNamesGrec a :\\ ns) (unGWO x) :: GWOPairs ns a
 
-gwoTPairs :: (NamesGrecLens (FieldNamesGrec a :\\ ns) (GWOPairs ns a) a)
-  => GrecWithout ns a -> Tagged (FieldNamesGrec a :\\ ns) (GWOPairs ns a)
-gwoTPairs = Tagged . gwoPairs
+gwoTagged :: NamesGrecLens (FieldNamesGrec a :\\ ns) (GWOPairs ns a) a
+          => GrecWithout ns a -> GWOTagged ns a
+gwoTagged = Tagged . gwoPairs
+
+gwsPairs :: NamesGrecLens (Snds ns) (GWSPairs ns a) a
+         => GrecWithSecond ns a -> GWSPairs ns a
+gwsPairs (x :: GrecWithSecond ns a)
+  = namesGrecGet @(Snds ns) (unGWS x) :: GWSPairs ns a
+
+gwsTagged :: NamesGrecLens (Snds ns) (GWSPairs ns a) a
+          => GrecWithSecond ns a -> GWSTagged ns a
+gwsTagged = Tagged . gwsPairs
 
 instance (Eq (GWPairs ns a), NamesGrecLens ns (GWPairs ns a) a)
       => Eq (GrecWith ns a) where
@@ -173,6 +203,15 @@ instance (Eq (GWPairs ns a), NamesGrecLens ns (GWPairs ns a) a)
 instance (Ord (GWPairs ns a), NamesGrecLens ns (GWPairs ns a) a)
       => Ord (GrecWith ns a) where
   compare = comparing gwPairs
+
+---------------
+instance (Eq (GWSPairs ns a), NamesGrecLens (Snds ns) (GWSPairs ns a) a)
+      => Eq (GrecWithSecond ns a) where
+  (==) = (==) `on` gwsPairs
+
+instance (Ord (GWSPairs ns a), NamesGrecLens (Snds ns) (GWSPairs ns a) a)
+      => Ord (GrecWithSecond ns a) where
+  compare = comparing gwsPairs
 
 ---------------
 instance (SingI ns, ConvGrecInfo r, ConvFromGrec r [a])
@@ -190,6 +229,11 @@ instance ( SingI ns, ConvGrecInfo r, ConvFromGrec r [a]
    where
     sns = fromSing (sing :: Sing ns)
     sr = fieldNames @r
+
+instance (ConvFromGrec (GrecWith (Snds ns) r) [a])
+      => ConvFromGrec (GrecWithSecond ns r) [a] where
+  convFromGrec = convFromGrec @(GrecWith (Snds ns) r) . GW . unGWS
+
 -------------
 
 class GrecLens n a b where
@@ -221,6 +265,10 @@ instance (Elem n ns ~ 'False, GrecLens n a b)
 instance (Elem n ns ~ 'True, GrecLens n a b)
       => GrecLens n a (GrecWith ns b) where
   grecLens f = fmap GW . grecLens @n f . unGW
+
+instance GrecLens (FromJust (Lookup n ns)) a b
+      => GrecLens n a (GrecWithSecond ns b) where
+  grecLens f = fmap GWS . grecLens @(FromJust (Lookup n ns)) f . unGWS
 
 ------------
 instance GrecLens n a b1 => GrecLens '(True, n) a (b1,b2) where
@@ -269,6 +317,12 @@ instance (SingI ns, ConvGrecInfo a) => ConvGrecInfo (GrecWithout ns a) where
 
 instance (SingI ns, ConvGrecInfo a) => ConvGrecInfo (GrecWith ns a) where
   fieldNames = intersect (fieldNames @a) (fromSing (sing :: Sing ns))
+
+instance (SingI ns, ConvGrecInfo a) => ConvGrecInfo (GrecWithSecond ns a) where
+  fieldNames = foldr (\(n1,n2) f -> if n2 `elem` as then (n1:) . f else f)
+                    id (fromSing (sing :: Sing ns)) []
+   where
+    as = fieldNames @a
 
 instance SingI (FieldNamesConvGrec (Grec a)) => ConvGrecInfo (Grec a) where
   fieldNames = fromSing (sing :: Sing (FieldNamesConvGrec (Grec a)))

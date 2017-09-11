@@ -146,7 +146,6 @@ instance DML DB TOrderPosition  (Grec OrderPosition)
 instance DML DB TAddress        (Grec Address)
 instance DMLTree DB TCustomerTree (Grec CustomerTree)
 
-
 type CustomerTree'
   = Tagged '["id","name","shortname","orders","address"]
             (Int64,(T.Text,(Maybe T.Text,([OrderTree'],[Address']))))
