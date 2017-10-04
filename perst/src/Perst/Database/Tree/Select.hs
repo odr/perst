@@ -5,21 +5,22 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Perst.Database.Tree.Select where
 
-import           Control.Applicative     (ZipList (..), liftA2)
-import           Data.Functor.Compose    (Compose (..))
-import           Data.Tagged             (Tagged (..), retag)
-import           GHC.Prim                (Proxy#, proxy#)
-import           GHC.TypeLits            (Symbol)
-import           Lens.Micro              ((.~))
+import           Control.Applicative      (ZipList (..), liftA2)
+import           Data.Functor.Compose     (Compose (..))
+import           Data.Tagged              (Tagged (..), retag)
+import           GHC.Prim                 (Proxy#, proxy#)
+import           GHC.TypeLits             (Symbol)
+import           Lens.Micro               ((.~))
 
-import           Data.Type.Grec          (ConvGrecInfo, Convert, Fsts,
-                                          GrecLens (..), GrecWith (..))
-import           Perst.Database.DbOption (DbOption (..), MonadCons,
-                                          SessionMonad)
-import           Perst.Database.DML      (DML (..), RecCons (..))
-import           Perst.Database.Tree.Def (AppCons, ChildByParents, FieldByName,
-                                          GrecChilds, TaggedAllParentKeys,
-                                          TdData, TreeDef)
+import           Data.Type.Grec           (ConvGrecInfo, Convert, Fsts,
+                                           GrecLens (..), GrecWith (..))
+import           Perst.Database.Condition (Condition, ConvCond (..))
+import           Perst.Database.DbOption  (DbOption (..), MonadCons,
+                                           SessionMonad)
+import           Perst.Database.DML       (DML (..), RecCons (..))
+import           Perst.Database.TreeDef   (AppCons, ChildByParents, FieldByName,
+                                           GrecChilds, TaggedAllParentKeys,
+                                           TdData, TreeDef)
 
 type SelTreeCons b t k r =
   ( DML b (TdData t) r
@@ -33,16 +34,28 @@ type SelTreeCons' b t r k tapk =
   , SelectChilds b (GrecChilds t r) tapk r
   )
 
-selectTreeManyDef :: (AppCons f, MonadCons m, SelTreeCons b t k r)
-                  => Proxy# b -> Proxy# t -> Proxy# r -> f k
-                  -> SessionMonad b m (f [r])
+type SelTreeCond b t r =
+  ( DML b (TdData t) r
+  , ConvCond b (Condition t r)
+  , SelectChilds b (GrecChilds t r) () r
+  )
+
+selectTreeManyDef
+  :: (AppCons f, MonadCons m, SelTreeCons b t k r)
+  => Proxy# b -> Proxy# t -> Proxy# r -> f k -> SessionMonad b m (f [r])
 selectTreeManyDef (_::Proxy# b) (_::Proxy# t) (_::Proxy# r) (ks::f k) = do
   ps <- Compose . fmap ZipList
     <$> selectMany @b @(TdData t) @r
                   (proxy# :: Proxy# (TaggedAllParentKeys t)) ks
-  fmap (fmap getZipList . getCompose)
-    $ selectChilds @b @(GrecChilds t r) ps
+  (fmap getZipList . getCompose)
+    <$> selectChilds @b @(GrecChilds t r) ps
 
+selectTreeCondDef
+  :: (MonadCons m, SelTreeCond b t r)
+  => Proxy# b -> Condition t r -> SessionMonad b m [r]
+selectTreeCondDef (_::Proxy# b) (c :: Condition t r) = do
+  rs <- (ZipList . map ((,) ())) <$> selectCond @b @(TdData t) c
+  getZipList <$> selectChilds @b @(GrecChilds t r) rs
 
 class SelectChilds b (chs :: [(Symbol, (TreeDef, [(Symbol,Symbol)]))]) k r where
   selectChilds :: (MonadCons m, AppCons f) => f (k,r) -> SessionMonad b m (f r)

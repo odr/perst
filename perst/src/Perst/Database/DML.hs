@@ -15,6 +15,7 @@ import           Data.Type.Grec            (ConvFromGrec (..),
                                             ConvGrecInfo (..), ConvToGrec (..),
                                             Convert (..), FieldNamesConvGrec,
                                             GrecWith (..), GrecWithout (..))
+import           Perst.Database.Condition  (Condition, ConvCond)
 import           Perst.Database.DataDef    (DataDefInfo (..), DataKey)
 import           Perst.Database.DbOption   (DbOption (..), MonadCons,
                                             SessionMonad)
@@ -23,6 +24,7 @@ import           Perst.Database.DML.Delete as DML
 import           Perst.Database.DML.Insert as DML
 import           Perst.Database.DML.Select as DML
 import           Perst.Database.DML.Update as DML
+import           Perst.Database.TreeDef    (TdData)
 
 type RecCons b r = (ConvFromGrec r [FieldDB b], ConvGrecInfo r)
 type DMLCons b t r
@@ -82,3 +84,7 @@ class DMLCons b t r => DML b t r where
   insertMany' :: (MonadCons m, Traversable f)
               => f r -> SessionMonad b m (Maybe (f (GenKey b)))
   insertMany' = insertMany @b @t @r . fmap ((),)
+
+  selectCond :: (ConvCond b (Condition tree r), MonadCons m, (TdData tree ~ t))
+             => Condition tree r -> SessionMonad b m [r]
+  selectCond = selectCondDef (proxy# :: Proxy# b)

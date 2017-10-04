@@ -9,19 +9,26 @@ import           GHC.Prim                   (Proxy#, proxy#)
 
 import           Perst.Database.DbOption    (MonadCons, SessionMonad)
 
+import           Perst.Database.Condition   (Condition)
 import           Perst.Database.Tree.Delete (DelTreeCons, deleteTreeManyDef)
 import           Perst.Database.Tree.Insert (InsTreeCons, insertTreeManyDef)
-import           Perst.Database.Tree.Select (SelTreeCons, selectTreeManyDef)
+import           Perst.Database.Tree.Select (SelTreeCond, SelTreeCons,
+                                             selectTreeCondDef,
+                                             selectTreeManyDef)
 import           Perst.Database.Tree.Update (UpdTreeCons, updateTreeManyDef)
 
 
 class UpdTreeCons b t () r => DMLTree b t r where
   selectTreeMany :: (MonadCons m, SelTreeCons b t k r)
-                    => [k] -> SessionMonad b m [[r]]
+                 => [k] -> SessionMonad b m [[r]]
   selectTreeMany = fmap getZipList
                  . selectTreeManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# t)
                                      (proxy# :: Proxy# r)
                  . ZipList
+
+  selectTreeCond :: (MonadCons m, SelTreeCond b t r)
+                 => Condition t r -> SessionMonad b m [r]
+  selectTreeCond = selectTreeCondDef (proxy# :: Proxy# b)
 
   insertTreeMany :: MonadCons m => [r] -> SessionMonad b m [r]
   insertTreeMany = fmap (getZipList . fmap snd)

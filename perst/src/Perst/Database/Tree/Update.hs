@@ -25,11 +25,11 @@ import           Data.Type.Grec               (FieldNamesConvGrec,
                                                gwTagged, gwsTagged)
 import           Perst.Database.DbOption      (MonadCons, SessionMonad)
 import           Perst.Database.DML           (DML (..), RecCons)
-import           Perst.Database.Tree.Def      (FieldByName, GrecChilds, Pair,
-                                               TdData, TopKey, TopPK,
-                                               TopPKPairs, TopPKTagged, TreeDef)
 import           Perst.Database.Tree.Delete   (DelTreeCons, deleteTreeManyDef)
 import           Perst.Database.Tree.Insert   (InsTreeCons, insertTreeManyDef)
+import           Perst.Database.TreeDef       (FieldByName, GrecChilds, Pair,
+                                               TdData, TopKey, TopPK,
+                                               TopPKPairs, TopPKTagged, TreeDef)
 
 type UpdTreeCons b t k r =
     ( InsTreeCons b t k r

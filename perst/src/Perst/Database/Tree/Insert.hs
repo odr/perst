@@ -21,7 +21,7 @@ import           Data.Type.Grec          (FieldNamesConvGrec, Fsts,
 import           Perst.Database.DataDef  (DataAutoIns)
 import           Perst.Database.DbOption (GenKey, MonadCons, SessionMonad)
 import           Perst.Database.DML      (DML (..), RecCons)
-import           Perst.Database.Tree.Def (AppCons, FieldByName, GrecChilds,
+import           Perst.Database.TreeDef  (AppCons, FieldByName, GrecChilds,
                                           RecParent, TdData, TopKey, TreeDef)
 
 type InsTreeCons b t k r =

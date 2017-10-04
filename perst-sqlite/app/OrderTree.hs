@@ -6,14 +6,14 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module OrderTree where
 
-import           Data.Int                (Int64)
-import qualified Data.Text               as T
-import           GHC.Generics            (Generic)
+import           Data.Int               (Int64)
+import qualified Data.Text              as T
+import           GHC.Generics           (Generic)
 
-import           Data.Type.Grec          (Grec)
-import           Perst.Database.DML      (DML (..))
-import           Perst.Database.Sqlite   (Sqlite)
-import           Perst.Database.Tree.Def (TreeDef' (..))
+import           Data.Type.Grec         (Grec)
+import           Perst.Database.DML     (DML (..))
+import           Perst.Database.Sqlite  (Sqlite)
+import           Perst.Database.TreeDef (TreeDef' (..))
 
 import           Order
 

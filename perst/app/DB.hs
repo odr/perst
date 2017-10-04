@@ -1,9 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
 module DB where
 import           Data.Int                (Int64)
 import           Data.Text               hiding (map)
-
+import           Data.Text.Format        (Only (..))
 
 import           Data.Type.Grec          (Convert (..))
+import           Perst.Database.DataDef  (formatS)
 import           Perst.Database.DbOption (DbOption (..), DbTypeName)
 
 data DB
@@ -13,7 +15,7 @@ type instance DbTypeName DB Text       = "TEXT"
 type instance DbTypeName DB Double     = "DOUBLE"
 
 data DBData = DBNull | DBText Text | DBInteger Int64 | DBDouble Double
-  deriving Eq
+  deriving (Eq, Show)
 
 instance Convert DBData Int64 where
   convert (DBInteger x) = x
@@ -49,3 +51,4 @@ instance DbOption DB where
     type FieldDB DB         = DBData
     type PrepCmd DB         = DB
     type GenKey DB          = Int64
+    paramName                 = formatS "?{}" . Only . (+1)

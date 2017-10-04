@@ -18,7 +18,7 @@ import           Data.Type.Grec          (FieldNamesConvGrec, Fsts,
                                           NamesGrecLens (..), Snds)
 import           Perst.Database.DbOption (MonadCons, SessionMonad)
 import           Perst.Database.DML      (DML (..), RecCons)
-import           Perst.Database.Tree.Def (AppCons, FieldByName, GrecChilds,
+import           Perst.Database.TreeDef  (AppCons, FieldByName, GrecChilds,
                                           RecParent, TdData, TopPK, TreeDef)
 
 type DelTreeCons b t k r =

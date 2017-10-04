@@ -6,17 +6,17 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module CustomerTree where
 
-import           Data.Int                (Int64)
+import           Data.Int               (Int64)
 -- import           Data.Tagged             (Tagged)
-import qualified Data.Text               as T
-import           GHC.Generics            (Generic)
+import qualified Data.Text              as T
+import           GHC.Generics           (Generic)
 -- import           GHC.TypeLits            (Symbol)
 
-import           Data.Type.Grec          (Grec)
-import           Perst.Database.DML      (DML (..))
-import           Perst.Database.DMLTree  (DMLTree (..))
-import           Perst.Database.Sqlite   (Sqlite)
-import           Perst.Database.Tree.Def (TreeDef' (..))
+import           Data.Type.Grec         (Grec)
+import           Perst.Database.DML     (DML (..))
+import           Perst.Database.DMLTree (DMLTree (..))
+import           Perst.Database.Sqlite  (Sqlite)
+import           Perst.Database.TreeDef (TreeDef' (..))
 
 import           Customer
 import           OrderTree

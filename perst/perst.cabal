@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Perst.Database.DataDef
+                      , Perst.Database.TreeDef
                       , Perst.Database.DbOption
                       -- , Perst.Database.Constraints
                       , Perst.Types
@@ -26,11 +27,11 @@ library
                       , Perst.Database.DML.Delete
                       , Perst.Database.DML.Select
                       , Perst.Database.DMLTree
-                      , Perst.Database.Tree.Def
                       , Perst.Database.Tree.Select
                       , Perst.Database.Tree.Insert
                       , Perst.Database.Tree.Update
                       , Perst.Database.Tree.Delete
+                      , Perst.Database.Condition
 
   default-extensions:   DataKinds
                       , TypeOperators
@@ -60,6 +61,7 @@ library
                       , text-format
                       , singletons
                       , tagged
+--                      , data-default
                       , containers
                       , microlens
   default-language:    Haskell2010
@@ -78,9 +80,12 @@ executable perst-exe
                      , perst
                      , grec
                      , text
+                     , text-format
                      , exceptions
                      , tagged
+                     , data-default
                      , singletons
+                     , microlens
   default-language:    Haskell2010
 
 test-suite perst-test

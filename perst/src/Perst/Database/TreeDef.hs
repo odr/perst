@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeInType                #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
-module Perst.Database.Tree.Def where
+module Perst.Database.TreeDef where
 
 import           Data.Kind                     (Type)
 -- import           Data.List                     (nub)

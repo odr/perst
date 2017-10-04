@@ -22,17 +22,19 @@ module Main where
 -- main = return ()
 
 import           Control.Applicative
-import           Data.Bifunctor
-import           Data.Functor.Compose
-import           Data.Int                      (Int64)
-import qualified Data.Text                     as T
-
 import           Control.Monad.Catch           (SomeException, catch)
 import           Control.Monad.IO.Class        (MonadIO (..))
+-- import qualified Control.Monad.Trans.State.Strict as SS
+import           Data.Bifunctor
+import           Data.Default                  (def)
+import           Data.Functor.Compose
+import           Data.Int                      (Int64)
 import           Data.List                     (sort)
 import           Data.Proxy                    (Proxy (..))
 import           Data.Singletons.CustomStar    (singletonStar)
 import           Data.Singletons.Prelude
+import qualified Data.Text                     as T
+import           Lens.Micro
 -- import           Data.Singletons.Prelude.List
 import           Data.Singletons.Prelude.Maybe
 import           Data.Tagged                   (Tagged (..))
@@ -41,6 +43,9 @@ import           GHC.Generics                  (Generic)
 import           Data.Text                     hiding (map)
 import           Data.Type.Grec
 -- import           Perst.Database.Constraints    (InsConstr)
+import           Perst.Database.Condition      (CondSub (..), CondVal (..),
+                                                Condition (..), ConvCond (..),
+                                                runConvCond)
 import           Perst.Database.DataDef        (DataAutoIns, DataDef' (..),
                                                 DataDefInfo (..), DataInfo (..),
                                                 DelCons (..), FK (..))
@@ -49,6 +54,7 @@ import           Perst.Database.DbOption       (DbOption (..), DbTypeName,
 import           Perst.Database.DDL            as DDL
 import           Perst.Database.DML            (DML (..))
 import           Perst.Database.DMLTree        (DMLTree (..))
+import           Perst.Database.TreeDef        (Child)
 import           Perst.Types
 
 import           DB
@@ -78,12 +84,14 @@ ct = [ Grec $ CustomerTree 1 "odr" (Just "odr") -- "odr@ru"
         [ Grec $ Address 1 1 "My street"
         , Grec $ Address 2 1 "My second street"
         ]
+        "mail1"
     , Grec $ CustomerTree 2 "dro" Nothing -- "dro@ru"
         [ Grec $ OrderTree 4 "1" "01.04.2017" []
         ]
         [ Grec $ Address 3 2 "Some street"]
+        "mail2"
     , Grec $ CustomerTree 3 "zev" Nothing -- "zev@zev"
-        [] []
+        [] [] "mail3"
     ]
 -- pct = Proxy :: Proxy (FieldsTree r)
 
@@ -183,5 +191,26 @@ main = runSession @DB "test.db" $ do
               (map Tagged [2,3] :: [Tagged '["id"] Int64])
         >>= liftIO . print
 
+        return ()
 -}
-  return ()
+
+checkCond
+  = runConvCond (convCond @DB @(Condition TCustomerTree (Grec CustomerTree))
+    (Rec (Tagged def
+      & grecLens @"name" .~ [CvEq ("xx"::T.Text),CvEq "yy"]
+      & grecLens @"email" .~ [CvLike ("mail"::T.Text),CvEq "yy"]
+      & grecLens @"id" .~ [CvEq (1::Int64)]
+      & grecLens @"shortname" .~ [CvNull :: CondVal (Maybe T.Text)]
+      & grecLens @"orders" .~ [CsExists $ Rec $ Tagged  def
+          & grecLens @"num" .~
+              [ CvNot $ CvEq ("5" :: T.Text)]
+                  :: CondSub (Child "orders" TCustomerTree) (Grec OrderTree)
+              ]
+      & grecLens @"address" .~
+        [CsNotExists
+          $ Rec $ Tagged def -- & grecLens @"street" .~ [CvNot $ CvEq ("zzz" :: T.Text)]
+            :: CondSub (Child "address" TCustomerTree) (Grec Address)
+        ]
+    )))
+
+-- f = SS.evalState (convCond @DB @(Condition Maybe (Grec CustomerTree)) (Rec (Tagged def & grecLens @"name" .~ Just (CvEq ("xx"::T.Text)) & grecLens @"id" .~ Just (CvEq (1::Int64)) & grecLens @"shortname" .~ Just (CvNull :: CondVal (Maybe T.Text)) ))) 0

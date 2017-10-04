@@ -19,7 +19,7 @@ import           Perst.Database.DbOption (DbTypeNames (..))
 import           Perst.Database.DDL      (DDL (..))
 import           Perst.Database.DML      (DML (..))
 import           Perst.Database.DMLTree  (DMLTree (..))
-import           Perst.Database.Tree.Def (TreeDef' (..))
+import           Perst.Database.TreeDef  (TreeDef' (..))
 
 import           DB
 
@@ -48,6 +48,7 @@ import           DB
 --   , price :: Double
 --   } deriving (Show, Generic)
 --
+
 data OrderPosition = OrderPosition
   { orderId   :: !Int64
   , articleId :: !Int64
@@ -65,6 +66,7 @@ type TCustomer
   = '( '[ "id"        ::: Int64
         , "name"      ::: T.Text
         , "shortname" ::: Maybe T.Text
+        , "email"     ::: T.Text
         ]
     , DataDefC (TableInfo "customer" '["id"] '[ '["name"]] False) '[]
     )
@@ -124,6 +126,7 @@ data CustomerTree = CustomerTree {-  # UNPACK # -}
   -- , email     :: T.Text
   , orders    :: [Grec OrderTree]
   , address   :: [Grec Address]
+  , email     :: !T.Text
   } deriving (Show, Generic, Eq, Ord)
 
 data OrderTree = OrderTree  {-  # UNPACK #  -}
@@ -146,18 +149,18 @@ instance DML DB TOrderPosition  (Grec OrderPosition)
 instance DML DB TAddress        (Grec Address)
 instance DMLTree DB TCustomerTree (Grec CustomerTree)
 
-type CustomerTree'
-  = Tagged '["id","name","shortname","orders","address"]
-            (Int64,(T.Text,(Maybe T.Text,([OrderTree'],[Address']))))
-type OrderTree'
-  = Tagged '["id","num","date","positions"]
-            (Int64,(T.Text,(T.Text,[OrderPosition'])))
-type Address'
-  = Tagged '["id","customerId","street"]
-            (Int64,(Int64,T.Text))
-type OrderPosition'
-  = Tagged '["orderId","articleId","quantity","cost"]
-            (Int64,(Int64,(Int64,Double)))
+-- type CustomerTree'
+--   = Tagged '["id","name","shortname","orders","address"]
+--             (Int64,(T.Text,(Maybe T.Text,([OrderTree'],[Address']))))
+-- type OrderTree'
+--   = Tagged '["id","num","date","positions"]
+--             (Int64,(T.Text,(T.Text,[OrderPosition'])))
+-- type Address'
+--   = Tagged '["id","customerId","street"]
+--             (Int64,(Int64,T.Text))
+-- type OrderPosition'
+--   = Tagged '["orderId","articleId","quantity","cost"]
+--             (Int64,(Int64,(Int64,Double)))
 
 -- instance DML DB TCustomer CustomerTree'
 -- instance DML DB TOrder OrderTree'

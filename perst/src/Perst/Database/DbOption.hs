@@ -94,6 +94,10 @@ class DbOption (back :: Type) where
     cmd <- prepareCommand @back sql
     runPrepared @back cmd pars
 
+  condLike :: Text -> Text -> Text
+  condLike name par
+      = formatS "lower({}) LIKE '%' + lower({}) + '%'" (name, par)
+
 type family DbTypeName (b::Type) (a::Type) :: Symbol
 type family Nullable a :: (Type, Bool) where
   Nullable (Maybe x) = '(x, True)
