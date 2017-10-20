@@ -67,15 +67,16 @@ executable perst-sqlite-exe
                       -- -v2
                       --  -fplugin=Perst.Plugin -plugin-package perst-plugin
   build-depends:       base
-                     , perst
-                     , perst-sqlite
-                     , grec
-                     , text
-                     , exceptions
-                     , tagged
-                     , singletons
+                    --  , perst
+                    --  , perst-sqlite
+                    -- --  , perst-test-data
+                    --  , grec
+                    --  , text
+                    --  , exceptions
+                    --  , tagged
+                    --  , singletons
   default-language:    Haskell2010
-  other-modules:   Customer, Order, Article, CustomerTree
+  -- other-modules:   Customer, Order, Article, CustomerTree
 
 test-suite pers-bk-test
   type:                exitcode-stdio-1.0

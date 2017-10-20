@@ -5,6 +5,8 @@ packages:
 - grec
 - perst
 - perst-sqlite
+- perst-test-data
+- perst-servant
 # - advita
 extra-deps:
 # - Cabal-2.0.0.2

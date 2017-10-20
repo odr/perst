@@ -18,7 +18,8 @@ import           Lens.Micro.Extras            (view)
 import           Data.Type.Grec               (FieldNamesConvGrec,
                                                FieldNamesGrec, Fsts,
                                                GWSPairs (..), GWSTagged,
-                                               GrecLens (..), GrecWith (..),
+                                               Grec (..), GrecLens (..),
+                                               GrecWith (..),
                                                GrecWithSecond (..),
                                                GrecWithout (..),
                                                NamesGrecLens (..), Snds,
@@ -34,7 +35,8 @@ import           Perst.Database.TreeDef       (FieldByName, GrecChilds, Pair,
 type UpdTreeCons b t k r =
     ( InsTreeCons b t k r
     , DelTreeCons b t k r
-    , UpdTreeCons' b k r (TopPKPairs t (Pair k r)) (TopPKTagged t (Pair k r)) (TopKey t)
+    , UpdTreeCons' b k r (TopPKPairs t (Pair k r))
+                         (TopPKTagged t (Pair k r)) (TopKey t)
     , UpdateChilds b (GrecChilds t (Pair k r)) k r
     )
 
@@ -54,7 +56,7 @@ updateTreeManyDef (pb :: Proxy# b) (pt :: Proxy# t) (olds :: [(k,r)]) news = do
   insertTreeManyDef pb pt $ filter (not . (`M.member` olds') . pairs) news
   return ()
  where
-  pairs  ((k,r)::(k,r)) = gwTagged (GW (GWO k, r) :: TopPK t (Pair k r))
+  pairs  ((k,r)::(k,r)) = gwTagged (GW (GWO k, Grec r) :: TopPK t (Pair k r))
   mkMap = M.fromList . fmap (\x -> (pairs x, x))
   olds' = mkMap olds
   news' = mkMap news
@@ -89,5 +91,5 @@ instance UpdChildCons b s td rs chs k r
                          , FieldByName s (Pair k r)
                          )
                        ]
-    newRec (k,r) = (gwsTagged (GWS (GWO k, r) :: GrecWithSecond rs (Pair k r)),)
-                <$> view (grecLens @s) ((GWO k, r) :: Pair k r)
+    newRec (k,r) = (gwsTagged (GWS (GWO k, Grec r) :: GrecWithSecond rs (Pair k r)),)
+                <$> view (grecLens @s) ((GWO k, Grec r) :: Pair k r)

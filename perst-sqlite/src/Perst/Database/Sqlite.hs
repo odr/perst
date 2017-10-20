@@ -26,14 +26,10 @@ import           Database.SQLite3            (Database, SQLData (..), Statement,
                                               lastInsertRowId, open, prepare,
                                               reset, step)
 
--- import           Perst.Database.Constraints
 import           Perst.Database.DataDef      (formatS)
 import           Perst.Database.DbOption     (DBEnum, DbOption (..), DbTypeName)
 
 data Sqlite
-
--- sqlite :: Proxy Sqlite
--- sqlite = Proxy
 
 type instance DbTypeName Sqlite Int64      = "INTEGER"
 type instance DbTypeName Sqlite Text       = "TEXT"

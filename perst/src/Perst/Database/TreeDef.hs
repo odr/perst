@@ -90,8 +90,8 @@ type TopNotPK t r     = GrecWithout (TopKey t) r
 type TopPKPairs t r   = GWPairs (TopKey t) r
 type TopPKTagged t r  = GWTagged (TopKey t) r
 
-type KwoR k r = GrecWithout (FieldNamesGrec r) k
-type Pair k r = (KwoR k r, r)
+type KwoR k r = GrecWithout (FieldNamesGrec (Grec r)) k
+type Pair k r = (KwoR k r, Grec r)
 
 type RecParent k r rs = ListToPairs (GetParentTypes rs (k, r))
 type RecParent' k r rs = ListToPairs (GetParentTypes rs (Pair k r))

@@ -13,7 +13,8 @@ import           GHC.TypeLits             (Symbol)
 import           Lens.Micro               ((.~))
 
 import           Data.Type.Grec           (ConvGrecInfo, Convert, Fsts,
-                                           GrecLens (..), GrecWith (..))
+                                           Grec (..), GrecLens (..),
+                                           GrecWith (..))
 import           Perst.Database.Condition (Condition, ConvCond (..))
 import           Perst.Database.DbOption  (DbOption (..), MonadCons,
                                            SessionMonad)
@@ -31,13 +32,13 @@ type SelTreeCons b t k r =
 type SelTreeCons' b t r k tapk =
   ( Convert [FieldDB b] ([FieldDB b], tapk)
   , ConvGrecInfo tapk
-  , SelectChilds b (GrecChilds t r) tapk r
+  , SelectChilds b (GrecChilds t (Grec r)) tapk r
   )
 
 type SelTreeCond b t r =
   ( DML b (TdData t) r
-  , ConvCond b (Condition t r)
-  , SelectChilds b (GrecChilds t r) () r
+  , ConvCond b (Condition t (Grec r))
+  , SelectChilds b (GrecChilds t (Grec r)) () r
   )
 
 selectTreeManyDef
@@ -48,14 +49,14 @@ selectTreeManyDef (_::Proxy# b) (_::Proxy# t) (_::Proxy# r) (ks::f k) = do
     <$> selectMany @b @(TdData t) @r
                   (proxy# :: Proxy# (TaggedAllParentKeys t)) ks
   (fmap getZipList . getCompose)
-    <$> selectChilds @b @(GrecChilds t r) ps
+    <$> selectChilds @b @(GrecChilds t (Grec r)) ps
 
 selectTreeCondDef
   :: (MonadCons m, SelTreeCond b t r)
-  => Proxy# b -> Condition t r -> SessionMonad b m [r]
-selectTreeCondDef (_::Proxy# b) (c :: Condition t r) = do
+  => Proxy# b -> Condition t (Grec r) -> SessionMonad b m [r]
+selectTreeCondDef (_::Proxy# b) (c :: Condition t (Grec r)) = do
   rs <- (ZipList . map ((,) ())) <$> selectCond @b @(TdData t) c
-  getZipList <$> selectChilds @b @(GrecChilds t r) rs
+  getZipList <$> selectChilds @b @(GrecChilds t (Grec r)) rs
 
 class SelectChilds b (chs :: [(Symbol, (TreeDef, [(Symbol,Symbol)]))]) k r where
   selectChilds :: (MonadCons m, AppCons f) => f (k,r) -> SessionMonad b m (f r)
@@ -64,12 +65,12 @@ instance SelectChilds b '[] k r where
   selectChilds = return . fmap snd
 
 type SelectChildsConstraint b s td rs nk vk r =
-    SelectChildsConstraint' b s td rs nk vk r (FieldByName s (r))
+    SelectChildsConstraint' b s td rs nk vk r (FieldByName s (Grec r))
 
 type SelectChildsConstraint' b s td rs nk vk r r'  =
   ( SelTreeCons b td
       (GrecWith (Fsts rs) (Tagged (ChildByParents rs nk) vk)) r'
-  , GrecLens s [r'] (r)
+  , GrecLens s [r'] (Grec r)
   )
 
 instance ( SelectChildsConstraint b s td rs nk vk r
@@ -79,7 +80,7 @@ instance ( SelectChildsConstraint b s td rs nk vk r
   selectChilds compKR = do
     r <- liftA2 updRec compKR
         <$> selectTreeManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# td)
-              (proxy# :: Proxy# (FieldByName s r)) newkey
+              (proxy# :: Proxy# (FieldByName s (Grec r))) newkey
     selectChilds @b @chs r
    where
     newkey = fmap
@@ -88,5 +89,5 @@ instance ( SelectChildsConstraint b s td rs nk vk r
       . (retag :: Tagged nk vk -> Tagged (ChildByParents rs nk) vk)
       . fst
       ) compKR
-    updRec :: (Tagged nk vk, r) -> [FieldByName s r] -> (Tagged nk vk, r)
-    updRec (k,r) rs' = (k, (grecLens @s .~ rs')  r)
+    updRec :: (Tagged nk vk, r) -> [FieldByName s (Grec r)] -> (Tagged nk vk, r)
+    updRec (k,r) rs' = (k, unGrec $ (grecLens @s .~ rs') $ Grec r)
