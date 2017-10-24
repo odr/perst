@@ -10,7 +10,7 @@ import           Data.Int               (Int64)
 import qualified Data.Text              as T
 import           GHC.Generics           (Generic)
 
-import           Data.Type.Grec         (Grec)
+-- import           Data.Type.Grec         (Grec)
 import           Perst.Database.DML     (DML (..))
 import           Perst.Database.TreeDef (TreeDef' (..))
 

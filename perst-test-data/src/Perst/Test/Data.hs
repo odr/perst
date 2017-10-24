@@ -13,7 +13,7 @@ import qualified Data.Text                    as T
 import           Control.Monad.IO.Class       (MonadIO (..))
 import           Data.Tagged                  (Tagged (..))
 
--- import           Data.Type.Grec               (Grec (..))
+import           Data.Type.Grec               (Grec (..))
 import           Perst.Database.DbOption      (DbOption (..), DbTypeName,
                                                SessionMonad)
 import           Perst.Database.DDL           as DDL
@@ -28,7 +28,7 @@ import           Perst.Test.Data.Order
 import           Perst.Test.Data.OrderTree
 
 
-ct = [ CustomerTree 1 "odr" (Just "odr")
+ct = [ CustomerTree 1 (Grec $ Names "odr" $ Just "odr")
         [ OrderTree 1 "1" "01.01.2017"
           [ OrderPosition 1 1 2 11.11
           , OrderPosition 1 2 5 12.22
@@ -39,20 +39,20 @@ ct = [ CustomerTree 1 "odr" (Just "odr")
         [ Address 1 1 "My street" "11B"
         , Address 2 1 "My second street" "10"
         ]
-    , CustomerTree 2 "dro" Nothing
+    , CustomerTree 2 (Grec $ Names "dro" Nothing)
         [ OrderTree 4 "1" "01.04.2017" [] ]
         [ Address 3 2 "Some street" "12C"]
-    , CustomerTree 3 "zev" Nothing [] []
+    , CustomerTree 3 (Grec $ Names "zev" Nothing) [] []
     ]
-ct3 = CustomerTree 3 "zev1" (Just "zev") [] []
+ct3 = CustomerTree 3 (Grec $ Names "zev1" $ Just "zev") [] []
 
 check :: IO ()
 check = runSession @Db "test.db" $ do
-  dropCreate @Db @TCustomer
-  dropCreate @Db @TOrder
-  dropCreate @Db @TArticle
-  dropCreate @Db @TOrderPosition
-  dropCreate @Db @TAddress
+  dropCreate @Db @TCustomer @Customer
+  dropCreate @Db @TOrder @Orders
+  dropCreate @Db @TArticle @Article
+  dropCreate @Db @TOrderPosition @OrderPosition
+  dropCreate @Db @TAddress @Address
 
   insertTreeMany @Db @TCustomerTree ct
 

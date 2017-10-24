@@ -26,7 +26,7 @@ import           Perst.Database.TreeDef   (AppCons, ChildByParents, FieldByName,
 type SelTreeCons b t k r =
   ( DML b (TdData t) r
   , RecCons b k
-  , SelTreeCons' b t r k (TaggedAllParentKeys t)
+  , SelTreeCons' b t r k (TaggedAllParentKeys t (Grec r))
   )
 
 type SelTreeCons' b t r k tapk =
@@ -41,13 +41,12 @@ type SelTreeCond b t r =
   , SelectChilds b (GrecChilds t (Grec r)) () r
   )
 
-selectTreeManyDef
-  :: (AppCons f, MonadCons m, SelTreeCons b t k r)
-  => Proxy# b -> Proxy# t -> Proxy# r -> f k -> SessionMonad b m (f [r])
-selectTreeManyDef (_::Proxy# b) (_::Proxy# t) (_::Proxy# r) (ks::f k) = do
+selectTreeManyDef :: (AppCons f, MonadCons m, SelTreeCons b t k r)
+                  => Proxy# '(b,t,r) -> f k -> SessionMonad b m (f [r])
+selectTreeManyDef (_::Proxy# '(b,t,r)) (ks::f k) = do
   ps <- Compose . fmap ZipList
     <$> selectMany @b @(TdData t) @r
-                  (proxy# :: Proxy# (TaggedAllParentKeys t)) ks
+                  (proxy# :: Proxy# (TaggedAllParentKeys t (Grec r))) ks
   (fmap getZipList . getCompose)
     <$> selectChilds @b @(GrecChilds t (Grec r)) ps
 
@@ -79,8 +78,8 @@ instance ( SelectChildsConstraint b s td rs nk vk r
          => SelectChilds b ('(s,'(td,rs)) ': chs) (Tagged nk vk) r where
   selectChilds compKR = do
     r <- liftA2 updRec compKR
-        <$> selectTreeManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# td)
-              (proxy# :: Proxy# (FieldByName s (Grec r))) newkey
+        <$> selectTreeManyDef (proxy# :: Proxy# '(b,td,FieldByName s (Grec r)))
+                              newkey
     selectChilds @b @chs r
    where
     newkey = fmap

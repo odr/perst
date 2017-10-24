@@ -25,7 +25,8 @@ import           GHC.Prim                (Proxy#, proxy#)
 import           GHC.TypeLits            (KnownSymbol, symbolVal)
 -- import           Perst.Database.Constraints (DDLConstr)
 
-import           Data.Type.Grec          (Grec)
+import           Data.Type.Grec          (ConvGrecInfo (..), FieldsConvGrec,
+                                          Grec)
 import           Perst.Database.DataDef  (DataDef, DataDef' (..),
                                           DataDefInfo (..), DataInfo (..),
                                           FK (..), formatS)
@@ -33,48 +34,40 @@ import           Perst.Database.DbOption (DbOption (..), DbTypeNames (..),
                                           MonadCons, SessionMonad)
 
 type DDLConsV b t = (DbOption b, DataDefInfo t)
-type DDLCons b t = (DDLConsV b t, DbTypeNames b (Fst t))
+type DDLCons b t r = (DDLConsV b t, DbTypeNames b (Rec r), ConvGrecInfo (Grec r))
 
-class DDLCons b t => DDL b t where
+type Rec r = FieldsConvGrec (Grec r)
+
+class DDLCons b t r => DDL b t r where
   create      :: MonadCons m => SessionMonad b m ()
+  create = execCommand @b (createText @b @t @r)
+
   drop        :: MonadCons m => SessionMonad b m ()
+  drop   = execCommand @b (dropText   @b @t @r)
+
   createText  :: Text
   createText
-    | isTable @t = createTextTable (proxy# :: Proxy# b) (proxy# :: Proxy# t)
-    | otherwise = createTextView (proxy# :: Proxy# b) (proxy# :: Proxy# t)
+    | isTable @t = createTextTable (proxy# :: Proxy# '(b,t,r))
+
+    | otherwise = createTextView (proxy# :: Proxy# '(b,t))
 
   dropText    :: Text
+  dropText = formatS "DROP TABLE {}" $ Only (tableName @t)
+
   dropCreate :: MonadCons m => SessionMonad b m ()
   dropCreate = do
-    catch (drop @b @t) (\(_::SomeException) -> return ())
-    create @b @t
+    catch (drop @b @t @r) (\(_::SomeException) -> return ())
+    create @b @t @r
 
-  dropText = formatS "DROP TABLE {}" $ Only (tableName @t)
-  create = execCommand @b (createText @b @t)
-  drop   = execCommand @b (dropText   @b @t)
-
-
--- instance DDLCons b '(r, DataDefC (TableInfo p u ai) f)
---     => DDL b '(r, DataDefC (TableInfo p u ai) f) where
---   createText = createTextTable
---       (proxy# :: Proxy# b)
---       (proxy# :: Proxy# '(r, DataDefC (TableInfo p u ai) f))
---
--- instance DDLConsV b '(r, DataDefC (ViewInfo (Just s) upd p u ai) f)
---       => DDL b '(r, DataDefC (ViewInfo (Just s) upd p u ai) f) where
---   createText = createTextView
---       (proxy# :: Proxy# b)
---       (proxy# :: Proxy# '(r, DataDefC (ViewInfo (Just s) upd p u ai) f))
-
-createTextTable :: DDLCons b t => Proxy# b -> Proxy# t -> Text
-createTextTable (_ :: Proxy# b) (_ :: Proxy# t)
+createTextTable :: DDLCons b t r => Proxy# '(b,t,r) -> Text
+createTextTable (_ :: Proxy# '(b,t,r))
   = formatS "CREATE TABLE {} {} ({}, PRIMARY KEY ({}) {} {})"
       ( afterCreateTableText @b
       , tableName @t
       , T.intercalate ","
           $ zipWith (\n (t,b) -> formatS "{} {} {} NULL"
                                           (n,t, if b then T.empty else "NOT"))
-                    (fieldNames @t) (dbTypeNames @b @(Fst t))
+                    (fieldNames @(Grec r)) (dbTypeNames @b @(Rec r))
       , T.intercalate "," $ primaryKey @t
       , foldMap (formatS ",UNIQUE ({})" . Only . T.intercalate ",")
           $ uniqKeys @t
@@ -86,8 +79,8 @@ createTextTable (_ :: Proxy# b) (_ :: Proxy# t)
                   )
                 ) $ foreignKeys @t
       )
-createTextView :: DDLConsV b t => Proxy# b -> Proxy# t -> Text
-createTextView (_ :: Proxy# b) (_ :: Proxy# t)
+createTextView :: DDLConsV b t => Proxy# '(b,t) -> Text
+createTextView (_ :: Proxy# '(b,t))
   = formatS "CREATE VIEW {} {} AS {}"
     ( afterCreateTableText @b
     , tableName @t

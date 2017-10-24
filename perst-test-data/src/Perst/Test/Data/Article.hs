@@ -34,14 +34,7 @@ data Article = Article
 
 -- type TArticle = '(Article, DataDefC (TableInfo '["id"] '[ '["name"]] False) '[])
 type TArticle
-  = '( '[ "id"    ::: Int64
-        , "name"  ::: T.Text
-        , "price" ::: Double
-        , "producer" ::: T.Text
-        , "note"     ::: Maybe T.Text
-        ]
-    , DataDefC (TableInfo "article" '["id"] '[ '["name"]] False) '[]
-    )
+  = DataDefC (TableInfo "article" '["id"] '[ '["name"]] False) '[]
 
 instance DML Db TArticle Article
-instance DDL Db TArticle
+instance DDL Db TArticle Article

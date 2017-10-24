@@ -33,8 +33,8 @@ type InsTreeCons b t k r =
   )
 
 insertTreeManyDef :: (MonadCons m , AppCons f, InsTreeCons b t k r)
-                => Proxy# b -> Proxy# t -> f (k,r) -> SessionMonad b m (f (k,r))
-insertTreeManyDef (_ :: Proxy# b) (_ :: Proxy# t) (rs :: f (k,r)) = do
+                => Proxy# '(b,t) -> f (k,r) -> SessionMonad b m (f (k,r))
+insertTreeManyDef (_ :: Proxy# '(b,t)) (rs :: f (k,r)) = do
   mbk <- fmap (fmap tagKey) <$> insertMany @b @(TdData t) rs
   insertChilds @b @(DataAutoIns(TdData t)) @(GrecChilds t (k, Grec r)) mbk rs
  where
@@ -74,7 +74,7 @@ instance InsChildConsF b pk s td rs chs k r
                 . fmap (map snd . getZipList)
                 . getCompose
                 )
-        $ insertTreeManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# td)
+        $ insertTreeManyDef (proxy# :: Proxy# '(b,td))
         $ Compose $ newRec <$> rs
 
     insertChilds @b @'False @chs mbk rs'
@@ -96,7 +96,7 @@ instance InsChildConsT b pk s td rs chs k r
                 . fmap (map snd . getZipList)
                 . getCompose
                 )
-        $ insertTreeManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# td)
+        $ insertTreeManyDef (proxy# :: Proxy# '(b,td))
         $ Compose $ newRec <$> ks <*> rs
 
     insertChilds @b @'True @chs mbk rs'

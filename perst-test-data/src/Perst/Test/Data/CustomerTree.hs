@@ -7,10 +7,8 @@
 module Perst.Test.Data.CustomerTree where
 
 import           Data.Int                  (Int64)
--- import           Data.Tagged             (Tagged)
 import qualified Data.Text                 as T
 import           GHC.Generics              (Generic)
--- import           GHC.TypeLits            (Symbol)
 
 import           Data.Type.Grec            (Grec)
 import           Perst.Database.DML        (DML (..))
@@ -22,11 +20,10 @@ import           Perst.Test.Data.Db        (Db)
 import           Perst.Test.Data.OrderTree
 
 data CustomerTree = CustomerTree
-  { id        :: Int64
-  , name      :: T.Text
-  , shortname :: Maybe T.Text
-  , orders    :: [OrderTree]
-  , address   :: [Address]
+  { id      :: Int64
+  , names   :: Grec Names
+  , orders  :: [OrderTree]
+  , address :: [Address]
   } deriving (Show, Generic, Eq)
 
 type TCustomerTree = TreeDefC TCustomer

@@ -15,7 +15,7 @@ import           GHC.Generics            (Generic)
 import           GHC.TypeLits            (Symbol)
 
 import           Data.Type.Grec          ((:::), ConvFromGrec, ConvGrecInfo,
-                                          Grec, GrecGroup (..))
+                                          Grec)
 import           Perst.Database.DataDef  (DataDef' (..), DataInfo (..),
                                           DelCons (..), FK (..))
 import           Perst.Database.DbOption (DbOption (..))
@@ -39,47 +39,18 @@ data OrderPosition = OrderPosition
   , cost      :: Double
   } deriving (Show, Generic, Eq, Ord)
 
--- type TOrder =
---   '(Orders
---   , DataDefC (TableInfo '["id"] '[ '["customerId", "num"]] True)
---              '[ FKC "customer" DcCascade '[ '("customerId", "id")]
---              ,  FKC "customer" DcSetNull '[ '("coCustomerId", "id")]
---              ]
---    )
---
--- type TOrderPosition =
---   '(OrderPosition
---   , DataDefC (TableInfo '["orderId","articleId"] '[] False)
---             '[ FKC "orders" DcCascade '[ '("orderId"  ,"id")]
---              , FKC "article" DcRestrict '[ '("articleId","id")]
---              ]
---   )
 type TOrder =
-  '( '[ "id"            ::: Int64
-      , "num"           ::: T.Text
-      , "customerId"    ::: Int64
-      , "coCustomerId"  ::: Maybe Int64
-      , "date"          ::: T.Text
-      ]
-  , DataDefC (TableInfo "orders" '["id"] '[ '["customerId", "num"]] True)
+  DataDefC (TableInfo "orders" '["id"] '[ '["customerId", "num"]] True)
              '[ FKC "customer" DcCascade '[ '("customerId", "id")]
              ,  FKC "customer" DcSetNull '[ '("coCustomerId", "id")]
              ]
-   )
 
 type TOrderPosition =
-  '( '[ "orderId"   ::: Int64
-      , "articleId" ::: Int64
-      , "quantity"  ::: Int64
-      , "cost"      ::: Double
-      ]
-  , DataDefC (TableInfo "OrderPosition" '["orderId","articleId"] '[] False)
+  DataDefC (TableInfo "OrderPosition" '["orderId","articleId"] '[] False)
             '[ FKC "orders" DcCascade '[ '("orderId"  ,"id")]
              , FKC "article" DcRestrict '[ '("articleId","id")]
              ]
-  )
 
--- instance DML Db TOrder Orders
 instance DML Db TOrderPosition OrderPosition
-instance DDL Db TOrder
-instance DDL Db TOrderPosition
+instance DDL Db TOrderPosition OrderPosition
+instance DDL Db TOrder Orders

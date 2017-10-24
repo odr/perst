@@ -35,10 +35,8 @@ type UpdManyCons m f b t r k = ( MonadCons m
                                , Traversable f
                                )
 
-updateTextDef :: UpdTextCons b t r k
-                => Proxy# b -> Proxy# t -> Proxy# r -> Proxy# k
-                -> T.Text
-updateTextDef (_ :: Proxy# b) (_ :: Proxy# t) (_ :: Proxy# r) (_ :: Proxy# k)
+updateTextDef :: UpdTextCons b t r k => Proxy# '(b,t,r,k) -> T.Text
+updateTextDef (_ :: Proxy# '(b,t,r,k))
   = formatS "UPDATE {} SET {} WHERE {}" (tableName @t, rs, ks)
  where
   (ks, rs)
@@ -51,19 +49,17 @@ updateTextDef (_ :: Proxy# b) (_ :: Proxy# t) (_ :: Proxy# r) (_ :: Proxy# k)
     interSnd s = T.intercalate s . map snd
 
 updateManyDef :: UpdManyCons m f b t r k
-              => Proxy# b -> Proxy# t -> f (k,r)  -> SessionMonad b m ()
-updateManyDef (pb :: Proxy# b) (pt :: Proxy# t) (rs :: f (k,r)) = do
-  cmd <- prepareCommand @b
-      $ updateTextDef pb pt (proxy# :: Proxy# r) (proxy# :: Proxy# k)
+              => Proxy# '(b,t) -> f (k,r)  -> SessionMonad b m ()
+updateManyDef (_ :: Proxy# '(b,t)) (rs :: f (k,r)) = do
+  cmd <- prepareCommand @b $ updateTextDef (proxy# :: Proxy# '(b,t,r,k))
   finally (mapM_ ( runPrepared @b cmd . uncurry (++)
                  . bimap convFromGrec convFromGrec
                  ) rs)
           (finalizePrepared @b cmd)
 
 updateDiffTextDef :: UpdDiffTextCons b t r k
-                  => Proxy# b -> Proxy# t -> k -> r -> r
-                  -> (T.Text, [FieldDB b])
-updateDiffTextDef (_ :: Proxy# b) (_ :: Proxy# t) (k :: k) old (new :: r) =
+                  => Proxy# '(b,t) -> k -> r -> r -> (T.Text, [FieldDB b])
+updateDiffTextDef (_ :: Proxy# '(b,t)) (k :: k) old (new :: r) =
   (formatS "UPDATE {} SET {} WHERE {}" (tableName @t, rs, ks), vrs++vks)
  where
   old' = convFromGrec old :: [FieldDB b]
@@ -85,18 +81,17 @@ updateDiffTextDef (_ :: Proxy# b) (_ :: Proxy# t) (k :: k) old (new :: r) =
       $ zipWith3 (\vk fn num -> (formatS "{} = {}" (fn, paramName @b num), vk))
                 k' kns [length vrs..]
 
-updateDiffTextManyDef  :: UpdDiffTextCons b t r k
-                       => Proxy# b -> Proxy# t -> [(k,r,r)]
-                       -> M.Map T.Text [[FieldDB b]]
-updateDiffTextManyDef pb pt
+updateDiffTextManyDef :: UpdDiffTextCons b t r k
+                    => Proxy# '(b,t) -> [(k,r,r)] -> M.Map T.Text [[FieldDB b]]
+updateDiffTextManyDef pbt
   = M.fromListWith mappend
-  . map (second (:[]) . (\(k,o,n) -> updateDiffTextDef pb pt k o n))
+  . map (second (:[]) . (\(k,o,n) -> updateDiffTextDef pbt k o n))
 
 updateDiffManyDef :: UpdDiffManyCons m b t r k
-          => Proxy# b -> Proxy# t -> [(k,r,r)] -> SessionMonad b m ()
-updateDiffManyDef (pb :: Proxy# b) (pt :: Proxy# t) (rs :: [(k,r,r)]) = do
+                  => Proxy# '(b,t) -> [(k,r,r)] -> SessionMonad b m ()
+updateDiffManyDef (pbt :: Proxy# '(b,t)) (rs :: [(k,r,r)]) = do
   mapM_ (\(t,ps) -> do
       (cmd :: PrepCmd b) <- prepareCommand @b t
       finally (mapM_ (runPrepared @b cmd) ps)
               (finalizePrepared @b cmd)
-    ) $ M.toList $ updateDiffTextManyDef pb pt rs
+    ) $ M.toList $ updateDiffTextManyDef pbt rs

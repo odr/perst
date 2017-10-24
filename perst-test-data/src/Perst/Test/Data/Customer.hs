@@ -16,7 +16,7 @@ import           GHC.Generics            (Generic)
 import           GHC.TypeLits            (Symbol)
 
 import           Data.Type.Grec          ((:::), ConvFromGrec, ConvGrecInfo,
-                                          Grec, GrecGroup (..))
+                                          Grec)
 import           Perst.Database.DataDef  (DataDef' (..), DataInfo (..),
                                           DelCons (..), FK (..))
 import           Perst.Database.DbOption (DbOption (..))
@@ -27,7 +27,7 @@ import           Perst.Test.Data.Db      (Db)
 
 data Customer = Customer
   { id    :: Int64
-  , names :: GrecGroup Names
+  , names :: Grec Names
   , note  :: Maybe T.Text
   , note2 :: Maybe T.Text
   , note3 :: Maybe T.Text
@@ -37,10 +37,7 @@ data Customer = Customer
 data Names = Names
   { name      :: T.Text
   , shortname :: Maybe T.Text
-  } deriving (Show, Generic)
-
-
--- pCustomer      = sing :: Sing TCustomer
+  } deriving (Show, Generic, Eq)
 
 data Address = Address
   { id         :: Int64
@@ -49,26 +46,10 @@ data Address = Address
   , house      :: T.Text
   } deriving (Show, Generic, Eq, Ord)
 
-type TCustomer
-  = '( '[ "id"        ::: Int64
-        , "name"      ::: T.Text
-        , "shortname" ::: Maybe T.Text
-        , "note"      ::: Maybe T.Text
-        , "note2"     ::: Maybe T.Text
-        , "note3"     ::: Maybe T.Text
-        ]
-    , DataDefC (TableInfo "customer" '["id"] '[ '["name"]] False) '[]
-    )
+type TCustomer = DataDefC (TableInfo "customer" '["id"] '[ '["name"]] False) '[]
 
-type TAddress =
-  '( '[ "id"         ::: Int64
-      , "customerId" ::: Int64
-      , "street"     ::: T.Text
-      , "house"      ::: T.Text
-      ]
-  , DataDefC (TableInfo "address" '["id"] '[] False)
-            '[ FKC "customer" DcCascade '[ '("customerId", "id")]]
-  )
+type TAddress = DataDefC (TableInfo "address" '["id"] '[] False)
+                '[ FKC "customer" DcCascade '[ '("customerId", "id")]]
 
 -- type TCustomer = '(Customer, DataDefC (TableInfo '["id"] '[ '["name"]] False) '[])
 --
@@ -80,5 +61,5 @@ type TAddress =
 
 -- instance DML Sqlite TCustomer (Grec Customer)
 instance DML Db TAddress Address
-instance DDL Db TCustomer
-instance DDL Db TAddress
+instance DDL Db TCustomer Customer
+instance DDL Db TAddress Address

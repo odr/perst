@@ -48,12 +48,12 @@ type UpdTreeCons' b k r tpkp tpk tk =
     )
 
 updateTreeManyDef :: (MonadCons m, UpdTreeCons b t k r)
-                => Proxy# b -> Proxy# t -> [(k,r)] -> [(k,r)] -> SessionMonad b m ()
-updateTreeManyDef (pb :: Proxy# b) (pt :: Proxy# t) (olds :: [(k,r)]) news = do
-  deleteTreeManyDef pb pt $ filter (not . (`M.member` news') . pairs) olds
+                => Proxy# '(b,t) -> [(k,r)] -> [(k,r)] -> SessionMonad b m ()
+updateTreeManyDef (pbt :: Proxy# '(b,t)) (olds :: [(k,r)]) news = do
+  deleteTreeManyDef pbt $ filter (not . (`M.member` news') . pairs) olds
   updateDiffMany @b @(TdData t) @r $ map (\(o,n) -> (pairs o, o, n)) us
   updateChilds @b @(GrecChilds t (Pair k r)) us
-  insertTreeManyDef pb pt $ filter (not . (`M.member` olds') . pairs) news
+  insertTreeManyDef pbt $ filter (not . (`M.member` olds') . pairs) news
   return ()
  where
   pairs  ((k,r)::(k,r)) = gwTagged (GW (GWO k, Grec r) :: TopPK t (Pair k r))
@@ -82,7 +82,7 @@ type UpdChildCons' b s td rs fld p =
 instance UpdChildCons b s td rs chs k r
       => UpdateChilds b ('(s,'(td,rs)) ': chs) k r where
   updateChilds rs = do
-    updateTreeManyDef (proxy# :: Proxy# b) (proxy# :: Proxy# td) olds news
+    updateTreeManyDef (proxy# :: Proxy# '(b,td)) olds news
     updateChilds @b @chs rs
    where
     (olds,news) = bimap concat concat $ unzip $ map (bimap newRec newRec) rs

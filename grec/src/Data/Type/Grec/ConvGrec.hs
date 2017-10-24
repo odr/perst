@@ -5,8 +5,8 @@ module Data.Type.Grec.ConvGrec( ConvToGrec(..), ConvFromGrec(..)) where
 import           Data.Semigroup         (Semigroup (..))
 import           Data.Tagged            (Tagged)
 
-import           Data.Type.Grec.Convert (Convert (..))
-import           Data.Type.Grec.Grec    (Grec)
+import           Data.Type.Grec.Convert (Convert (..), Grec)
+-- import           Data.Type.Grec.Grec    (Grec)
 
 class ConvToGrec a b where
   convToGrec :: a -> b

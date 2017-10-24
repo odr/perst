@@ -28,8 +28,8 @@ type DelTreeCons b t k r =
   )
 
 deleteTreeManyDef :: (MonadCons m , AppCons f, DelTreeCons b t k r)
-                => Proxy# b -> Proxy# t -> f (k,r) -> SessionMonad b m ()
-deleteTreeManyDef (_ :: Proxy# b) (_ :: Proxy# t) (rs :: f (k,r)) = do
+                  => Proxy# '(b,t) -> f (k,r) -> SessionMonad b m ()
+deleteTreeManyDef (_ :: Proxy# '(b,t)) (rs :: f (k,r)) = do
   deleteChilds @b @(GrecChilds t (k, Grec r)) rs
   deleteMany @b @(TdData t) @r
           $ fmap ( (GW . second Grec :: (k,r) -> TopPK t (k,Grec r)) ) rs
@@ -51,8 +51,7 @@ type DelChildCons b s td rs chs k r =
 instance  DelChildCons b s td rs chs k r
           => DeleteChilds b ('(s,'(td,rs)) ': chs) k r where
   deleteChilds rs = do
-    deleteTreeManyDef(proxy# :: Proxy# b) (proxy# :: Proxy# td)
-              $ Compose $ delRec <$> rs
+    deleteTreeManyDef(proxy# :: Proxy# '(b,td)) $ Compose $ delRec <$> rs
     deleteChilds @b @chs rs
    where
     delRec :: (k,r) -> ZipList ( Tagged (Fsts rs) (RecParent k (Grec r) rs)

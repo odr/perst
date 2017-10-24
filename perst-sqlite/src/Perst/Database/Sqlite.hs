@@ -31,15 +31,12 @@ import           Perst.Database.DbOption     (DBEnum, DbOption (..), DbTypeName)
 
 data Sqlite
 
+
 type instance DbTypeName Sqlite Int64      = "INTEGER"
 type instance DbTypeName Sqlite Text       = "TEXT"
 type instance DbTypeName Sqlite Double     = "FLOAT"
 type instance DbTypeName Sqlite ByteString = "BLOB"
 type instance DbTypeName Sqlite (DBEnum a) = "TEXT"
-
--- singletonStar [''Text, ''Double, ''Int64, ''Maybe]
-
--- singletonStar [''Text, ''Double, ''Int64, ''Maybe] -- , ''ByteString, ''DBEnum]
 
 instance Convert SQLData Int64 where
   convert (SQLInteger x) = x

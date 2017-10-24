@@ -15,4 +15,4 @@ extra-deps:
 # - dotgen-0.4.2
 
 # resolver: lts-8.7
-resolver: nightly-2017-08-08
+resolver: nightly-2017-10-23

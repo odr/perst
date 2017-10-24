@@ -52,9 +52,9 @@ import qualified Data.Text.Lazy                as TL
 import           Lens.Micro                    (set)
 import           Lens.Micro.Extras             (view)
 
-import           Data.Type.Grec.Convert        (IsConvSym0)
+import           Data.Type.Grec.Convert        (Grec (..), IsConvSym0)
 import           Data.Type.Grec.ConvGrec       (ConvFromGrec (..))
-import           Data.Type.Grec.Grec           (Grec (..))
+-- import           Data.Type.Grec.Grec           (Grec (..))
 import           Data.Type.Grec.Lens           (NLensed (..))
 import           Data.Type.Grec.Type           (Fields, IsSub, ListToPairs,
                                                 TaggedToList)

@@ -18,8 +18,8 @@ type DelCons m b t k = (MonadCons m, DelTextCons b t k, ConvFromGrec k [FieldDB 
 
 type DelManyCons m f b t k = (Traversable f, DelCons m b t k)
 
-deleteTextDef :: DelTextCons b t k => Proxy# b -> Proxy# t -> Proxy# k -> Text
-deleteTextDef (_ :: Proxy# b) (_ :: Proxy# t) (_ :: Proxy# k)
+deleteTextDef :: DelTextCons b t k => Proxy# '(b,t,k) -> Text
+deleteTextDef (_ :: Proxy# '(b,t,k))
   = formatS "DELETE FROM {} WHERE {}"
     ( tableName @t
     , intercalate " AND "
@@ -28,8 +28,8 @@ deleteTextDef (_ :: Proxy# b) (_ :: Proxy# t) (_ :: Proxy# k)
     )
 
 deleteManyDef :: DelManyCons m f b t k
-              => Proxy# b -> Proxy# t -> f k -> SessionMonad b m ()
-deleteManyDef (pb :: Proxy# b) pt (ks :: f k) = do
-  cmd <- prepareCommand @b $ deleteTextDef pb pt (proxy# :: Proxy# k)
+              => Proxy# '(b,t) -> f k -> SessionMonad b m ()
+deleteManyDef (_ :: Proxy# '(b,t)) (ks :: f k) = do
+  cmd <- prepareCommand @b $ deleteTextDef (proxy# :: Proxy# '(b,t,k))
   finally (mapM_ (runPrepared @b cmd . convFromGrec) ks)
           (finalizePrepared @b cmd)

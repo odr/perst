@@ -4,7 +4,7 @@ module Data.Type.Grec.Internal.GGrecList
   , GListFromGrec(..)
   ) where
 
--- import           Data.Bifunctor         (second)
+import           Data.Bifunctor         (second)
 import           Data.Tagged            (Tagged (..), untag)
 import           Data.Type.Grec.Convert (ConvType, Convert (..))
 import           Data.Type.Grec.Type    (GrecGroup (..))
@@ -25,6 +25,7 @@ class GListFromGrec a g where
 -- class GListFromGrec' a b where
 --   gListFromGrec' :: b -> [a]
 --
+
 -- ---------------------------------------
 -- instance Monoid b => GListToGrec' a (Tagged 0 b) where
 --   gListToGrec' as  = (as, Tagged mempty)
@@ -44,8 +45,12 @@ class GListFromGrec a g where
 --
 -- instance (Generic b, GListToGrec a (Rep b)) => GListToGrec' a (GrecGroup b) where
 --   gListToGrec' = second (GrecGroup . to) . gListToGrec
+-- instance (Generic b, GListToGrec a (Rep b)) => Convert [a] ([a],GrecGroup b) where
+--   convert = second (GrecGroup . to) . gListToGrec
 -- instance (Generic b, GListFromGrec a (Rep b)) => GListFromGrec' a (GrecGroup b) where
 --   gListFromGrec' = gListFromGrec . from . getGrecGroup
+-- instance (Generic b, GListFromGrec a (Rep b)) => Convert (GrecGroup b) [a] where
+--   convert = gListFromGrec . from . getGrecGroup
 ---------------------------------------
 
 instance Convert [a] ([a],Tagged (ConvType b) b)

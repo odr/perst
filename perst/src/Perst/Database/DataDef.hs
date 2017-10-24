@@ -112,15 +112,14 @@ deriving instance Show s => Show (DataDef' s)
 type DataDef = DataDef' Symbol
 
 type DdKey t = DiKey (DdInfo t)
-type DataKey t = DdKey (Snd t)
-type WithKey t r = GrecWith (DataKey t) r
-type WithoutKey t r = GrecWithout (DataKey t) r
+-- type DataKey t = DdKey (Snd t)
+type WithKey t r = GrecWith (DdKey t) r
+type WithoutKey t r = GrecWithout (DdKey t) r
 
-type DataAutoIns t = DiAutoIns (DdInfo (Snd t))
+type DataAutoIns t = DiAutoIns (DdInfo t)
 
-class (SingI (Snd t), SingI (Fsts (Fst t)))
-    => DataDefInfo (t :: ([(Symbol,Type)], DataDef)) where
-  singDataDef :: Sing (Snd t)
+class SingI t => DataDefInfo (t :: DataDef) where
+  singDataDef :: Sing t
   singDataDef = sing
 
   dataDef :: DataDef' Text
@@ -154,10 +153,10 @@ class (SingI (Snd t), SingI (Fsts (Fst t)))
   tableName :: Text
   tableName = diName (dataInfo @t) -- fromSing (sing :: Sing (Typ (Fst t)))
 
-  fieldNames :: [Text]
-  fieldNames = fromSing (sing :: Sing (Fsts (Fst t)))
+  -- fieldNames :: [Text]
+  -- fieldNames = fromSing (sing :: Sing (Fsts (Fst t)))
 
-instance (SingI (Snd t), SingI (Fsts (Fst t))) => DataDefInfo t
+instance SingI t => DataDefInfo t
 
 showProxy :: (SingI t, SingKind k) => Proxy (t :: k) -> Demote k
 showProxy (_ :: Proxy t) = fromSing (sing :: Sing t)

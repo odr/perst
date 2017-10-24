@@ -29,6 +29,7 @@ import           GHC.OverloadedLabels          (IsLabel (..))
 import           GHC.TypeLits                  (ErrorMessage (..), TypeError)
 
 type (:::) a b = '(a,b)
+newtype Grec a = Grec { unGrec :: a } deriving (Eq, Show, Ord)
 
 type Cons a = GCons (Rep a)
 type family GCons (a :: k1) :: Symbol where
@@ -46,10 +47,11 @@ type family GTyp (a :: k1) :: Symbol where
       :$$: Text "Checked type is " :<>: ShowType a
       )
 
-newtype GrecGroup a = GrecGroup { getGrecGroup :: a } deriving (Show, Eq, Ord, Generic)
+-- newtype GrecGroup a = GrecGroup { getGrecGroup :: a } deriving (Show, Eq, Ord, Generic)
+
 type family UnGrecGroup (a :: [(Symbol, Type)]) where
   UnGrecGroup '[] = '[]
-  UnGrecGroup ('(s, GrecGroup b) ': as) = Fields b :++ UnGrecGroup as
+  UnGrecGroup ('(s, Grec b) ': as) = Fields b :++ UnGrecGroup as
   UnGrecGroup (a ': as) = a ': UnGrecGroup as
 
 
