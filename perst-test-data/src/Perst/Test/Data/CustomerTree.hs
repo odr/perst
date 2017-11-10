@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Perst.Test.Data.CustomerTree where
 
+import           Data.Aeson                (FromJSON, ToJSON)
 import           Data.Int                  (Int64)
 import qualified Data.Text                 as T
 import           GHC.Generics              (Generic)
@@ -35,3 +36,6 @@ type TCustomerTree = TreeDefC TCustomer
 instance DML Db TCustomer CustomerTree
 
 instance DMLTree Db TCustomerTree CustomerTree
+
+instance ToJSON CustomerTree
+instance FromJSON CustomerTree

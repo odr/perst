@@ -7,8 +7,8 @@
 {-# LANGUAGE TypeOperators         #-}
 module Perst.Test.Data.Order where
 
+import           Data.Aeson              (FromJSON, ToJSON)
 import           Data.Int                (Int64)
--- import           Data.Singletons.Prelude
 import           Data.Tagged             (Tagged)
 import qualified Data.Text               as T
 import           GHC.Generics            (Generic)
@@ -38,6 +38,9 @@ data OrderPosition = OrderPosition
   , quantity  :: Int64
   , cost      :: Double
   } deriving (Show, Generic, Eq, Ord)
+
+instance ToJSON OrderPosition
+instance FromJSON OrderPosition
 
 type TOrder =
   DataDefC (TableInfo "orders" '["id"] '[ '["customerId", "num"]] True)

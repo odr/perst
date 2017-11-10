@@ -2,9 +2,11 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MagicHash                  #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeOperators              #-}
 
 module Main where
@@ -19,11 +21,14 @@ import qualified Data.Aeson.Parser
 import           Data.Aeson.Types
 import           Data.Attoparsec.ByteString
 import           Data.ByteString               (ByteString)
+import           Data.Int                      (Int64)
 import           Data.List
 import           Data.Maybe
 import           Data.String.Conversions
+import           Data.Tagged
 import           Data.Time.Calendar
 import           GHC.Generics
+import           GHC.Prim                      (Proxy#, proxy#)
 import           Lucid
 import           Network.HTTP.Media            ((//), (/:))
 import           Network.Wai
@@ -34,13 +39,27 @@ import           Text.Blaze
 import qualified Text.Blaze.Html
 import           Text.Blaze.Html.Renderer.Utf8
 
-type API = "position" :> Capture "x" Int :> Capture "y" Int :> Get '[JSON] Position
-      :<|> "hello" :> QueryParam "name" String :> Get '[JSON] HelloMessage
-      :<|> "marketing" :> ReqBody '[JSON] ClientInfo :> Post '[JSON] Email
+import           Perst.Database.Condition      (Condition)
+import           Perst.Database.DbOption
+import           Perst.Database.TreeDef        (ToTreeDef)
+import           Perst.Servant.API
+import           Perst.Test.Data
+-- import           Perst.Test.Data.Article
+import           Perst.Test.Data.Customer
+import           Perst.Test.Data.CustomerTree
+import           Perst.Test.Data.Db            (Db)
+-- import           Perst.Test.Data.Order
+-- import           Perst.Test.Data.OrderTree
+
+type API = "position"   :> Capture "x" Int :> Capture "y" Int :> Get '[JSON] Position
+      :<|> "hello"      :> QueryParam "name" String :> Get '[JSON] HelloMessage
+      :<|> "marketing"  :> ReqBody '[JSON] ClientInfo :> Post '[JSON] Email
+      :<|> "tcustomer"  :> PerstAPI TCustomerTree CustomerTree
+      -- :<|> "customer"   :> PerstAPI (ToTreeDef TCustomer) Customer
 
 data Position = Position
   { xCoord :: Int
-  , yCoord :: Int
+  , yCoord :: Tagged "x" Int
   } deriving Generic
 
 instance ToJSON Position
@@ -81,21 +100,25 @@ emailForClient c = Email from' to' subject' body'
                 ++ intercalate ", " (clientInterestedIn c)
                 ++ " products? Give us a visit!"
 main :: IO ()
-main = run 8081 app1
+main = runSession @Db "test.db" $ do
+  initTest
+  ask >>= liftIO . run 8081 . app1
 
-app1 :: Application
-app1 = serve positionAPI server3
+app1 :: Conn Db -> Application
+app1 conn = serve positionAPI (server3 conn)
 
 positionAPI :: Proxy API
 positionAPI = Proxy
 
-server3 :: Server API
-server3 = position
-     :<|> hello
-     :<|> marketing
+server3 :: Conn Db -> Server API
+server3 conn = position
+           :<|> hello
+           :<|> marketing
+           :<|> serverPerstAPI (proxy# :: Proxy# '(Db, TCustomerTree, CustomerTree)) conn
+          --  :<|> serverPerstAPI (proxy# :: Proxy# '(Db, ToTreeDef TCustomer, Customer)) conn
   where
     position :: Int -> Int -> Handler Position
-    position x y = return (Position x y)
+    position x y = return (Position x (Tagged y))
 
     hello :: Maybe String -> Handler HelloMessage
     hello mname = return . HelloMessage $ case mname of
@@ -104,3 +127,9 @@ server3 = position
 
     marketing :: ClientInfo -> Handler Email
     marketing clientinfo = return (emailForClient clientinfo)
+
+    -- customerList :: Condition TCustomerTree CustomerTree -> Handler [CustomerTree]
+    -- customerList = undefined
+    --
+    -- customerRec :: Tagged '["id"] Int64 -> Handler CustomerTree
+    -- customerRec = undefined

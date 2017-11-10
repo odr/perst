@@ -7,7 +7,7 @@ module Perst.Database.DMLTree where
 import           Control.Applicative        (ZipList (..))
 import           GHC.Prim                   (Proxy#, proxy#)
 
-import           Data.Type.Grec             (Grec (..))
+-- import           Data.Type.Grec             (Grec (..))
 import           Perst.Database.Condition   (Condition)
 import           Perst.Database.DbOption    (MonadCons, SessionMonad)
 import           Perst.Database.Tree.Delete (DelTreeCons, deleteTreeManyDef)
@@ -26,7 +26,7 @@ class UpdTreeCons b t () r => DMLTree b t r where
                  . ZipList
 
   selectTreeCond :: (MonadCons m, SelTreeCond b t r)
-                 => Condition t (Grec r) -> SessionMonad b m [r]
+      => Condition t r -> SessionMonad b m [r]
   selectTreeCond = selectTreeCondDef (proxy# :: Proxy# b)
 
   insertTreeMany :: MonadCons m => [r] -> SessionMonad b m [r]
@@ -41,3 +41,7 @@ class UpdTreeCons b t () r => DMLTree b t r where
   updateTreeMany :: MonadCons m => [r] -> [r] -> SessionMonad b m ()
   updateTreeMany olds news = updateTreeManyDef (proxy# :: Proxy# '(b,t))
                                                (map ((),) olds) (map ((),) news)
+
+-- instance DML b t r => DMLTree b (TreeDefC t '[]) r where
+--   selectTreeMany = fmap (fmap (map snd)) . selectMany (proxy# :: Proxy# ())
+  -- selectTreeCond =

@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE DeriveFunctor        #-}
+{-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE MagicHash            #-}
 {-# LANGUAGE TupleSections        #-}
@@ -13,6 +14,7 @@ import           Control.Monad.Trans.Reader       (ReaderT, ask, local,
                                                    runReaderT)
 import           Control.Monad.Trans.State.Strict (State, evalState, get,
                                                    modify, put)
+import           Data.Aeson                       (FromJSON, ToJSON)
 import           Data.Bifunctor                   (bimap, first, second)
 import           Data.Singletons.Prelude          (Fst, Sing, SingI (..), Snd,
                                                    fromSing)
@@ -23,13 +25,14 @@ import           Data.String                      (IsString (..))
 import           Data.Tagged                      (Tagged (..), retag, untag)
 import qualified Data.Text                        as T
 import           Data.Text.Format                 (Only (..))
+import           GHC.Generics
 import           GHC.Prim                         (Proxy#, proxy#)
 import           GHC.TypeLits                     (KnownSymbol, Symbol,
                                                    symbolVal')
 
 import           Data.Type.Grec                   as Grec (ConvFromGrec,
                                                            Convert (..),
-                                                           FieldsGrec,
+                                                           FieldsGrec, Grec,
                                                            ListToTaggedPairs,
                                                            fieldNames)
 import           Perst.Database.DataDef           (formatS)
@@ -42,11 +45,18 @@ data CondVal v  = CvEq v
                 | CvNull
                 | CvLike v
                 | CvNot (CondVal v)
-                deriving (Eq,Show,Functor)
+                deriving (Eq,Show,Functor,Generic)
+instance FromJSON v => FromJSON (CondVal v)
+instance ToJSON   v => ToJSON   (CondVal v)
+
 
 data CondSub (t :: (TreeDef, [(Symbol,Symbol)])) v
   = CsExists (Condition (Fst t) v)
   | CsNotExists (Condition (Fst t) v)
+  deriving Generic
+instance FromJSON (Condition (Fst t) v) => FromJSON (CondSub t v)
+instance ToJSON   (Condition (Fst t) v) => ToJSON   (CondSub t v)
+
 
 
 type family CondValTF (t :: TreeDef) (x :: (Symbol,Type)) :: (Symbol,Type) where
@@ -57,13 +67,16 @@ type family CondMap t (xs :: [(Symbol,Type)]) where
   CondMap t '[] = '[]
   CondMap t (x ': xs) = CondValTF t x ': CondMap t xs
 
-type CondRec t v = ListToTaggedPairs (CondMap t (FieldsGrec v))
+type CondRec t v = ListToTaggedPairs (CondMap t (FieldsGrec (Grec v)))
 
 data Condition t v
   = And (Condition t v) (Condition t v)
   | Or  (Condition t v) (Condition t v)
   | Not (Condition t v)
   | Rec (CondRec t v)
+  deriving Generic
+instance FromJSON (CondRec t v) => FromJSON (Condition t v)
+instance ToJSON   (CondRec t v) => ToJSON (Condition t v)
 
 type ConvCondMonad = ReaderT Int (State (Int, Int))
 runConvCond :: ConvCondMonad a -> a
@@ -154,7 +167,7 @@ instance (ConvCond b (Tagged '[n1] x), ConvCond b (Tagged (n2 ': ns) y))
     <*> convCond @b @(Tagged (n2 ': ns) y) (Tagged y)
 
 -- UndecidableInstances
-instance ConvCond b (CondRec t v) => ConvCond b (Condition t v) where
+instance ConvCond b (CondRec t (Grec v)) => ConvCond b (Condition t v) where
   convCond = \case
     And c1 c2 -> bi "AND" c1 c2
     Or  c1 c2 -> bi "OR" c1 c2

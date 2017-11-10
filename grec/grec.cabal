@@ -49,6 +49,7 @@ library
                       , containers
                       , template-haskell
                       , text
+                      , aeson
   default-language:    Haskell2010
 
 executable grec-exe

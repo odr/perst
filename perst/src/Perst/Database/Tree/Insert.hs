@@ -41,9 +41,6 @@ insertTreeManyDef (_ :: Proxy# '(b,t)) (rs :: f (k,r)) = do
   tagKey :: x -> Tagged (TopKey t) x
   tagKey = Tagged
 
-instance InsertChilds b ai '[] pk k r where
-  insertChilds _ = return
-
 type InsChildCons b s td rs k r =
   ( InsTreeCons b td (Tagged (Fsts rs) (RecParent k (Grec r) rs))
                      (FieldByName s (k, Grec r))
@@ -65,6 +62,9 @@ class InsertChilds b ai chs pk k r where
   insertChilds  ::  ( MonadCons m , AppCons f )
                 => Maybe (f (Tagged pk (GenKey b))) -> f (k,r)
                 -> SessionMonad b m (f (k,r))
+
+instance InsertChilds b ai '[] pk k r where
+  insertChilds _ = return
 
 instance InsChildConsF b pk s td rs chs k r
       => InsertChilds b False ( '(s, '(td,rs)) ': chs) pk k r where

@@ -83,10 +83,15 @@ class DMLCons b t (Grec r) => DML b t r where
   selectMany (_ :: Proxy# r1)
     = fmap (fmap (map (second unGrec)))
     . selectManyDef (proxy# :: Proxy# '(b,t,(r1,Grec r)))
-  insertMany' :: (MonadCons m, Traversable f)
-              => f r -> SessionMonad b m (Maybe (f (GenKey b)))
-  insertMany' = insertMany @b @t @r . fmap ((),)
-
-  selectCond :: (ConvCond b (Condition tree (Grec r)), MonadCons m, (TdData tree ~ t))
-             => Condition tree (Grec r) -> SessionMonad b m [r]
-  selectCond = fmap (map unGrec) . selectCondDef (proxy# :: Proxy# b)
+  -- insertMany' :: (MonadCons m, Traversable f)
+  --             => f r -> SessionMonad b m (Maybe (f (GenKey b)))
+  -- insertMany' = insertMany @b @t @r . fmap ((),)
+  --
+  selectCond :: (ConvCond b (Condition tree r)
+                , MonadCons m, (TdData tree ~ t)
+                , Convert [FieldDB b] ([FieldDB b], r1)
+                , ConvGrecInfo r1
+                )
+             => Proxy# r1 -> Condition tree r -> SessionMonad b m [(r1,r)]
+  selectCond (_ :: Proxy# r1)
+    = fmap (map (second unGrec)) . selectCondDef (proxy# :: Proxy# '(b,r1))

@@ -26,10 +26,10 @@ import           Perst.Database.TreeDef   (AppCons, ChildByParents, FieldByName,
 type SelTreeCons b t k r =
   ( DML b (TdData t) r
   , RecCons b k
-  , SelTreeCons' b t r k (TaggedAllParentKeys t (Grec r))
+  , SelTreeCons' b t r (TaggedAllParentKeys t (Grec r))
   )
 
-type SelTreeCons' b t r k tapk =
+type SelTreeCons' b t r tapk =
   ( Convert [FieldDB b] ([FieldDB b], tapk)
   , ConvGrecInfo tapk
   , SelectChilds b (GrecChilds t (Grec r)) tapk r
@@ -37,8 +37,8 @@ type SelTreeCons' b t r k tapk =
 
 type SelTreeCond b t r =
   ( DML b (TdData t) r
-  , ConvCond b (Condition t (Grec r))
-  , SelectChilds b (GrecChilds t (Grec r)) () r
+  , ConvCond b (Condition t r)
+  , SelTreeCons' b t r (TaggedAllParentKeys t (Grec r))
   )
 
 selectTreeManyDef :: (AppCons f, MonadCons m, SelTreeCons b t k r)
@@ -52,9 +52,11 @@ selectTreeManyDef (_::Proxy# '(b,t,r)) (ks::f k) = do
 
 selectTreeCondDef
   :: (MonadCons m, SelTreeCond b t r)
-  => Proxy# b -> Condition t (Grec r) -> SessionMonad b m [r]
-selectTreeCondDef (_::Proxy# b) (c :: Condition t (Grec r)) = do
-  rs <- (ZipList . map ((,) ())) <$> selectCond @b @(TdData t) c
+  => Proxy# b -> Condition t r -> SessionMonad b m [r]
+selectTreeCondDef (_::Proxy# b) (c :: Condition t r) = do
+  rs <- ZipList
+    <$> selectCond @b @(TdData t) @r
+                  (proxy# :: Proxy# (TaggedAllParentKeys t (Grec r))) c
   getZipList <$> selectChilds @b @(GrecChilds t (Grec r)) rs
 
 class SelectChilds b (chs :: [(Symbol, (TreeDef, [(Symbol,Symbol)]))]) k r where

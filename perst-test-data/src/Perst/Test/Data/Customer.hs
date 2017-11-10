@@ -10,6 +10,7 @@ module Perst.Test.Data.Customer where
 import           Data.Int                (Int64)
 -- import           Data.Singletons.Prelude
 -- import           Data.Singletons.TypeRepStar ()
+import           Data.Aeson              (FromJSON, ToJSON)
 import           Data.Tagged             (Tagged)
 import qualified Data.Text               as T
 import           GHC.Generics            (Generic)
@@ -38,6 +39,8 @@ data Names = Names
   { name      :: T.Text
   , shortname :: Maybe T.Text
   } deriving (Show, Generic, Eq)
+instance ToJSON Names
+instance FromJSON Names
 
 data Address = Address
   { id         :: Int64
@@ -45,6 +48,8 @@ data Address = Address
   , street     :: T.Text
   , house      :: T.Text
   } deriving (Show, Generic, Eq, Ord)
+instance ToJSON Address
+instance FromJSON Address
 
 type TCustomer = DataDefC (TableInfo "customer" '["id"] '[ '["name"]] False) '[]
 
@@ -63,3 +68,6 @@ type TAddress = DataDefC (TableInfo "address" '["id"] '[] False)
 instance DML Db TAddress Address
 instance DDL Db TCustomer Customer
 instance DDL Db TAddress Address
+
+instance ToJSON Customer
+instance FromJSON Customer

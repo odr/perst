@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Perst.Test.Data.OrderTree where
 
+import           Data.Aeson             (FromJSON, ToJSON)
 import           Data.Int               (Int64)
 import qualified Data.Text              as T
 import           GHC.Generics           (Generic)
@@ -28,3 +29,6 @@ type TOrderTree = TreeDefC TOrder
   '[ '("positions", '(TreeDefC TOrderPosition '[],  '[ '("orderId", "id") ]))]
 
 instance DML Db TOrder OrderTree
+
+instance ToJSON OrderTree
+instance FromJSON OrderTree

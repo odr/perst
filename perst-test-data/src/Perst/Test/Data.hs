@@ -18,7 +18,6 @@ import           Perst.Database.DbOption      (DbOption (..), DbTypeName,
                                                SessionMonad)
 import           Perst.Database.DDL           as DDL
 import           Perst.Database.DMLTree
--- import           Perst.Database.Sqlite
 
 import           Perst.Test.Data.Article
 import           Perst.Test.Data.Customer
@@ -46,15 +45,18 @@ ct = [ CustomerTree 1 (Grec $ Names "odr" $ Just "odr")
     ]
 ct3 = CustomerTree 3 (Grec $ Names "zev1" $ Just "zev") [] []
 
-check :: IO ()
-check = runSession @Db "test.db" $ do
+dropCreateTest = do
   dropCreate @Db @TCustomer @Customer
   dropCreate @Db @TOrder @Orders
   dropCreate @Db @TArticle @Article
   dropCreate @Db @TOrderPosition @OrderPosition
   dropCreate @Db @TAddress @Address
 
-  insertTreeMany @Db @TCustomerTree ct
+initTest = dropCreateTest >> insertTreeMany @Db @TCustomerTree ct
+
+check :: IO ()
+check = runSession @Db "test.db" $ do
+  initTest
 
   ct' <- selectTreeMany @Db @TCustomerTree @CustomerTree
                         (map Tagged [1..3] :: [Tagged '["id"] Int64])

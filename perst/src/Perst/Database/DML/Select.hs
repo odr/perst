@@ -9,7 +9,7 @@ import           GHC.Prim                  (Proxy#, proxy#)
 
 import           Data.Type.Grec            as Grec (ConvFromGrec (..),
                                                     ConvGrecInfo (..),
-                                                    ConvToGrec (..),
+                                                    ConvToGrec (..), Grec,
                                                     GrecWith (..))
 import           Perst.Database.Condition  (Condition, ConvCond (..),
                                             runConvCond)
@@ -54,14 +54,15 @@ selectText' (_ :: Proxy# '(t,r)) whereCond
     )
 
 selectCondDef
-  :: ( DbOption b, ConvGrecInfo r, DataDefInfo (TdData t)
-     , ConvToGrec [FieldDB b] r
+  :: ( DbOption b, ConvGrecInfo (r1, Grec r), DataDefInfo (TdData t)
+     , ConvToGrec [FieldDB b] (r1, Grec r)
      , ConvCond b (Condition t r)
      , MonadCons m
      )
-  => Proxy# b -> Condition t r -> SessionMonad b m [r]
-selectCondDef (pb :: Proxy# b) (c :: Condition t r) = do
-  cmd <- prepareCommand @b $ selectText' (proxy# :: Proxy# '(TdData t,r)) txt
+  => Proxy# '(b,r1) -> Condition t r -> SessionMonad b m [(r1, Grec r)]
+selectCondDef (pbr1 :: Proxy# '(b,r1)) (c :: Condition t r) = do
+  cmd <- prepareCommand @b
+      $ selectText' (proxy# :: Proxy# '(TdData t, (r1,Grec r))) txt
   finally (map convToGrec <$> runSelect @b cmd ps) (finalizePrepared @b cmd)
  where
   (txt,ps) = runConvCond (convCond @b c)
