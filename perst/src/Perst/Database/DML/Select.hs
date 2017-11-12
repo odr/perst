@@ -4,6 +4,7 @@ module Perst.Database.DML.Select where
 
 import           Control.Monad.Catch       (finally)
 -- import           Data.Singletons.Prelude   (Snd)
+import           Data.Monoid               (Monoid (..))
 import qualified Data.Text                 as T
 import           GHC.Prim                  (Proxy#, proxy#)
 
@@ -47,10 +48,10 @@ selectManyDef (_ :: Proxy# '(b,t,r)) (ks :: f k)
 selectText' :: (ConvGrecInfo r, DataDefInfo t)
             => Proxy# '(t,r) -> T.Text -> T.Text
 selectText' (_ :: Proxy# '(t,r)) whereCond
-  = formatS "SELECT {} FROM {} t0 WHERE {}"
+  = formatS "SELECT {} FROM {} t0 {}"
     ( T.intercalate "," $ fieldNames @r
     , tableName @t
-    , whereCond
+    , if T.null whereCond then "" else ("WHERE " `mappend` whereCond)
     )
 
 selectCondDef

@@ -12,10 +12,14 @@ module Perst.Servant.API where
 import           Control.Monad
 import           Control.Monad.IO.Class     (liftIO)
 import           Control.Monad.Trans.Reader (runReaderT)
+import           Data.Kind                  (Type)
 import           Data.Singletons.Prelude    (Symbol)
 import           Data.Singletons.TH         (singletons)
+import           Data.Tagged                (Tagged, untag)
 import           GHC.Prim                   (Proxy#, proxy#)
 import           Servant
+-- import           Servant.API
+import           Servant.Client
 
 import           Data.Type.Grec             (Grec (..), GrecWith (..),
                                              NamesGrecLens, gwTagged)
@@ -35,9 +39,11 @@ import           Perst.Database.TreeDef     (TopKey, TopPK, TopPKPairs,
 --   |]
 -- type ServantDef = ServantDef' Symbol
 
--- NB orphan instance!!
+-- NB orphan instances!!
 instance FromHttpApiData v => FromHttpApiData (Tagged x v) where
   parseUrlPiece = fmap Tagged . parseUrlPiece
+instance ToHttpApiData v => ToHttpApiData (Tagged x v) where
+  toUrlPiece = toUrlPiece . untag
 
 type PK t r = TopPKTagged t (Grec r)
 
@@ -86,6 +92,38 @@ serverPerstAPI (_ :: Proxy# '(b,t,r)) conn
     del pk  = getRec pk
             >>= \old -> runSess (deleteTreeMany @b @t @r [old])
             >> return NoContent
+
+perstAPI :: Proxy '(t,r) -> Proxy (PerstAPI t r)
+perstAPI _ = Proxy
+
+-- class HasClient (PerstAPI t r) => HasPerstClient (t::TreeDef) (r :: Type) where
+perstClient :: HasClient (PerstAPI t r) => Proxy '(t,r) -> Client (PerstAPI t r)
+perstClient = client . perstAPI
+
+getList :: Client (PerstAPI t r) -> Condition t r -> ClientM [r]
+getList (c :<|> _) = c
+getRec :: Client (PerstAPI t r) -> PK t r -> ClientM r
+getRec (_ :<|> c :<|> _) = c
+insRec :: Client (PerstAPI t r) -> r -> ClientM (PK t r)
+insRec (_ :<|> _ :<|> c :<|> _) = c
+updRec :: Client (PerstAPI t r) -> r -> ClientM NoContent
+updRec (_ :<|> _ :<|> _ :<|> c :<|> _) = c
+updDiffRec :: Client (PerstAPI t r) -> (r,r) -> ClientM NoContent
+updDiffRec (_ :<|> _ :<|> _ :<|> _ :<|> c :<|> _) = c
+delRec :: Client (PerstAPI t r) -> PK t r -> ClientM NoContent
+delRec (_ :<|> _ :<|> _ :<|> _ :<|> _ :<|> c) = c
+
+-- class ClientPerstAPI (t :: TreeDef) r where
+--   getList     :: Condition t r -> ClientM [r]
+--   getRec      :: PK t r -> ClientM r
+--   insRec      :: r -> ClientM (PK t r)
+--   updRec      :: r -> ClientM NoContent
+--   updDiffRec  :: (r,r) -> ClientM NoContent
+--   delRec      :: PK t r -> ClientM NoContent
+
+-- instance ClientPerstAPI t r where
+--   getList :<|> getRec :<|> insRec :<|> updRec :<|> updDiffRec :<|> delRec
+--     = client (Proxy :: Proxy (PerstAPI t r))
 
 -- serverPerstAPI :: (DMLTree b t r, SelTreeCond b t r, SelTreeCons b t (PK t r) r)
 --     => Proxy# '(b,t,r) -> Conn b -> Server (PerstAPI t r)

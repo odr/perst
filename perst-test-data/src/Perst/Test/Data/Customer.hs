@@ -23,6 +23,8 @@ import           Perst.Database.DataDef  (DataDef' (..), DataInfo (..),
 import           Perst.Database.DbOption (DbOption (..))
 import           Perst.Database.DDL      (DDL (..))
 import           Perst.Database.DML      (DML (..))
+import           Perst.Database.DMLTree  (DMLTree (..))
+import           Perst.Database.TreeDef  (TreeDef' (..))
 
 import           Perst.Test.Data.Db      (Db)
 
@@ -51,7 +53,7 @@ data Address = Address
 instance ToJSON Address
 instance FromJSON Address
 
-type TCustomer = DataDefC (TableInfo "customer" '["id"] '[ '["name"]] False) '[]
+type TCustomer = DataDefC (TableInfo "customer" '["id"] '[ '["name"]] True) '[]
 
 type TAddress = DataDefC (TableInfo "address" '["id"] '[] False)
                 '[ FKC "customer" DcCascade '[ '("customerId", "id")]]
@@ -71,3 +73,6 @@ instance DDL Db TAddress Address
 
 instance ToJSON Customer
 instance FromJSON Customer
+
+instance DML Db TCustomer Customer
+instance DMLTree Db (TreeDefC TCustomer '[]) Customer

@@ -77,3 +77,24 @@ check = runSession @Db "test.db" $ do
     print ct'
 
   return ()
+
+-- checkCond
+--   = runConvCond (convCond @DB @(Condition TCustomerTree (Grec CustomerTree))
+--     (Rec (Tagged def
+--       & grecLens @"name" .~ [CvEq ("xx"::T.Text),CvEq "yy"]
+--       & grecLens @"email" .~ [CvLike ("mail"::T.Text),CvEq "yy"]
+--       & grecLens @"id" .~ [CvEq (1::Int64)]
+--       & grecLens @"shortname" .~ [CvNull :: CondVal (Maybe T.Text)]
+--       & grecLens @"orders" .~ [CsExists $ Rec $ Tagged  def
+--           & grecLens @"num" .~
+--               [ CvNot $ CvEq ("5" :: T.Text)]
+--                   :: CondSub (Child "orders" TCustomerTree) (Grec OrderTree)
+--               ]
+--       & grecLens @"address" .~
+--         [CsNotExists
+--           $ Rec $ Tagged def -- & grecLens @"street" .~ [CvNot $ CvEq ("zzz" :: T.Text)]
+--             :: CondSub (Child "address" TCustomerTree) (Grec Address)
+--         ]
+--     )))
+--
+-- -- f = SS.evalState (convCond @DB @(Condition Maybe (Grec CustomerTree)) (Rec (Tagged def & grecLens @"name" .~ Just (CvEq ("xx"::T.Text)) & grecLens @"id" .~ Just (CvEq (1::Int64)) & grecLens @"shortname" .~ Just (CvNull :: CondVal (Maybe T.Text)) ))) 0

@@ -40,7 +40,7 @@ type TreeDef = TreeDef' Symbol
 promoteOnly [d|
   toTreeDef :: DataDef' s -> TreeDef' s
   toTreeDef dd = TreeDefC dd []
-  
+
   child :: Eq s => s -> TreeDef' s -> (TreeDef' s, [(s,s)])
   child s t = case lookup s $ tdChilds t of
     Nothing -> (error "There is no right children")

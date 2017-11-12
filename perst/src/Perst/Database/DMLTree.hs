@@ -1,7 +1,8 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE MagicHash           #-}
-{-# LANGUAGE TupleSections       #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE MagicHash            #-}
+{-# LANGUAGE TupleSections        #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Perst.Database.DMLTree where
 
 import           Control.Applicative        (ZipList (..))
@@ -10,12 +11,14 @@ import           GHC.Prim                   (Proxy#, proxy#)
 -- import           Data.Type.Grec             (Grec (..))
 import           Perst.Database.Condition   (Condition)
 import           Perst.Database.DbOption    (MonadCons, SessionMonad)
+-- import           Perst.Database.DML         (DML)
 import           Perst.Database.Tree.Delete (DelTreeCons, deleteTreeManyDef)
 import           Perst.Database.Tree.Insert (InsTreeCons, insertTreeManyDef)
 import           Perst.Database.Tree.Select (SelTreeCond, SelTreeCons,
                                              selectTreeCondDef,
                                              selectTreeManyDef)
 import           Perst.Database.Tree.Update (UpdTreeCons, updateTreeManyDef)
+import           Perst.Database.TreeDef     (TreeDef' (..))
 
 
 class UpdTreeCons b t () r => DMLTree b t r where
@@ -45,3 +48,5 @@ class UpdTreeCons b t () r => DMLTree b t r where
 -- instance DML b t r => DMLTree b (TreeDefC t '[]) r where
 --   selectTreeMany = fmap (fmap (map snd)) . selectMany (proxy# :: Proxy# ())
   -- selectTreeCond =
+
+-- instance UpdTreeCons b (TreeDefC t '[]) () r => DMLTree b (TreeDefC t '[]) r

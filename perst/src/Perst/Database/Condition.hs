@@ -75,6 +75,11 @@ data Condition t v
   | Not (Condition t v)
   | Rec (CondRec t v)
   deriving Generic
+instance Monoid (CondRec t v) => Monoid (Condition t v) where
+  mempty = Rec mempty
+  mappend c1 c2 = And c1 c2
+
+
 instance FromJSON (CondRec t v) => FromJSON (Condition t v)
 instance ToJSON   (CondRec t v) => ToJSON (Condition t v)
 
@@ -171,9 +176,18 @@ instance ConvCond b (CondRec t (Grec v)) => ConvCond b (Condition t v) where
   convCond = \case
     And c1 c2 -> bi "AND" c1 c2
     Or  c1 c2 -> bi "OR" c1 c2
-    Not c     -> first (formatS "NOT ({})" . Only) <$> convCond @b c
+    Not c     -> (\(t,vs) -> if T.null t then ("0=1",[])
+                                else (formatS "NOT ({})" (Only t), vs) )
+              <$> convCond @b c
     Rec tr    -> convCond @b tr
    where
     bi (s::T.Text) c1 c2
-      = (\(s1,v1) (s2,v2) -> (formatS "({}) {} ({})" (s1,s,s2), v1 ++ v2))
-      <$> convCond @b c1 <*> convCond @b c2
+      = (\(s1,v1) (s2,v2)
+          -> if T.null s1 then ifnull (s2,v2)
+              else if T.null s2 then ifnull (s1,v1)
+                else (formatS "({}) {} ({})" (s1,s,s2), v1 ++ v2))
+        <$> convCond @b c1 <*> convCond @b c2
+      where
+        ifnull (s',v')
+          | s == "OR" = mempty
+          | otherwise = (s',v')
