@@ -57,8 +57,6 @@ data CondSub (t :: (TreeDef, [(Symbol,Symbol)])) v
 instance FromJSON (Condition (Fst t) v) => FromJSON (CondSub t v)
 instance ToJSON   (Condition (Fst t) v) => ToJSON   (CondSub t v)
 
-
-
 type family CondValTF (t :: TreeDef) (x :: (Symbol,Type)) :: (Symbol,Type) where
   CondValTF t '(n,[v]) = '(n, [CondSub (Child n t) v])
   CondValTF t '(n,v) = '(n, [CondVal v])
@@ -75,6 +73,7 @@ data Condition t v
   | Not (Condition t v)
   | Rec (CondRec t v)
   deriving Generic
+
 instance Monoid (CondRec t v) => Monoid (Condition t v) where
   mempty = Rec mempty
   mappend c1 c2 = And c1 c2

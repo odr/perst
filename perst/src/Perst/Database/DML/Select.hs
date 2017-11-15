@@ -38,7 +38,8 @@ selectText (_ :: Proxy# '(b,t,r,k))
 selectManyDef :: SelManyCons m f b t r k
             => Proxy# '(b,t,r) -> f k -> SessionMonad b m (f [r])
 selectManyDef (_ :: Proxy# '(b,t,r)) (ks :: f k)
-  = do
+  | null ks   = return $ const [] <$> ks
+  | otherwise = do
     cmd <- prepareCommand @b $ selectText (proxy# :: Proxy# '(b,t,r,k))
     finally ( fmap (fmap convToGrec)
               <$> mapM (runSelect @b cmd) (fmap convFromGrec ks)

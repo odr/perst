@@ -16,7 +16,7 @@ module Data.Type.Grec.Type
     -- )
     where
 
-import           Data.Aeson                    (FromJSON, ToJSON)
+import           Data.Aeson                    (FromJSON (..), ToJSON (..))
 import           Data.Kind                     (Constraint, Type)
 import           Data.List                     (find, nub)
 import           Data.Maybe                    (fromJust, isNothing)
@@ -31,9 +31,10 @@ import           GHC.TypeLits                  (ErrorMessage (..), TypeError)
 
 type (:::) a b = '(a,b)
 newtype Grec a = Grec { unGrec :: a } deriving (Eq, Show, Ord, Generic)
-instance ToJSON   a => ToJSON   (Grec a)
-instance FromJSON a => FromJSON (Grec a)
-
+instance ToJSON   a => ToJSON   (Grec a) where
+  toJSON = toJSON . unGrec
+instance FromJSON a => FromJSON (Grec a) where
+  parseJSON = fmap Grec . parseJSON
 
 type Cons a = GCons (Rep a)
 type family GCons (a :: k1) :: Symbol where

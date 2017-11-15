@@ -29,7 +29,9 @@ deleteTextDef (_ :: Proxy# '(b,t,k))
 
 deleteManyDef :: DelManyCons m f b t k
               => Proxy# '(b,t) -> f k -> SessionMonad b m ()
-deleteManyDef (_ :: Proxy# '(b,t)) (ks :: f k) = do
-  cmd <- prepareCommand @b $ deleteTextDef (proxy# :: Proxy# '(b,t,k))
-  finally (mapM_ (runPrepared @b cmd . convFromGrec) ks)
-          (finalizePrepared @b cmd)
+deleteManyDef (_ :: Proxy# '(b,t)) (ks :: f k)
+  | null ks = return ()
+  | otherwise = do
+    cmd <- prepareCommand @b $ deleteTextDef (proxy# :: Proxy# '(b,t,k))
+    finally (mapM_ (runPrepared @b cmd . convFromGrec) ks)
+            (finalizePrepared @b cmd)

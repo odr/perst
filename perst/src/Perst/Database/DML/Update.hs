@@ -2,10 +2,11 @@
 {-# LANGUAGE TypeApplications #-}
 module Perst.Database.DML.Update where
 
+import           Control.Monad           (when)
 import           Control.Monad.Catch     (finally)
 import           Data.Bifunctor          (bimap, first, second)
 import qualified Data.Map                as M
-import           Data.Maybe              (catMaybes)
+import           Data.Maybe              (catMaybes, mapMaybe)
 import qualified Data.Text               as T
 import           GHC.Prim                (Proxy#, proxy#)
 
@@ -50,17 +51,22 @@ updateTextDef (_ :: Proxy# '(b,t,r,k))
 
 updateManyDef :: UpdManyCons m f b t r k
               => Proxy# '(b,t) -> f (k,r)  -> SessionMonad b m ()
-updateManyDef (_ :: Proxy# '(b,t)) (rs :: f (k,r)) = do
-  cmd <- prepareCommand @b $ updateTextDef (proxy# :: Proxy# '(b,t,r,k))
-  finally (mapM_ ( runPrepared @b cmd . uncurry (++)
-                 . bimap convFromGrec convFromGrec
-                 ) rs)
-          (finalizePrepared @b cmd)
+updateManyDef (_ :: Proxy# '(b,t)) (rs :: f (k,r))
+  | null rs = return ()
+  | otherwise = do
+    cmd <- prepareCommand @b $ updateTextDef (proxy# :: Proxy# '(b,t,r,k))
+    finally (mapM_ ( runPrepared @b cmd . uncurry (++)
+                   . bimap convFromGrec convFromGrec
+                   ) rs)
+            (finalizePrepared @b cmd)
 
 updateDiffTextDef :: UpdDiffTextCons b t r k
-                  => Proxy# '(b,t) -> k -> r -> r -> (T.Text, [FieldDB b])
-updateDiffTextDef (_ :: Proxy# '(b,t)) (k :: k) old (new :: r) =
-  (formatS "UPDATE {} SET {} WHERE {}" (tableName @t, rs, ks), vrs++vks)
+                  => Proxy# '(b,t) -> k -> r -> r -> Maybe (T.Text, [FieldDB b])
+updateDiffTextDef (_ :: Proxy# '(b,t)) (k :: k) old (new :: r)
+  | null vrs  = Nothing
+  | otherwise = Just ( formatS "UPDATE {} SET {} WHERE {}" (tableName @t, rs, ks)
+                     , vrs ++ vks
+                     )
  where
   old' = convFromGrec old :: [FieldDB b]
   new' = convFromGrec new
@@ -69,12 +75,18 @@ updateDiffTextDef (_ :: Proxy# '(b,t)) (k :: k) old (new :: r) =
   k' = convFromGrec k
   (rs,vrs) = first (T.intercalate ",")
           $ unzip
-          $ catMaybes
-          $ zipWith (\(o, n, fn) num ->
-                      if o == n
-                        then Nothing
-                        else Just (formatS "{} = {}" (fn, paramName @b num), n)
-                  ) (zip3 old' new' fns) [0..]
+          -- $ catMaybes
+          $ zipWith (\num (_, n, fn)
+                            -> (formatS "{} = {}" (fn, paramName @b num), n)
+                    ) [0..]
+          $ filter (\(o, n, _) -> o /= n)
+          $ zip3 old' new' fns
+
+          -- $ zipWith (\(o, n, fn) num ->
+          --             if o == n
+          --               then Nothing
+          --               else Just (formatS "{} = {}" (fn, paramName @b num), n)
+          --         ) (zip3 old' new' fns) [0..]
   (ks,vks)
       = first (T.intercalate " AND ")
       $ unzip
@@ -85,12 +97,12 @@ updateDiffTextManyDef :: UpdDiffTextCons b t r k
                     => Proxy# '(b,t) -> [(k,r,r)] -> M.Map T.Text [[FieldDB b]]
 updateDiffTextManyDef pbt
   = M.fromListWith mappend
-  . map (second (:[]) . (\(k,o,n) -> updateDiffTextDef pbt k o n))
+  . mapMaybe (fmap (second (:[])) . (\(k,o,n) -> updateDiffTextDef pbt k o n))
 
 updateDiffManyDef :: UpdDiffManyCons m b t r k
                   => Proxy# '(b,t) -> [(k,r,r)] -> SessionMonad b m ()
 updateDiffManyDef (pbt :: Proxy# '(b,t)) (rs :: [(k,r,r)]) = do
-  mapM_ (\(t,ps) -> do
+  mapM_ (\(t,ps) -> when (not $ null ps) $ do
       (cmd :: PrepCmd b) <- prepareCommand @b t
       finally (mapM_ (runPrepared @b cmd) ps)
               (finalizePrepared @b cmd)

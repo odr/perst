@@ -11,45 +11,17 @@
 
 module Common where
 
-import           Prelude                       ()
-import           Prelude.Compat
-
-import           Control.Monad.Except
-import           Control.Monad.Reader
-import           Data.Aeson.Compat
-import qualified Data.Aeson.Parser
-import           Data.Aeson.Types
-import           Data.Attoparsec.ByteString
-import           Data.ByteString               (ByteString)
-import           Data.Int                      (Int64)
-import           Data.List
-import           Data.Maybe
-import           Data.String.Conversions
-import           Data.Tagged
-import           Data.Time.Calendar
-import           GHC.Generics
-import           GHC.Prim                      (Proxy#, proxy#)
-import           Lucid
-import           Network.HTTP.Media            ((//), (/:))
-import           Network.Wai
-import           Network.Wai.Handler.Warp
+import           Data.Aeson.Types             (FromJSON, ToJSON)
+import           Data.List                    (intercalate)
+import           GHC.Generics                 (Generic)
+-- import           GHC.Prim                     (Proxy#, proxy#)
 import           Servant
-import           System.Directory
-import           Text.Blaze
-import qualified Text.Blaze.Html
-import           Text.Blaze.Html.Renderer.Utf8
 
-import           Perst.Database.Condition      (Condition)
-import           Perst.Database.DbOption
-import           Perst.Database.TreeDef        (ToTreeDef)
-import           Perst.Servant.API
-import           Perst.Test.Data
--- import           Perst.Test.Data.Article
-import           Perst.Test.Data.Customer
-import           Perst.Test.Data.CustomerTree
-import           Perst.Test.Data.Db            (Db)
--- import           Perst.Test.Data.Order
--- import           Perst.Test.Data.OrderTree
+import           Perst.Database.TreeDef       (ToTreeDef)
+import           Perst.Servant.API            (PerstAPI)
+import           Perst.Test.Data.Customer     (Customer, TCustomer)
+import           Perst.Test.Data.CustomerTree (CustomerTree, TCustomerTree)
+import           Perst.Test.Data.Db           (Db)
 
 data Position = Position
   { xCoord :: Int

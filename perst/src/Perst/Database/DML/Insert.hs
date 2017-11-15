@@ -39,22 +39,25 @@ insertTextDef (_ :: Proxy# '(b,t,r))
 
 insertManyDef  ::  InsManyCons m f b t r
     => Proxy# '(b,t) -> f r -> SessionMonad b m (Maybe (f (GenKey b)))
-insertManyDef (_ :: Proxy# '(b,t)) (rs :: f r) = do
-  when ai $ preRunInAuto @b
-  (cmd :: PrepCmd b) <- prepareCommand @b
-                      $ insertTextDef (proxy# :: Proxy# '(b,t,r))
-  finally ( fmap sequenceA
-          $ mapM (\r -> do
-                  runPrepared @b cmd r
-                  if ai
-                    then Just <$> getLastKey @b
-                    else return Nothing
-              ) $ fmap (
+insertManyDef (_ :: Proxy# '(b,t)) (rs :: f r)
+  | null rs && not ai = return Nothing
+  | null rs && ai = Just <$> mapM (\_ -> getLastKey @b) rs
+  | otherwise = do
+    when ai $ preRunInAuto @b
+    (cmd :: PrepCmd b) <- prepareCommand @b
+                        $ insertTextDef (proxy# :: Proxy# '(b,t,r))
+    finally ( fmap sequenceA
+            $ mapM (\r -> do
+                    runPrepared @b cmd r
                     if ai
-                      then convFromGrec @(WithoutKey t r) . GWO
-                      else convFromGrec
-                  ) rs
-          )
-          (finalizePrepared @b cmd)
+                      then Just <$> getLastKey @b
+                      else return Nothing
+                ) $ fmap (
+                      if ai
+                        then convFromGrec @(WithoutKey t r) . GWO
+                        else convFromGrec
+                    ) rs
+            )
+            (finalizePrepared @b cmd)
  where
   ai = autoIns @t

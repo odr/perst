@@ -2,7 +2,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE KindSignatures            #-}
 {-# LANGUAGE MagicHash                 #-}
-{-# LANGUAGE TemplateHaskell           #-}
+-- {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TypeApplications          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeInType                #-}
@@ -13,8 +13,8 @@ import           Control.Monad
 import           Control.Monad.IO.Class     (liftIO)
 import           Control.Monad.Trans.Reader (runReaderT)
 import           Data.Kind                  (Type)
-import           Data.Singletons.Prelude    (Symbol)
-import           Data.Singletons.TH         (singletons)
+-- import           Data.Singletons.Prelude    (Symbol)
+-- import           Data.Singletons.TH         (singletons)
 import           Data.Tagged                (Tagged, untag)
 import           GHC.Prim                   (Proxy#, proxy#)
 import           Servant
@@ -48,15 +48,12 @@ instance ToHttpApiData v => ToHttpApiData (Tagged x v) where
 type PK t r = TopPKTagged t (Grec r)
 
 type PerstAPI (t :: TreeDef) r
-  =     ReqBody '[JSON] (Condition t r)  :> Get '[JSON] [r]
-  :<|>  Capture "pk" (PK t r)            :> Get '[JSON] r
-  :<|>  ReqBody '[JSON] r                :> Post '[JSON] (PK t r)
-  :<|>  ReqBody '[JSON] r                :> Put '[JSON] NoContent
-  :<|>  "diff" :> ReqBody '[JSON] (r, r) :> Put '[JSON] NoContent
-  :<|>  Capture "pk" (PK t r)            :> Delete '[JSON] NoContent
-
--- sessionToHandler :: Proxy# b -> Conn b -> SessionMonad b IO :~> Handler
--- sessionToHandler (_ :: Proxy# b) conn = NT $ \r -> liftIO $ runReaderT r conn
+  = "getList" :> ReqBody '[JSON] (Condition t r) :> Post '[JSON] [r]
+  :<|>  Capture "pk" (PK t r)                    :> Get '[JSON] r
+  :<|>  ReqBody '[JSON] r                        :> Post '[JSON] (PK t r)
+  :<|>  ReqBody '[JSON] r                        :> Put '[JSON] NoContent
+  :<|>  "diff" :> ReqBody '[JSON] (r, r)         :> Put '[JSON] NoContent
+  :<|>  Capture "pk" (PK t r)                    :> Delete '[JSON] NoContent
 
 serverPerstAPI :: (DMLTree b t r, SelTreeCond b t r, SelTreeCons b t () r
                   , NamesGrecLens (TopKey t) (TopPKPairs t (Grec r)) (Grec r)
@@ -96,7 +93,6 @@ serverPerstAPI (_ :: Proxy# '(b,t,r)) conn
 perstAPI :: Proxy '(t,r) -> Proxy (PerstAPI t r)
 perstAPI _ = Proxy
 
--- class HasClient (PerstAPI t r) => HasPerstClient (t::TreeDef) (r :: Type) where
 perstClient :: HasClient (PerstAPI t r) => Proxy '(t,r) -> Client (PerstAPI t r)
 perstClient = client . perstAPI
 
@@ -112,20 +108,3 @@ updDiffRec :: Client (PerstAPI t r) -> (r,r) -> ClientM NoContent
 updDiffRec (_ :<|> _ :<|> _ :<|> _ :<|> c :<|> _) = c
 delRec :: Client (PerstAPI t r) -> PK t r -> ClientM NoContent
 delRec (_ :<|> _ :<|> _ :<|> _ :<|> _ :<|> c) = c
-
--- class ClientPerstAPI (t :: TreeDef) r where
---   getList     :: Condition t r -> ClientM [r]
---   getRec      :: PK t r -> ClientM r
---   insRec      :: r -> ClientM (PK t r)
---   updRec      :: r -> ClientM NoContent
---   updDiffRec  :: (r,r) -> ClientM NoContent
---   delRec      :: PK t r -> ClientM NoContent
-
--- instance ClientPerstAPI t r where
---   getList :<|> getRec :<|> insRec :<|> updRec :<|> updDiffRec :<|> delRec
---     = client (Proxy :: Proxy (PerstAPI t r))
-
--- serverPerstAPI :: (DMLTree b t r, SelTreeCond b t r, SelTreeCons b t (PK t r) r)
---     => Proxy# '(b,t,r) -> Conn b -> Server (PerstAPI t r)
--- serverPerstAPI (btr::Proxy# '(b,t,r)) conn =
---   enter (sessionToHandler (proxy# :: Proxy# b) conn) (serverPerstSessAPI btr)
