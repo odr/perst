@@ -15,7 +15,9 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Perst.Servant.API
+  exposed-modules:      Perst.Servant.API
+                      , Perst.Servant.Types
+                      , Perst.Servant.Render                      
   default-extensions:   DataKinds
                       , TypeOperators
                       , KindSignatures
@@ -36,6 +38,9 @@ library
                       , transformers
                       , tagged
                       , ghc-prim
+                      , aeson
+                      , servant-lucid
+                      , lucid
 
   default-language:    Haskell2010
 

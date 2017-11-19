@@ -7,7 +7,7 @@ import           Servant.Client
 
 import           Data.Type.Grec           (Grec (..))
 import           Perst.Database.Condition (Condition (..))
-import           Perst.Servant.API        (getList, insRec)
+import           Perst.Servant.API        (PerstRes (..), getList, insRec)
 import           Perst.Test.Data.Customer (Customer (..), Names (..))
 
 import           Common

@@ -1,59 +1,52 @@
-{-# LANGUAGE DataKinds                 #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE KindSignatures            #-}
-{-# LANGUAGE MagicHash                 #-}
+{-# LANGUAGE DataKinds        #-}
+-- {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE KindSignatures   #-}
+{-# LANGUAGE MagicHash        #-}
 -- {-# LANGUAGE TemplateHaskell           #-}
-{-# LANGUAGE TypeApplications          #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TypeInType                #-}
-{-# LANGUAGE TypeOperators             #-}
+{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE TypeInType       #-}
+{-# LANGUAGE TypeOperators    #-}
 module Perst.Servant.API where
 
 import           Control.Monad
 import           Control.Monad.IO.Class     (liftIO)
 import           Control.Monad.Trans.Reader (runReaderT)
 import           Data.Kind                  (Type)
--- import           Data.Singletons.Prelude    (Symbol)
--- import           Data.Singletons.TH         (singletons)
-import           Data.Tagged                (Tagged, untag)
 import           GHC.Prim                   (Proxy#, proxy#)
-import           Servant
--- import           Servant.API
-import           Servant.Client
+-- import           Lucid
+import           Servant                    ((:<|>) (..), (:>) (..), Capture,
+                                             Delete, Get, Handler, JSON,
+                                             NoContent (..), Post, Proxy (..),
+                                             Put, ReqBody, Server, err404,
+                                             throwError)
+import           Servant.Client             (Client, ClientM, HasClient, client)
+-- import           Servant.HTML.Lucid         (HTML)
 
 import           Data.Type.Grec             (Grec (..), GrecWith (..),
                                              NamesGrecLens, gwTagged)
 import           Perst.Database.Condition   (Condition)
 import           Perst.Database.DataDef     (DataDef)
-import           Perst.Database.DbOption
-import           Perst.Database.DMLTree
+import           Perst.Database.DbOption    (DbOption (..), SessionMonad)
+import           Perst.Database.DMLTree     (DMLTree (..))
 import           Perst.Database.Tree.Select (SelTreeCond, SelTreeCons)
 import           Perst.Database.TreeDef     (TopKey, TopPK, TopPKPairs,
                                              TopPKTagged, TreeDef,
                                              TreeDef' (TreeDefC))
 
--- singletons [d|
---   data ServantDef' s = ServantDefC
---     { sdName :: s
---     }
---   |]
--- type ServantDef = ServantDef' Symbol
-
--- NB orphan instances!!
-instance FromHttpApiData v => FromHttpApiData (Tagged x v) where
-  parseUrlPiece = fmap Tagged . parseUrlPiece
-instance ToHttpApiData v => ToHttpApiData (Tagged x v) where
-  toUrlPiece = toUrlPiece . untag
+import           Perst.Servant.Types        (PerstPar (..), PerstRes (..))
 
 type PK t r = TopPKTagged t (Grec r)
+type PPK t r = PerstPar (PK t  r)
 
 type PerstAPI (t :: TreeDef) r
-  = "getList" :> ReqBody '[JSON] (Condition t r) :> Post '[JSON] [r]
-  :<|>  Capture "pk" (PK t r)                    :> Get '[JSON] r
+  = "getList" :> ReqBody '[JSON] (Condition t r) :> Post '[JSON] (PerstRes t [r])
+  :<|>  Capture "pk" (PPK t r)                   :> Get '[JSON] (PerstRes t r)
   :<|>  ReqBody '[JSON] r                        :> Post '[JSON] (PK t r)
   :<|>  ReqBody '[JSON] r                        :> Put '[JSON] NoContent
   :<|>  "diff" :> ReqBody '[JSON] (r, r)         :> Put '[JSON] NoContent
-  :<|>  Capture "pk" (PK t r)                    :> Delete '[JSON] NoContent
+  :<|>  Capture "pk" (PPK t r)                   :> Delete '[JSON] NoContent
 
 serverPerstAPI :: (DMLTree b t r, SelTreeCond b t r, SelTreeCons b t () r
                   , NamesGrecLens (TopKey t) (TopPKPairs t (Grec r)) (Grec r)
@@ -69,26 +62,29 @@ serverPerstAPI (_ :: Proxy# '(b,t,r)) conn
 
     getPK (r'::r) = gwTagged (GW (Grec r') :: TopPK t (Grec r))
 
-    getList :: Condition t r -> Handler [r]
-    getList cond = runSess $ selectTreeCond @b @t @r cond
+    getList :: Condition t r -> Handler (PerstRes t [r])
+    getList = fmap PerstRes . runSess . selectTreeCond @b @t @r
 
-    getRec  :: PK t r -> Handler r
-    getRec pk = runSess (concat <$> selectTreeMany @b @t @r [pk]) >>= check404
+    getRec  :: PPK t r -> Handler (PerstRes t r)
+    getRec (PerstPar pk) = PerstRes <$> getRec' pk
+
+    getRec' :: PK t r -> Handler r
+    getRec' pk = runSess (concat <$> selectTreeMany @b @t @r [pk]) >>= check404
 
     ins     :: r -> Handler (PK t r)
     ins r = runSess (map getPK <$> insertTreeMany @b @t [r]) >>= check404
 
     upd     :: r -> Handler NoContent
-    upd r = getRec (getPK r) >>= \old -> updDiff (old,r)
+    upd r = (,r) <$> getRec' (getPK r) >>= updDiff
 
     updDiff :: (r,r) -> Handler NoContent
     updDiff (old,new) = runSess (updateTreeMany @b @t [old] [new])
                       >> return NoContent
 
-    del     :: PK t r -> Handler NoContent
-    del pk  = getRec pk
-            >>= \old -> runSess (deleteTreeMany @b @t @r [old])
-            >> return NoContent
+    del     :: PPK t r -> Handler NoContent
+    del (PerstPar pk)
+      = (:[]) <$> getRec' pk >>= runSess . deleteTreeMany @b @t @r
+      >> return NoContent
 
 perstAPI :: Proxy '(t,r) -> Proxy (PerstAPI t r)
 perstAPI _ = Proxy
@@ -96,9 +92,9 @@ perstAPI _ = Proxy
 perstClient :: HasClient (PerstAPI t r) => Proxy '(t,r) -> Client (PerstAPI t r)
 perstClient = client . perstAPI
 
-getList :: Client (PerstAPI t r) -> Condition t r -> ClientM [r]
+getList :: Client (PerstAPI t r) -> Condition t r -> ClientM (PerstRes t [r])
 getList (c :<|> _) = c
-getRec :: Client (PerstAPI t r) -> PK t r -> ClientM r
+getRec :: Client (PerstAPI t r) -> PPK t r -> ClientM (PerstRes t r)
 getRec (_ :<|> c :<|> _) = c
 insRec :: Client (PerstAPI t r) -> r -> ClientM (PK t r)
 insRec (_ :<|> _ :<|> c :<|> _) = c
@@ -106,5 +102,5 @@ updRec :: Client (PerstAPI t r) -> r -> ClientM NoContent
 updRec (_ :<|> _ :<|> _ :<|> c :<|> _) = c
 updDiffRec :: Client (PerstAPI t r) -> (r,r) -> ClientM NoContent
 updDiffRec (_ :<|> _ :<|> _ :<|> _ :<|> c :<|> _) = c
-delRec :: Client (PerstAPI t r) -> PK t r -> ClientM NoContent
+delRec :: Client (PerstAPI t r) -> PPK t r -> ClientM NoContent
 delRec (_ :<|> _ :<|> _ :<|> _ :<|> _ :<|> c) = c
