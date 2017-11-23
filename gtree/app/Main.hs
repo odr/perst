@@ -2,7 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 module Main where
 
-import           Data.Type.GTree
+import           Data.Type.GrecTree
 import           GHC.Generics
 
 main :: IO ()
@@ -43,7 +43,7 @@ data DatBig = RecBig
     , f30::Int,f31::Int,f32::Int,f33::Int,f34::Int,f35::Int,f36::Int,f37::Int,f38::Int,f39::Int
     , f40::Int,f41::Int,f42::Int,f43::Int,f44::Int, f45::Int,f46::Int,f47::Int,f48::Int,f49::Int
     } deriving (Show, Generic)
-instance CGrec DatBig
+instance Grec DatBig
 rdb = RecBig 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y")
        1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 2
        1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 2
@@ -59,5 +59,5 @@ data Dat4 = Rec4
   , f45 :: Int
   , f46 :: Char
   } deriving (Show, Eq, Generic)
-instance CGrec Dat4
+instance Grec Dat4
 vr4 = Rec4 1 'x' (Pis 2 "test") 3 4 'z' :: Dat4

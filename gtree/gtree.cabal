@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Data.Type.GTree
+  exposed-modules:     Data.Type.GrecTree
   default-extensions:   DataKinds
                       , TypeOperators
                       , KindSignatures
