@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications      #-}
 module Main where
 
 import           Data.Type.GrecTree
 import           GHC.Generics
+import           Lens.Micro
 
 main :: IO ()
 main = return ()
@@ -42,13 +44,17 @@ data DatBig = RecBig
     , fb29 :: Int
     , f30::Int,f31::Int,f32::Int,f33::Int,f34::Int,f35::Int,f36::Int,f37::Int,f38::Int,f39::Int
     , f40::Int,f41::Int,f42::Int,f43::Int,f44::Int, f45::Int,f46::Int,f47::Int,f48::Int,f49::Int
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Eq)
 instance Grec DatBig
 rdb = RecBig 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y")
        1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 2
        1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 2
         1 2 3 4 5 6 7 8 9 0
         1 2 3 4 5 6 7 8 9 0
+
+trdb = toTagged rdb
+rdb' = fromTagged $ trdb & tlens @"f37" .~ trdb ^. tlens @"fb19" :: DatBig
+rdbCheck = rdb /= rdb' && rdb == rdb' {f37 = f37 rdb}
 
 
 data Dat4 = Rec4

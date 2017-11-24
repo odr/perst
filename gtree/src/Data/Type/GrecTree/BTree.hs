@@ -20,13 +20,14 @@ singletons [d|
   |]
 --
 
-type family BTreeHas (a::k) (t::BTree n k) :: Bool where
+type family BTreeHas (a::k1) (t::BTree n k2) :: Bool where
   BTreeHas a (Leaf x a) = True
   -- NB! type calculation is eager!
   BTreeHas a (Node l n t r) = BTreeHasB (BTreeHas a l) a r
+  BTreeHas a (Leaf x (Just a)) = True
   BTreeHas a b = False
 
-type family BTreeHasB (b::Bool) (a::k) (t::BTree n k) :: Bool where
+type family BTreeHasB (b::Bool) (a::k1) (t::BTree n k2) :: Bool where
   BTreeHasB True a r = True
   BTreeHasB False a r = BTreeHas a r
 

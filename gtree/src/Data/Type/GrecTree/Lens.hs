@@ -19,19 +19,19 @@ class TLens n b where
   tlens :: Functor f => (LType n b -> f (LType n b)) -> b -> f b
 
 -- by name
-instance TLens (a :: Symbol) (Tagged (Leaf n a) va) where
-  type LType a (Tagged (Leaf n a) va) = va
+instance TLens (a :: Symbol) (Tagged (Leaf n (Just a)) va) where
+  type LType a (Tagged (Leaf n (Just a)) va) = va
   tlens f = fmap Tagged . f . untag
 
 -- if there are more than one valid name -
--- leftest will be checked and there would be an error if wrong type.
--- More intelligence would be to check name with type as pair
+-- leftest will be checked and there would be a compile-type error if wrong type.
+-- More intelligence would be to check name with its type as pair
 -- and use the first if exists
 -- אבל לא חשוב
-instance TLensB (BTreeHas a l) a (Tagged (Node l n r) v)
-      => TLens (a::Symbol) (Tagged (Node l n r) v) where
-  type LType a (Tagged (Node l n r) v)
-    = LTypeB (BTreeHas a l) a (Tagged (Node l n r) v)
+instance TLensB (BTreeHas a l) a (Tagged (Node l n t r) v)
+      => TLens (a::Symbol) (Tagged (Node l n t r) v) where
+  type LType a (Tagged (Node l n t r) v)
+    = LTypeB (BTreeHas a l) a (Tagged (Node l n t r) v)
   tlens = tlensB @(BTreeHas a l) @a
 
 -- by num
@@ -82,13 +82,13 @@ class TLensB (x::Bool) n b where
   tlensB :: Functor f => (LTypeB x n b -> f (LTypeB x n b)) -> b -> f b
 
 instance TLens a (Tagged l vl)
-      => TLensB True a (Tagged (Node l n r) (vl,vr)) where
-  type LTypeB True a (Tagged (Node l n r) (vl,vr)) = LType a (Tagged l vl)
+      => TLensB True a (Tagged (Node l n t r) (vl,vr)) where
+  type LTypeB True a (Tagged (Node l n t r) (vl,vr)) = LType a (Tagged l vl)
   tlensB f (Tagged (vl,vr))
     = (Tagged . (,vr) . untag) <$> tlens @a @(Tagged l vl) f (Tagged vl)
 
 instance TLens a (Tagged r vr)
-      => TLensB False a (Tagged (Node l n r) (vl,vr)) where
-  type LTypeB False a (Tagged (Node l n r) (vl,vr)) = LType a (Tagged r vr)
+      => TLensB False a (Tagged (Node l n t r) (vl,vr)) where
+  type LTypeB False a (Tagged (Node l n t r) (vl,vr)) = LType a (Tagged r vr)
   tlensB f (Tagged (vl,vr))
     = (Tagged . (vl,) . untag) <$> tlens @a @(Tagged r vr) f (Tagged vr)

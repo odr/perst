@@ -37,7 +37,7 @@ instance GGrec (Rep (a1,a2,a3,a4,a5,a6,a7)) => Grec (a1,a2,a3,a4,a5,a6,a7)
 
 
 type family TaggedTag a where
-  TaggedTag (Tagged (n :: BTree Nat Symbol) x) = n
+  TaggedTag (Tagged (n :: BTree Nat (Maybe Symbol)) x) = n
 
 type family Untag a where
   Untag (Tagged n x) = x
