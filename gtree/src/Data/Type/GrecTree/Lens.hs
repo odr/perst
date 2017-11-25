@@ -7,6 +7,7 @@ module Data.Type.GrecTree.Lens(TLens(..), TGetSet(..)) where
 
 import           Data.Tagged              (Tagged (..), untag)
 import           Data.Type.Bool           (If)
+import           Data.Type.Equality       (type (==))
 import           GHC.TypeLits             (type (+), type (-), type (<=?), Nat,
                                            Symbol)
 import           Lens.Micro               (set, (^.))
@@ -21,6 +22,10 @@ class TLens n b where
 -- by name
 instance TLens (a :: Symbol) (Tagged (Leaf n (Just a)) va) where
   type LType a (Tagged (Leaf n (Just a)) va) = va
+  tlens f = fmap Tagged . f . untag
+
+instance TLens (a :: Symbol) (Tagged (Leaf n a) va) where
+  type LType a (Tagged (Leaf n a) va) = va
   tlens f = fmap Tagged . f . untag
 
 -- if there are more than one valid name -
@@ -41,12 +46,12 @@ instance TLens (n::Nat) (Tagged (Leaf n a) va) where
 
 instance TLensB (num <=? BTreeCount l)
                   (If (num <=? BTreeCount l) num (num - (BTreeCount l)))
-                  (Tagged (Node l n r) v)
-      => TLens (num::Nat) (Tagged (Node l (n::Nat) r) v) where
-  type LType (num::Nat) (Tagged (Node l (n::Nat) r) v)
+                  (Tagged (Node l n t r) v)
+      => TLens (num::Nat) (Tagged (Node l (n::Nat) t r) v) where
+  type LType (num::Nat) (Tagged (Node l (n::Nat) t r) v)
     = LTypeB (num <=? BTreeCount l)
               (If (num <=? BTreeCount l) num (num - (BTreeCount l)))
-              (Tagged (Node l n r) v)
+              (Tagged (Node l n t r) v)
   tlens = tlensB @(num <=? BTreeCount l)
                  @(If (num <=? BTreeCount l) num (num - (BTreeCount l)))
 
@@ -58,7 +63,7 @@ class TGetSet a b where
   tset :: GSType a b -> b -> b
 
 -- by names
-instance TLens a b => TGetSet (Leaf x a :: BTree n Symbol) b where
+instance TLens a b => TGetSet (Leaf x a :: BTree n t) b where
   type GSType (Leaf x a) b = LType a b
   tget = (^. tlens @a)
   tset = set (tlens @a)

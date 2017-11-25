@@ -35,31 +35,12 @@ instance GGrec (Rep (a1,a2,a3,a4,a5)) => Grec (a1,a2,a3,a4,a5)
 instance GGrec (Rep (a1,a2,a3,a4,a5,a6)) => Grec (a1,a2,a3,a4,a5,a6)
 instance GGrec (Rep (a1,a2,a3,a4,a5,a6,a7)) => Grec (a1,a2,a3,a4,a5,a6,a7)
 
-
-type family TaggedTag a where
-  TaggedTag (Tagged (n :: BTree Nat (Maybe Symbol)) x) = n
-
-type family Untag a where
-  Untag (Tagged n x) = x
-
 ---------------
 class GGrec g where
   -- type GTypeTree g :: BTree Nat Type
   type GTagged g
   gGrecToTagged   :: g b -> GTagged g
   gTaggedToGrec   :: GTagged g -> g b
-
-type family TaggedAppend a b where
-  TaggedAppend (Tagged (l::BTree Nat (Maybe s)) vl)
-               (Tagged (r::BTree Nat (Maybe s)) vr)
-    = Tagged (BTreeAppend l r) (vl,vr)
-
-data GroupType = GTSimple | GTGroup
-
-type family GetGroupType v :: GroupType where
-  GetGroupType (Tagged 'Nothing v) = GTGroup
-  GetGroupType (Tagged (s::Maybe Symbol) v) = GTGroup
-  GetGroupType x = GTSimple
 
 class GrecGT (ft::GroupType) s b where
   -- type TypeTreeGT ft s b :: BTree Nat Type
@@ -76,9 +57,13 @@ instance GrecGT GTSimple s b where
 type family TagTop s t where
   TagTop s (Tagged bt v) = Tagged (ChangeTop s bt) v
 
-type family ChangeTop (s::k) (t::BTree Nat k) :: BTree Nat k where
-  ChangeTop s (Node l n tt r) = Node l n s r
-  ChangeTop s (Leaf 1 tt) = Leaf 1 s
+type family ChangeTop (s::k1) (t::BTree Nat k) :: BTree Nat k where
+  ChangeTop (s::k) (Node l n (tt::k) r) = Node l n s r
+  ChangeTop (s::k) (Leaf 1 (tt::k)) = Leaf 1 s
+  ChangeTop (s::k) (Node l n (tt::Maybe k) r) = Node l n (Just s) r
+  ChangeTop (s::k) (Leaf 1 (tt::Maybe k)) = Leaf 1 (Just s)
+  ChangeTop (s::k1) (Node l n (tt::k) r) = Node l n (Default k) r
+  ChangeTop (s::k1) (Leaf 1 (tt::k)) = Leaf 1 (Default k)
 
 instance  ( Grec v
           , GrecTagged v ~ Tagged bt vv
