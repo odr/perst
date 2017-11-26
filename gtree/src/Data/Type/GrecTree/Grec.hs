@@ -6,13 +6,15 @@
 {-# LANGUAGE UndecidableInstances  #-}
 module Data.Type.GrecTree.Grec where
 
-import           Data.Kind                (Type)
-import           Data.Tagged              (Tagged (..), retag, untag)
+import           Data.Kind                  (Type)
+import           Data.Tagged                (Tagged (..), retag, untag)
+import           Data.Text                  (Text)
 import           GHC.Generics
-import           GHC.TypeLits             (type (+), type (-), type (<=?), Nat,
-                                           Symbol)
+import           GHC.TypeLits               (type (+), type (-), type (<=?),
+                                             Nat, Symbol)
 
 import           Data.Type.GrecTree.BTree
+import           Data.Type.GrecTree.Convert (ConvNames (..))
 -- import           Data.Type.GrecTree.Internal.GGrec (GGrec (..))
 
 class (Generic a, GGrec (Rep a)) => Grec a where
@@ -29,12 +31,33 @@ class (Generic a, GGrec (Rep a)) => Grec a where
   default fromTagged :: GrecTagged a ~ GTagged (Rep a) => GrecTagged a -> a
   fromTagged = to . gTaggedToGrec
 
-instance GGrec (Rep (a1,a2)) => Grec (a1,a2)
-instance GGrec (Rep (a1,a2,a3)) => Grec (a1,a2,a3)
-instance GGrec (Rep (a1,a2,a3,a4)) => Grec (a1,a2,a3,a4)
-instance GGrec (Rep (a1,a2,a3,a4,a5)) => Grec (a1,a2,a3,a4,a5)
-instance GGrec (Rep (a1,a2,a3,a4,a5,a6)) => Grec (a1,a2,a3,a4,a5,a6)
-instance GGrec (Rep (a1,a2,a3,a4,a5,a6,a7)) => Grec (a1,a2,a3,a4,a5,a6,a7)
+  fieldNames :: [Text]
+  default fieldNames :: ConvNames (GrecTagged a) => [Text]
+  fieldNames = getFldNames @(GrecTagged a)
+
+instance (GGrec (Rep (a1,a2)), ConvNames (GTagged (Rep (a1,a2))))
+      => Grec (a1,a2)
+instance (GGrec (Rep (a1,a2,a3)), ConvNames (GTagged (Rep (a1,a2,a3))))
+      => Grec (a1,a2,a3)
+instance (GGrec (Rep (a1,a2,a3,a4)), ConvNames (GTagged (Rep (a1,a2,a3,a4))))
+      => Grec (a1,a2,a3,a4)
+instance ( GGrec (Rep (a1,a2,a3,a4,a5))
+         , ConvNames (GTagged (Rep (a1,a2,a3,a4,a5)))
+         )
+      => Grec (a1,a2,a3,a4,a5)
+instance ( GGrec (Rep (a1,a2,a3,a4,a5,a6))
+         , ConvNames (GTagged (Rep (a1,a2,a3,a4,a5,a6)))
+         )
+      => Grec (a1,a2,a3,a4,a5,a6)
+instance ( GGrec (Rep (a1,a2,a3,a4,a5,a6,a7))
+         , ConvNames (GTagged (Rep (a1,a2,a3,a4,a5,a6,a7)))
+         )
+      => Grec (a1,a2,a3,a4,a5,a6,a7)
+-- instance GGrec (Rep (a1,a2,a3)) => Grec (a1,a2,a3)
+-- instance GGrec (Rep (a1,a2,a3,a4)) => Grec (a1,a2,a3,a4)
+-- instance GGrec (Rep (a1,a2,a3,a4,a5)) => Grec (a1,a2,a3,a4,a5)
+-- instance GGrec (Rep (a1,a2,a3,a4,a5,a6)) => Grec (a1,a2,a3,a4,a5,a6)
+-- instance GGrec (Rep (a1,a2,a3,a4,a5,a6,a7)) => Grec (a1,a2,a3,a4,a5,a6,a7)
 
 ---------------
 class GGrec g where

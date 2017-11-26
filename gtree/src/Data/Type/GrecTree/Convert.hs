@@ -81,29 +81,29 @@ instance Convert mb (x,mb) => Convert mb (Tagged CTGroup x, mb) where
   convert = first Tagged . convert
 
 class ConvNames a where
-  fieldNames :: [Text]
+  getFldNames :: [Text]
 
 instance ConvNames (Tagged '(t, GetConvType a) a)
       => ConvNames (Tagged (Leaf n t) a) where
-  fieldNames = fieldNames @(Tagged '(t, GetConvType a) a)
+  getFldNames = getFldNames @(Tagged '(t, GetConvType a) a)
 
 instance SingI s
       => ConvNames (Tagged ('(s, CTSimple)::(Maybe Symbol,ConvType)) a) where
-  fieldNames = [maybe "" id $ fromSing (sing :: Sing s)]
+  getFldNames = [maybe "" id $ fromSing (sing :: Sing s)]
 
 instance ConvNames (Tagged '(s, CTSkip) a) where
-  fieldNames = []
+  getFldNames = []
 
 instance (ConvNames (Tagged bt a), SingI (GetMbSym s), SingI (BTreeType bt))
       => ConvNames (Tagged '(s, CTGroup)
                            (Tagged (bt::BTree n (Maybe Symbol)) a)) where
-  fieldNames = case fromSing (sing :: Sing (BTreeType bt)) of
+  getFldNames = case fromSing (sing :: Sing (BTreeType bt)) of
       Nothing -> grpns
       Just p  -> (maybe "" id (fromSing (sing :: Sing (GetMbSym s)))
                   `mappend` p `mappend`) <$> grpns
     where
-      grpns = fieldNames @(Tagged bt a)
+      grpns = getFldNames @(Tagged bt a)
 
 instance (ConvNames (Tagged l vl), ConvNames (Tagged r vr))
       => (ConvNames (Tagged (Node l n t r) (vl,vr))) where
-  fieldNames = fieldNames @(Tagged l vl) ++ fieldNames @(Tagged r vr)
+  getFldNames = getFldNames @(Tagged l vl) ++ getFldNames @(Tagged r vr)

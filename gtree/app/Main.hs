@@ -102,5 +102,4 @@ check =  rdb /= rdb'
         == [XInt 5,XInt 1,XChar 'x',XPis (Pis 2 "test")
            ,XInt 3,XInt 4,XChar 'z',XChar 'z']
       && convert @[X] (convert tt) == (tt,[]::[X])
-      && length (convert (toTagged r) :: [X])
-        == length (fieldNames @(GrecTagged T))
+      && length (convert (toTagged r) :: [X]) == length (fieldNames @T)
