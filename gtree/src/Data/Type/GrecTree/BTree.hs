@@ -47,6 +47,10 @@ type family BTreeCount (a :: BTree Nat t) :: Nat where
   BTreeCount (Node l n t r) = n
   BTreeCount (Leaf 1 t) = 1
 
+type family BTreeType (bt::BTree n t) :: t where
+  BTreeType (Node l n t r) = t
+  BTreeType (Leaf n t) = t
+
 type family Default k :: k where
   Default (Maybe x) = Nothing
   Default [x] = '[]
@@ -75,9 +79,17 @@ type family EqGroupType (a::GroupType) (b::GroupType) where
 
 type instance a == b = EqGroupType a b
 
+type family GetMbSym (x::k) :: Maybe Symbol where
+  GetMbSym () = Nothing
+  GetMbSym ('()) = Nothing
+  GetMbSym Nothing = Nothing
+  GetMbSym (s::Symbol) = Just s
+  GetMbSym (s::Maybe Symbol) = s
+
 type family GetGroupType v :: GroupType where
-  GetGroupType (Tagged 'Nothing v) = GTGroup
+  GetGroupType (Tagged Nothing v) = GTGroup
   GetGroupType (Tagged (s::Symbol) v) = GTGroup
+  GetGroupType (Tagged () v) = GTGroup
   GetGroupType (Tagged (s::()) v) = GTGroup
   GetGroupType (Tagged (s::Maybe Symbol) v) = GTGroup
   GetGroupType x = GTSimple

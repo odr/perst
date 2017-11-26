@@ -7,7 +7,6 @@
 module Data.Type.GrecTree.Grec where
 
 import           Data.Kind                (Type)
--- import           Data.Singletons.Prelude.Maybe (FromMaybe)
 import           Data.Tagged              (Tagged (..), retag, untag)
 import           GHC.Generics
 import           GHC.TypeLits             (type (+), type (-), type (<=?), Nat,
@@ -21,9 +20,11 @@ class (Generic a, GGrec (Rep a)) => Grec a where
   -- type GrecTypeTree a = GTypeTree (Rep a)
   type GrecTagged a
   type GrecTagged a = GTagged (Rep a)
+
   toTagged :: a -> GrecTagged a
   default toTagged :: GrecTagged a ~ GTagged (Rep a) => a -> GrecTagged a
   toTagged = gGrecToTagged . from
+
   fromTagged :: GrecTagged a -> a
   default fromTagged :: GrecTagged a ~ GTagged (Rep a) => GrecTagged a -> a
   fromTagged = to . gTaggedToGrec

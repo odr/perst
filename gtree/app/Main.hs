@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications      #-}
 module Main where
 
@@ -74,7 +75,7 @@ instance Grec Dat4
 vr4 = Rec4 1 'x' (Pis 2 "test") 3 4 'z' :: Dat4
 
 type T = (Tagged "x" Dat4, Tagged () Dat4
-         , Tagged "z" (Tagged "1" Dat4, Tagged (Just "2") Dat4))
+         , Tagged "z" (Tagged "1_" Dat4, Tagged (Just "2_") Dat4))
 
 r = (Tagged vr4, Tagged vr4, Tagged (Tagged vr4,Tagged vr4)) :: T
 
@@ -101,3 +102,5 @@ check =  rdb /= rdb'
         == [XInt 5,XInt 1,XChar 'x',XPis (Pis 2 "test")
            ,XInt 3,XInt 4,XChar 'z',XChar 'z']
       && convert @[X] (convert tt) == (tt,[]::[X])
+      && length (convert (toTagged r) :: [X])
+        == length (fieldNames @(GrecTagged T))

@@ -1,9 +1,15 @@
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE MagicHash            #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Type.GrecTree.Convert where
 
 import           Data.Bifunctor           (bimap, first)
+import           Data.Singletons.Prelude
 import           Data.Tagged              (Tagged (..), retag, untag)
+import           Data.Text                (Text)
 import           Data.Type.Bool           (If)
 import           Data.Type.Equality       (type (==))
 import           GHC.TypeLits             (Nat)
@@ -30,14 +36,14 @@ instance ( Convert (Tagged la vla) (Tagged lb vlb)
 
 -- Fold?
 data ConvType = CTSkip | CTSimple | CTGroup
-type family ConvertType x :: ConvType where
-  ConvertType [z] = CTSkip
-  ConvertType (Tagged (x::BTree k1 k2) v) = CTGroup
-  ConvertType x = CTSimple
+type family GetConvType x :: ConvType where
+  GetConvType [z] = CTSkip
+  GetConvType (Tagged (x::BTree k1 k2) v) = CTGroup
+  GetConvType x = CTSimple
 
-instance Convert (Tagged (ConvertType va) va) mb
+instance Convert (Tagged (GetConvType va) va) mb
       => Convert (Tagged (Leaf 1 na :: BTree Nat k) va) mb where
-  convert = convert . Tagged @(ConvertType va) . untag
+  convert = convert . Tagged @(GetConvType va) . untag
 
 instance Monoid mb => Convert (Tagged CTSkip va) mb where
   convert _ = mempty
@@ -60,9 +66,9 @@ instance (Convert mb (Tagged la vla, mb), Convert mb (Tagged ra vra, mb))
       (Tagged vla,rs)  = convert @mb @(Tagged la vla, mb) xs
       (Tagged vra,rs') = convert @mb @(Tagged ra vra, mb) rs
 
-instance Convert mb (Tagged (ConvertType v) v, mb)
+instance Convert mb (Tagged (GetConvType v) v, mb)
       => Convert mb (Tagged (Leaf n t :: BTree k1 k2) v, mb) where
-  convert xs = first retag $ convert @mb @(Tagged (ConvertType v) v, mb) xs
+  convert xs = first retag $ convert @mb @(Tagged (GetConvType v) v, mb) xs
 
 instance Monoid x => Convert mb (Tagged CTSkip x, mb) where
   convert mb = (Tagged mempty, mb)
@@ -71,6 +77,33 @@ instance Convert b x => Convert [b] (Tagged CTSimple x, [b]) where
   convert []     = error "Empty list in convert."
   convert (b:bs) = (Tagged $ convert b, bs)
 
-
 instance Convert mb (x,mb) => Convert mb (Tagged CTGroup x, mb) where
   convert = first Tagged . convert
+
+class ConvNames a where
+  fieldNames :: [Text]
+
+instance ConvNames (Tagged '(t, GetConvType a) a)
+      => ConvNames (Tagged (Leaf n t) a) where
+  fieldNames = fieldNames @(Tagged '(t, GetConvType a) a)
+
+instance SingI s
+      => ConvNames (Tagged ('(s, CTSimple)::(Maybe Symbol,ConvType)) a) where
+  fieldNames = [maybe "" id $ fromSing (sing :: Sing s)]
+
+instance ConvNames (Tagged '(s, CTSkip) a) where
+  fieldNames = []
+
+instance (ConvNames (Tagged bt a), SingI (GetMbSym s), SingI (BTreeType bt))
+      => ConvNames (Tagged '(s, CTGroup)
+                           (Tagged (bt::BTree n (Maybe Symbol)) a)) where
+  fieldNames = case fromSing (sing :: Sing (BTreeType bt)) of
+      Nothing -> grpns
+      Just p  -> (maybe "" id (fromSing (sing :: Sing (GetMbSym s)))
+                  `mappend` p `mappend`) <$> grpns
+    where
+      grpns = fieldNames @(Tagged bt a)
+
+instance (ConvNames (Tagged l vl), ConvNames (Tagged r vr))
+      => (ConvNames (Tagged (Node l n t r) (vl,vr))) where
+  fieldNames = fieldNames @(Tagged l vl) ++ fieldNames @(Tagged r vr)
