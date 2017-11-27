@@ -17,58 +17,58 @@ import           GHC.TypeLits                 (type (+), Nat, Symbol)
 
 
 singletons [d|
-  data BTree n t = Node (BTree n t) n t (BTree n t)
-                 | Leaf n t
+  data BTree t = Node (BTree t) t (BTree t)
+                 | Leaf t
                  deriving (Show, Eq, Functor)
   |]
 --
 
-type family IsLeaf (a :: BTree n t) :: Bool where
-  IsLeaf (Leaf x a) = True
+type family IsLeaf (a :: BTree t) :: Bool where
+  IsLeaf (Leaf a) = True
   IsLeaf x = False
 
-type family BTreeHas (a::k1) (t::BTree n k2) :: Bool where
-  BTreeHas a (Leaf x a) = True
+type family BTreeHas (a::k1) (t::BTree k2) :: Bool where
+  BTreeHas a (Leaf a) = True
   -- NB! type calculation is eager!
-  BTreeHas a (Node l n t r) = BTreeHasB (BTreeHas a l) a r
-  BTreeHas a (Leaf x (Just a)) = True
+  BTreeHas a (Node l t r) = BTreeHasB (BTreeHas a l) a r
+  BTreeHas a (Leaf (Just a)) = True
   BTreeHas a b = False
 
-type family BTreeHasB (b::Bool) (a::k1) (t::BTree n k2) :: Bool where
+type family BTreeHasB (b::Bool) (a::k1) (t::BTree k2) :: Bool where
   BTreeHasB True a r = True
   BTreeHasB False a r = BTreeHas a r
 
-type family ZipBTree (va::BTree n a) (vb::BTree n b) :: BTree n (a,b) where
-  ZipBTree (Leaf 1 va) (Leaf 1 vb) = Leaf 1 '(va,vb)
-  ZipBTree (Node la n ta ra) (Node lb n tb rb)
-    = Node (ZipBTree la lb) n '(ta,tb) (ZipBTree lb rb)
+type family ZipBTree (va::BTree a) (vb::BTree b) :: BTree (a,b) where
+  ZipBTree (Leaf va) (Leaf vb) = Leaf '(va,vb)
+  ZipBTree (Node la ta ra) (Node lb tb rb)
+    = Node (ZipBTree la lb) '(ta,tb) (ZipBTree lb rb)
 
-type family BTreeCount (a :: BTree Nat t) :: Nat where
-  BTreeCount (Node l n t r) = n
-  BTreeCount (Leaf 1 t) = 1
+type family BTreeCount (a :: BTree t) :: Nat where
+  BTreeCount (Node l t r) = BTreeCount l + BTreeCount r
+  BTreeCount (Leaf t) = 1
 
-type family BTreeType (bt::BTree n t) :: t where
-  BTreeType (Node l n t r) = t
-  BTreeType (Leaf n t) = t
+type family BTreeType (bt::BTree t) :: t where
+  BTreeType (Node l t r) = t
+  BTreeType (Leaf t) = t
 
 type family Default k :: k where
   Default (Maybe x) = Nothing
   Default [x] = '[]
   Default Symbol = ""
+  Default () = '()
 
-type BTreeAppend (a :: BTree Nat k) (b :: BTree Nat k)
-  = Node a (BTreeCount a + BTreeCount b) (Default k) b
+type BTreeAppend (a :: BTree k) (b :: BTree k) = Node a (Default k) b
 
 -- some Tagged types
 type family TaggedTag a where
-  TaggedTag (Tagged (n :: BTree Nat k) x) = n
+  TaggedTag (Tagged (n :: BTree k) x) = n
 
 type family Untag a where
   Untag (Tagged n x) = x
 
 type family TaggedAppend a b where
-  TaggedAppend (Tagged (l::BTree Nat k) vl)
-               (Tagged (r::BTree Nat k) vr)
+  TaggedAppend (Tagged (l::BTree k) vl)
+               (Tagged (r::BTree k) vr)
     = Tagged (BTreeAppend l r) (vl,vr)
 
 data GroupType = GTSimple | GTGroup

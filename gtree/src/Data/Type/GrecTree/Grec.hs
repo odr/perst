@@ -53,11 +53,6 @@ instance ( GGrec (Rep (a1,a2,a3,a4,a5,a6,a7))
          , ConvNames (GTagged (Rep (a1,a2,a3,a4,a5,a6,a7)))
          )
       => Grec (a1,a2,a3,a4,a5,a6,a7)
--- instance GGrec (Rep (a1,a2,a3)) => Grec (a1,a2,a3)
--- instance GGrec (Rep (a1,a2,a3,a4)) => Grec (a1,a2,a3,a4)
--- instance GGrec (Rep (a1,a2,a3,a4,a5)) => Grec (a1,a2,a3,a4,a5)
--- instance GGrec (Rep (a1,a2,a3,a4,a5,a6)) => Grec (a1,a2,a3,a4,a5,a6)
--- instance GGrec (Rep (a1,a2,a3,a4,a5,a6,a7)) => Grec (a1,a2,a3,a4,a5,a6,a7)
 
 ---------------
 class GGrec g where
@@ -74,20 +69,20 @@ class GrecGT (ft::GroupType) s b where
 
 instance GrecGT GTSimple s b where
   -- type TypeTreeGT GTSimple s b = Leaf 1 b
-  type TaggedGT GTSimple s b = Tagged (Leaf 1 s) b
+  type TaggedGT GTSimple s b = Tagged (Leaf s) b
   toTaggedGT b = Tagged b
   fromTaggedGT = untag
 
 type family TagTop s t where
   TagTop s (Tagged bt v) = Tagged (ChangeTop s bt) v
 
-type family ChangeTop (s::k1) (t::BTree Nat k) :: BTree Nat k where
-  ChangeTop (s::k) (Node l n (tt::k) r) = Node l n s r
-  ChangeTop (s::k) (Leaf 1 (tt::k)) = Leaf 1 s
-  ChangeTop (s::k) (Node l n (tt::Maybe k) r) = Node l n (Just s) r
-  ChangeTop (s::k) (Leaf 1 (tt::Maybe k)) = Leaf 1 (Just s)
-  ChangeTop (s::k1) (Node l n (tt::k) r) = Node l n (Default k) r
-  ChangeTop (s::k1) (Leaf 1 (tt::k)) = Leaf 1 (Default k)
+type family ChangeTop (s::k1) (t::BTree k) :: BTree k where
+  ChangeTop (s::k) (Node l (tt::k) r) = Node l s r
+  ChangeTop (s::k) (Leaf (tt::k)) = Leaf s
+  ChangeTop (s::k) (Node l (tt::Maybe k) r) = Node l (Just s) r
+  ChangeTop (s::k) (Leaf (tt::Maybe k)) = Leaf (Just s)
+  ChangeTop (s::k1) (Node l (tt::k) r) = Node l (Default k) r
+  ChangeTop (s::k1) (Leaf (tt::k)) = Leaf (Default k)
 
 instance  ( Grec v
           , GrecTagged v ~ Tagged bt vv
@@ -96,7 +91,7 @@ instance  ( Grec v
           => GrecGT GTGroup s (Tagged g v) where
   -- type TypeTreeGT (GTGroup g) s b = Leaf 1 (GrecTypeTree b)
   type TaggedGT GTGroup s (Tagged g v)
-    = Tagged (Leaf 1 s) (TagTop g (GrecTagged v))
+    = Tagged (Leaf s) (TagTop g (GrecTagged v))
   toTaggedGT = Tagged . (retag :: GrecTagged v -> TagTop g (GrecTagged v))
              . toTagged . untag
   fromTaggedGT = Tagged . fromTagged
@@ -116,7 +111,7 @@ instance  ( GGrec x
           , GTagged x ~ Tagged l vl
           , GTagged y ~ Tagged r vr
           , TaggedAppend (GTagged x) (GTagged y)
-              ~ Tagged (Node l n t r) (vl,vr)
+              ~ Tagged (Node l t r) (vl,vr)
           -- , n ~ (BTreeCount (GTypeTree x) + BTreeCount (GTypeTree y))
           )
       => GGrec (x :*: y) where
