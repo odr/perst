@@ -7,7 +7,7 @@ packages:
 - perst-sqlite
 - perst-test-data
 - perst-servant
-# - gtree
+- gtree
 # - advita
 extra-deps:
 # - Cabal-2.0.0.2

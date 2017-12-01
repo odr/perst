@@ -72,7 +72,7 @@ instance ( TDelete s (Tagged l vl)
          )
       => TDeleteB '(1,False) s (Tagged (Node l t r) (vl,vr)) where
   type DeletedTypeB '(1,False) s (Tagged (Node l t r) (vl,vr))
-    = Tagged (Node (TaggedTag (DeletedType s (Tagged l vl))) t r)
+    = Tagged (Node (TaggedTagBT (DeletedType s (Tagged l vl))) t r)
              (Untag (DeletedType s (Tagged l vl)),vr)
   tdelB (Tagged (vl,vr)) = Tagged (untag $ tdel @s $ Tagged @l vl, vr)
 
@@ -82,6 +82,6 @@ instance ( TDelete s (Tagged r vr)
          )
       => TDeleteB '(2,False) s (Tagged (Node l t r) (vl,vr)) where
   type DeletedTypeB '(2,False) s (Tagged (Node l t r) (vl,vr))
-    = Tagged (Node l t (TaggedTag (DeletedType s (Tagged r vr))))
+    = Tagged (Node l t (TaggedTagBT (DeletedType s (Tagged r vr))))
              (vl,Untag (DeletedType s (Tagged r vr)))
   tdelB (Tagged (vl,vr)) = Tagged (vl,untag $ tdel @s $ Tagged @r vr)

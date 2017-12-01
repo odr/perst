@@ -60,8 +60,8 @@ type family Default k :: k where
 type BTreeAppend (a :: BTree k) (b :: BTree k) = Node a (Default k) b
 
 -- some Tagged types
-type family TaggedTag a where
-  TaggedTag (Tagged (n :: BTree k) x) = n
+type family TaggedTagBT a where
+  TaggedTagBT (Tagged (n::BTree k) x) = n
 
 type family Untag a where
   Untag (Tagged n x) = x
@@ -71,14 +71,6 @@ type family TaggedAppend a b where
                (Tagged (r::BTree k) vr)
     = Tagged (BTreeAppend l r) (vl,vr)
 
-data GroupType = GTSimple | GTGroup
-type family EqGroupType (a::GroupType) (b::GroupType) where
-  EqGroupType GTSimple GTSimple = True
-  EqGroupType GTGroup GTGroup = True
-  EqGroupType a b = False
-
-type instance a == b = EqGroupType a b
-
 type family GetMbSym (x::k) :: Maybe Symbol where
   GetMbSym () = Nothing
   GetMbSym ('()) = Nothing
@@ -86,10 +78,19 @@ type family GetMbSym (x::k) :: Maybe Symbol where
   GetMbSym (s::Symbol) = Just s
   GetMbSym (s::Maybe Symbol) = s
 
-type family GetGroupType v :: GroupType where
-  GetGroupType (Tagged Nothing v) = GTGroup
-  GetGroupType (Tagged (s::Symbol) v) = GTGroup
-  GetGroupType (Tagged () v) = GTGroup
-  GetGroupType (Tagged (s::()) v) = GTGroup
-  GetGroupType (Tagged (s::Maybe Symbol) v) = GTGroup
-  GetGroupType x = GTSimple
+----------------
+-- data GroupType = GTSimple | GTGroup
+-- type family EqGroupType (a::GroupType) (b::GroupType) where
+--   EqGroupType GTSimple GTSimple = True
+--   EqGroupType GTGroup GTGroup = True
+--   EqGroupType a b = False
+--
+-- type instance a == b = EqGroupType a b
+--
+-- type family GetGroupType v :: GroupType where
+--   GetGroupType (Tagged Nothing v) = GTGroup
+--   GetGroupType (Tagged (s::Symbol) v) = GTGroup
+--   GetGroupType (Tagged () v) = GTGroup
+--   GetGroupType (Tagged (s::()) v) = GTGroup
+--   GetGroupType (Tagged (s::Maybe Symbol) v) = GTGroup
+--   GetGroupType x = GTSimple

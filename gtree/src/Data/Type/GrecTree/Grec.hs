@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE PolyKinds             #-}
@@ -6,18 +7,19 @@
 {-# LANGUAGE UndecidableInstances  #-}
 module Data.Type.GrecTree.Grec where
 
-import           Data.Kind                  (Type)
-import           Data.Tagged                (Tagged (..), retag, untag)
-import           Data.Text                  (Text)
+import           Data.Kind                (Type)
+import           Data.Singletons.Prelude  (SingI)
+import           Data.Tagged              (Tagged (..), retag, untag)
+import           Data.Text                (Text)
 import           GHC.Generics
-import           GHC.TypeLits               (type (+), type (-), type (<=?),
-                                             Nat, Symbol)
+import           GHC.TypeLits             (type (+), type (-), type (<=?), Nat,
+                                           Symbol)
 
 import           Data.Type.GrecTree.BTree
-import           Data.Type.GrecTree.Convert (ConvNames (..))
+-- import           Data.Type.GrecTree.Convert (ConvNames (..))
 -- import           Data.Type.GrecTree.Internal.GGrec (GGrec (..))
 
-class (Generic a, GGrec (Rep a)) => Grec a where
+class (Generic a, GrecContraint a) => Grec a where
   -- type GrecTypeTree a :: BTree Nat Type
   -- type GrecTypeTree a = GTypeTree (Rep a)
   type GrecTagged a
@@ -31,31 +33,32 @@ class (Generic a, GGrec (Rep a)) => Grec a where
   default fromTagged :: GrecTagged a ~ GTagged (Rep a) => GrecTagged a -> a
   fromTagged = to . gTaggedToGrec
 
-  fieldNames :: [Text]
-  default fieldNames :: ConvNames (GrecTagged a) => [Text]
-  fieldNames = getFldNames @(GrecTagged a)
+  -- fieldNames :: [Text]
+  -- fieldNames = getFldNames @(GTagged (Rep a))
+  --
+  -- type FieldTypes a :: [*]
+  -- type FieldTypes a = FldTypes (GrecTagged a)
 
-  type FieldTypes a :: [*]
-  type FieldTypes a = FldTypes (GrecTagged a)
+type GrecContraint t
+  = ( GGrec (Rep t)
+    -- , ConvNames (GTagged (Rep t))
+    -- , ConvNames (GTagged (Rep t))
+    -- , SingI (FldNames (GTagged (Rep t)))
+    )
+instance GrecContraint (a1,a2) => Grec (a1,a2)
+instance GrecContraint (a1,a2,a3) => Grec (a1,a2,a3)
+instance GrecContraint (a1,a2,a3,a4) => Grec (a1,a2,a3,a4)
+instance GrecContraint (a1,a2,a3,a4,a5) => Grec (a1,a2,a3,a4,a5)
+instance GrecContraint (a1,a2,a3,a4,a5,a6) => Grec (a1,a2,a3,a4,a5,a6)
+instance GrecContraint (a1,a2,a3,a4,a5,a6,a7) => Grec (a1,a2,a3,a4,a5,a6,a7)
 
-instance (GGrec (Rep (a1,a2)), ConvNames (GTagged (Rep (a1,a2))))
-      => Grec (a1,a2)
-instance (GGrec (Rep (a1,a2,a3)), ConvNames (GTagged (Rep (a1,a2,a3))))
-      => Grec (a1,a2,a3)
-instance (GGrec (Rep (a1,a2,a3,a4)), ConvNames (GTagged (Rep (a1,a2,a3,a4))))
-      => Grec (a1,a2,a3,a4)
-instance ( GGrec (Rep (a1,a2,a3,a4,a5))
-         , ConvNames (GTagged (Rep (a1,a2,a3,a4,a5)))
-         )
-      => Grec (a1,a2,a3,a4,a5)
-instance ( GGrec (Rep (a1,a2,a3,a4,a5,a6))
-         , ConvNames (GTagged (Rep (a1,a2,a3,a4,a5,a6)))
-         )
-      => Grec (a1,a2,a3,a4,a5,a6)
-instance ( GGrec (Rep (a1,a2,a3,a4,a5,a6,a7))
-         , ConvNames (GTagged (Rep (a1,a2,a3,a4,a5,a6,a7)))
-         )
-      => Grec (a1,a2,a3,a4,a5,a6,a7)
+-- instance Grec a => Grec (Maybe a) where
+--   type GrecTagged (Maybe a) = Maybe (GrecTagged a)
+--   toTagged = fmap toTagged
+--   fromTagged = fmap fromTagged
+--   fieldNames = fieldNames @a
+--   type FieldTypes (Maybe a) = FieldTypes a
+
 
 ---------------
 class GGrec g where
@@ -64,50 +67,49 @@ class GGrec g where
   gGrecToTagged   :: g b -> GTagged g
   gTaggedToGrec   :: GTagged g -> g b
 
-class GrecGT (ft::GroupType) s b where
-  -- type TypeTreeGT ft s b :: BTree Nat Type
-  type TaggedGT ft s b
-  toTaggedGT   :: b -> TaggedGT ft s b
-  fromTaggedGT :: TaggedGT ft s b -> b
+-- class GrecGT (ft::GroupType) s b where
+--   -- type TypeTreeGT ft s b :: BTree Nat Type
+--   type TaggedGT ft s b
+--   toTaggedGT   :: b -> TaggedGT ft s b
+--   fromTaggedGT :: TaggedGT ft s b -> b
+--
+-- instance GrecGT GTSimple s b where
+--   -- type TypeTreeGT GTSimple s b = Leaf 1 b
+--   type TaggedGT GTSimple s b = Tagged (Leaf s) b
+--   toTaggedGT b = Tagged b
+--   fromTaggedGT = untag
+--
+-- type family TagTop s t where
+--   TagTop s (Tagged bt v) = Tagged (ChangeTop s bt) v
+--
+-- type family ChangeTop (s::k1) (t::BTree k) :: BTree k where
+--   ChangeTop (s::k) (Node l (tt::k) r) = Node l s r
+--   ChangeTop (s::k) (Leaf (tt::k)) = Leaf s
+--   ChangeTop (s::k) (Node l (tt::Maybe k) r) = Node l (Just s) r
+--   ChangeTop (s::k) (Leaf (tt::Maybe k)) = Leaf (Just s)
+--   ChangeTop (s::k1) (Node l (tt::k) r) = Node l (Default k) r
+--   ChangeTop (s::k1) (Leaf (tt::k)) = Leaf (Default k)
+--
+-- instance  ( Grec v
+--           , GrecTagged v ~ Tagged x vv
+--           , TagTop g (GrecTagged v) ~ Tagged (ChangeTop g x) vv
+--           )
+--           => GrecGT GTGroup s (Tagged g v) where
+--   -- type TypeTreeGT (GTGroup g) s b = Leaf 1 (GrecTypeTree b)
+--   type TaggedGT GTGroup s (Tagged g v)
+--     = Tagged (Leaf s) (TagTop g (GrecTagged v))
+--   toTaggedGT = Tagged . (retag :: GrecTagged v -> TagTop g (GrecTagged v))
+--              . toTagged . untag
+--   fromTaggedGT = Tagged . fromTagged
+--                . (retag :: TagTop g (GrecTagged v) -> GrecTagged v) . untag
 
-instance GrecGT GTSimple s b where
-  -- type TypeTreeGT GTSimple s b = Leaf 1 b
-  type TaggedGT GTSimple s b = Tagged (Leaf s) b
-  toTaggedGT b = Tagged b
-  fromTaggedGT = untag
-
-type family TagTop s t where
-  TagTop s (Tagged bt v) = Tagged (ChangeTop s bt) v
-
-type family ChangeTop (s::k1) (t::BTree k) :: BTree k where
-  ChangeTop (s::k) (Node l (tt::k) r) = Node l s r
-  ChangeTop (s::k) (Leaf (tt::k)) = Leaf s
-  ChangeTop (s::k) (Node l (tt::Maybe k) r) = Node l (Just s) r
-  ChangeTop (s::k) (Leaf (tt::Maybe k)) = Leaf (Just s)
-  ChangeTop (s::k1) (Node l (tt::k) r) = Node l (Default k) r
-  ChangeTop (s::k1) (Leaf (tt::k)) = Leaf (Default k)
-
-instance  ( Grec v
-          , GrecTagged v ~ Tagged x vv
-          , TagTop g (GrecTagged v) ~ Tagged (ChangeTop g x) vv
-          )
-          => GrecGT GTGroup s (Tagged g v) where
-  -- type TypeTreeGT (GTGroup g) s b = Leaf 1 (GrecTypeTree b)
-  type TaggedGT GTGroup s (Tagged g v)
-    = Tagged (Leaf s) (TagTop g (GrecTagged v))
-  toTaggedGT = Tagged . (retag :: GrecTagged v -> TagTop g (GrecTagged v))
-             . toTagged . untag
-  fromTaggedGT = Tagged . fromTagged
-               . (retag :: TagTop g (GrecTagged v) -> GrecTagged v) . untag
-
-instance GrecGT (GetGroupType b) c b
-      => GGrec (S1 (MetaSel c md2 md3 md4) (Rec0 b)) where
+instance GGrec (S1 (MetaSel c md2 md3 md4) (Rec0 b)) where
   -- type GTypeTree (S1 ('MetaSel c md2 md3 md4) (Rec0 b))
   --   = TypeTreeGT (GroupType b) c b
   type GTagged (S1 (MetaSel c md2 md3 md4) (Rec0 b))
-    = TaggedGT (GetGroupType b) c b
-  gGrecToTagged (M1 (K1 b)) = toTaggedGT @(GetGroupType b) @c b
-  gTaggedToGrec = M1 . K1 . fromTaggedGT @(GetGroupType b) @c
+    = Tagged (Leaf c) b
+  gGrecToTagged (M1 (K1 b)) = Tagged b
+  gTaggedToGrec = M1 . K1 . untag
 
 instance  ( GGrec x
           , GGrec y
