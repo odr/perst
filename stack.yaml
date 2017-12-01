@@ -2,12 +2,12 @@ flags: {}
 extra-package-dbs: []
 packages:
 # - perst-plugin
-# - grec
+- grec
 - perst
-# - perst-sqlite
-# - perst-test-data
-# - perst-servant
-- gtree
+- perst-sqlite
+- perst-test-data
+- perst-servant
+# - gtree
 # - advita
 extra-deps:
 # - Cabal-2.0.0.2
@@ -16,4 +16,5 @@ extra-deps:
 # - dotgen-0.4.2
 
 # resolver: lts-8.7
-resolver: nightly-2017-10-23
+# resolver: nightly-2017-10-23 # ghc-8.2.1
+resolver: nightly-2017-11-29 # ghc-8.2.2

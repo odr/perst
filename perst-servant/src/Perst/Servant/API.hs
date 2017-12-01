@@ -22,7 +22,7 @@ import           Servant                    ((:<|>) (..), (:>) (..), Capture,
                                              Put, ReqBody, Server, err404,
                                              throwError)
 import           Servant.Client             (Client, ClientM, HasClient, client)
--- import           Servant.HTML.Lucid         (HTML)
+import           Servant.HTML.Lucid         (HTML)
 
 import           Data.Type.Grec             (Grec (..), GrecWith (..),
                                              NamesGrecLens, gwTagged)

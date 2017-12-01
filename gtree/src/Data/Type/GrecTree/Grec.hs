@@ -35,6 +35,9 @@ class (Generic a, GGrec (Rep a)) => Grec a where
   default fieldNames :: ConvNames (GrecTagged a) => [Text]
   fieldNames = getFldNames @(GrecTagged a)
 
+  type FieldTypes a :: [*]
+  type FieldTypes a = FldTypes (GrecTagged a)
+
 instance (GGrec (Rep (a1,a2)), ConvNames (GTagged (Rep (a1,a2))))
       => Grec (a1,a2)
 instance (GGrec (Rep (a1,a2,a3)), ConvNames (GTagged (Rep (a1,a2,a3))))
@@ -85,8 +88,8 @@ type family ChangeTop (s::k1) (t::BTree k) :: BTree k where
   ChangeTop (s::k1) (Leaf (tt::k)) = Leaf (Default k)
 
 instance  ( Grec v
-          , GrecTagged v ~ Tagged bt vv
-          , TagTop g (GrecTagged v) ~ Tagged bt' vv
+          , GrecTagged v ~ Tagged x vv
+          , TagTop g (GrecTagged v) ~ Tagged (ChangeTop g x) vv
           )
           => GrecGT GTGroup s (Tagged g v) where
   -- type TypeTreeGT (GTGroup g) s b = Leaf 1 (GrecTypeTree b)

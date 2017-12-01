@@ -62,7 +62,7 @@ import           Data.Type.Grec.Type           (Fields, IsSub, ListToPairs,
 newtype GrecWith    (ns :: [Symbol]) a = GW  { unGW :: a } deriving (Show)
 newtype GrecWithout (ns :: [Symbol]) a = GWO { unGWO :: a } deriving (Show)
 newtype GrecWithSecond (ns :: [(Symbol, Symbol)]) a
-  = GWS  { unGWS :: a } deriving (Show) -- | subset by second symbols, renamed to firsts symbols
+  = GWS  { unGWS :: a } deriving (Show) -- subset by second symbols, renamed to firsts symbols
 
 
 -------------

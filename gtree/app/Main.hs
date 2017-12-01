@@ -57,7 +57,7 @@ rdb = RecBig 5 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y")
         1 2 3 4 5 6 7 8 9 0
 
 trdb = toTagged rdb
-rdb' = fromTagged $ trdb & tlens @"fb1" .~ trdb ^. tlens @"fb19" :: DatBig
+rdb' = fromTagged $ trdb & tlens' @"fb1" .~ trdb ^. tlens' @"fb19" :: DatBig
 
 data Dat1 = Rd1 { f11 :: Int } deriving (Show, Eq, Generic)
 instance Grec Dat1
@@ -94,8 +94,8 @@ tt = toTagged ((5,Tagged vr4,'z') :: TT)
 check =  rdb /= rdb'
       && rdb == rdb' {fb1 = fb1 rdb}
       && r == (fromTagged $ toTagged r)
-      && toTagged (Tagged vr4::Tagged "_" Dat4, vr4)
-            ^. tlens @1 . tlens @"f42" == 'x'
+      -- && toTagged (Tagged vr4::Tagged "_" Dat4, vr4)
+      --       ^. tlens' @1 . tlens @"f42" == 'x'
       && tdel @["f43","f41","y","fb12","fb15","x"] trdb
         == tdel @["fb12","x","fb15","y","f43","f41","x"] trdb
       && convert tt

@@ -1,6 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TupleSections             #-}
+{-# LANGUAGE TypeApplications          #-}
 {-# LANGUAGE UndecidableInstances      #-}
 module Data.Type.Grec.Convert
   ( Convert(..)
@@ -11,8 +12,10 @@ module Data.Type.Grec.Convert
   ) where
 
 -- import           Data.Bifunctor      (first)
+import           Control.Applicative (liftA2)
 import           Data.Singletons.TH  (genDefunSymbols)
 import           Data.Tagged         (Tagged (..), retag, untag)
+import           Data.Traversable    (sequenceA)
 import           GHC.Generics
 import           GHC.TypeLits        (Nat)
 
@@ -30,6 +33,8 @@ class GListToGrec a g where
   gListToGrec :: [a] -> ([a],g b)
 class GListFromGrec a g where
   gListFromGrec :: g b -> [a]
+class Monad m => GListFromGrecM m a g where
+  gListFromGrecM :: m (g b) -> m [a]
 
 instance Convert [a] ([a],Tagged (ConvType b) b)
       => GListToGrec a (S1 c (Rec0 b)) where
@@ -37,13 +42,20 @@ instance Convert [a] ([a],Tagged (ConvType b) b)
                 <$> (convert as :: ([a],Tagged (ConvType b) b))
 instance Convert (Tagged (ConvType b) b) [a]
       => GListFromGrec a (S1 c (Rec0 b)) where
-  gListFromGrec (M1 (K1 b)) = convert (Tagged b :: Tagged (ConvType b) b)
+  gListFromGrec (M1 (K1 b)) = convert (Tagged @(ConvType b) b)
+instance (Convert (Tagged '(ConvType b,m) b) (m [a]), Monad m)
+      => GListFromGrecM m a (S1 c (Rec0 b)) where
+  gListFromGrecM = (>>= \(M1 (K1 b)) -> convert (Tagged @'(ConvType b,m) b))
 
 instance (GListToGrec a x, GListToGrec a y) => GListToGrec a (x :*: y) where
   gListToGrec xs = let (r,x) = gListToGrec xs in (x :*:) <$> gListToGrec r
 instance (GListFromGrec a x, GListFromGrec a y)
     => GListFromGrec a (x :*: y) where
   gListFromGrec (x :*: y) = gListFromGrec x ++ gListFromGrec y
+instance (GListFromGrecM m a x, GListFromGrecM m a y, Monad m)
+    => GListFromGrecM m a (x :*: y) where
+  gListFromGrecM = (>>= \(x:*:y) -> liftA2 (++) (gListFromGrecM (pure x))
+                                                (gListFromGrecM (pure y)))
 
 instance GListToGrec a b
     => GListToGrec a (D1 (MetaData md1 md2 md3 False) (C1 mc b)) where
@@ -51,24 +63,33 @@ instance GListToGrec a b
 instance GListFromGrec a b
     => GListFromGrec a (D1 (MetaData md1 md2 md3 False) (C1 mc b)) where
   gListFromGrec (M1 (M1 b)) = gListFromGrec b
+instance (GListFromGrecM m a b, Monad m)
+    => GListFromGrecM m a (D1 (MetaData md1 md2 md3 False) (C1 mc b)) where
+  gListFromGrecM = (>>= \(M1 (M1 b)) -> gListFromGrecM (pure b))
 
 -- newtype => convert internal type
 instance (Generic b, GListToGrec a (Rep b))
     => GListToGrec a (D1 (MetaData md1 md2 md3 True) (C1 mc (S1 c (Rec0 b))))
     where
   gListToGrec = fmap (M1 . M1 . M1 . K1 . to) . gListToGrec
-
 instance (Generic b, GListFromGrec a (Rep b))
     => GListFromGrec a (D1 (MetaData md1 md2 md3 True) (C1 mc (S1 c (Rec0 b))))
     where
   gListFromGrec (M1 (M1 (M1 (K1 b)))) = gListFromGrec $ from b
+instance (Generic b, GListFromGrecM m a (Rep b), Monad m)
+    => GListFromGrecM m a (D1 (MetaData d1 d2 d3 True) (C1 mc (S1 c (Rec0 b))))
+    where
+  gListFromGrecM
+    = (>>= \(M1 (M1 (M1 (K1 b)))) -> gListFromGrecM (pure $ from b))
 
 instance (GListToGrec a (Rep r), Generic r) => Convert [a] ([a], Grec r) where
   convert = fmap (Grec . to) . gListToGrec
-
 instance (GListFromGrec a (Rep r), Generic r)
     => Convert (Grec r) [a] where
   convert = gListFromGrec . from . unGrec
+instance (GListFromGrecM m a (Rep r), Generic r)
+    => Convert (m (Grec r)) (m [a]) where
+  convert = (>>= \(Grec r) -> (gListFromGrecM $ pure $ from r))
 
 type family IsConv a :: Bool where
   IsConv String = True
@@ -102,6 +123,14 @@ instance Convert a b => Convert (Tagged 1 a) [b] where
   convert (Tagged a) = [convert a]
 instance Convert (Grec a) [b] => Convert (Tagged 2 (Grec a)) [b] where
   convert = convert . unTagged
+
+instance Applicative f => Convert (Tagged '(0,f) a) (f [b]) where
+  convert _ = pure []
+instance (Convert (f a) b, Applicative f) => Convert (Tagged '(1,f) a) (f [b]) where
+  convert = pure . (:[]) . convert . pure @f . unTagged
+instance (Convert (f (Grec a)) (f [b]), Applicative f)
+    => Convert (Tagged '(2,f) (Grec a)) (f [b]) where
+  convert = convert . pure @f . unTagged
 
 instance Monoid a => Convert [b] ([b],Tagged 0 a) where
   convert = (, Tagged mempty)

@@ -19,6 +19,20 @@ import           Data.Type.GrecTree.BTree
 class Convert a b where
   convert :: a -> b
 
+instance Convert a a where
+  convert = id
+
+instance (Convert a [c], Convert b [c]) => Convert (a,b) [c] where
+  convert = uncurry (++) . bimap convert convert
+
+instance (Convert [c] (a,[c]), Convert [c] (b,[c]))
+        => Convert [c] ((a,b),[c]) where
+  convert cs = ((a,b),rb)
+    where
+      (a,ra) = convert @_ @(a,[c]) cs
+      (b,rb) = convert rb
+
+
 -- Functor?
 instance Convert va vb
       => Convert (Tagged (Leaf a) va) (Tagged (Leaf b) vb) where
@@ -81,22 +95,33 @@ instance Convert mb (x,mb) => Convert mb (Tagged CTGroup x, mb) where
   convert = first Tagged . convert
 
 class ConvNames a where
+  -- type FldNames :: [Symbol]
+  type FldTypes a :: [*]
   getFldNames :: [Text]
 
 instance ConvNames (Tagged '(t, GetConvType a) a)
       => ConvNames (Tagged (Leaf t) a) where
+  -- type FldNames = FldNames (Tagged '(t, GetConvType a) a)
+  type FldTypes (Tagged (Leaf t) a) = FldTypes (Tagged '(t, GetConvType a) a)
   getFldNames = getFldNames @(Tagged '(t, GetConvType a) a)
 
 instance SingI s
       => ConvNames (Tagged ('(s, CTSimple)::(Maybe Symbol,ConvType)) a) where
+  -- type FldNames = '[FromMaybe "" s]
+  type FldTypes (Tagged '(s, CTSimple) a) = '[a]
   getFldNames = [maybe "" id $ fromSing (sing :: Sing s)]
 
 instance ConvNames (Tagged '(s, CTSkip) a) where
+  -- type FldNames = '[]
+  type FldTypes (Tagged '(s, CTSkip) a) = '[]
   getFldNames = []
 
 instance (ConvNames (Tagged bt a), SingI (GetMbSym s), SingI (BTreeType bt))
       => ConvNames (Tagged '(s, CTGroup)
-                           (Tagged (bt::BTree (Maybe Symbol)) a)) where
+                      (Tagged (bt::BTree (Maybe Symbol)) a)) where
+  -- type FldNames = If (IsNothing (BTreeType bt)) (FldNames (Tagged bt a))
+  --                     (...)
+  type FldTypes (Tagged '(s, CTGroup) (Tagged bt a)) = FldTypes (Tagged bt a)
   getFldNames = case fromSing (sing :: Sing (BTreeType bt)) of
       Nothing -> grpns
       Just p  -> (maybe "" id (fromSing (sing :: Sing (GetMbSym s)))
@@ -105,5 +130,7 @@ instance (ConvNames (Tagged bt a), SingI (GetMbSym s), SingI (BTreeType bt))
       grpns = getFldNames @(Tagged bt a)
 
 instance (ConvNames (Tagged l vl), ConvNames (Tagged r vr))
-      => (ConvNames (Tagged (Node l t r) (vl,vr))) where
+      => ConvNames (Tagged (Node l t r) (vl,vr)) where
+  type FldTypes (Tagged (Node l t r) (vl,vr))
+        = FldTypes (Tagged l vl) :++ FldTypes (Tagged r vr)
   getFldNames = getFldNames @(Tagged l vl) ++ getFldNames @(Tagged r vr)

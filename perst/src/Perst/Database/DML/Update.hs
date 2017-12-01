@@ -75,18 +75,11 @@ updateDiffTextDef (_ :: Proxy# '(b,t)) (k :: k) old (new :: r)
   k' = convFromGrec k
   (rs,vrs) = first (T.intercalate ",")
           $ unzip
-          -- $ catMaybes
           $ zipWith (\num (_, n, fn)
                             -> (formatS "{} = {}" (fn, paramName @b num), n)
                     ) [0..]
           $ filter (\(o, n, _) -> o /= n)
           $ zip3 old' new' fns
-
-          -- $ zipWith (\(o, n, fn) num ->
-          --             if o == n
-          --               then Nothing
-          --               else Just (formatS "{} = {}" (fn, paramName @b num), n)
-          --         ) (zip3 old' new' fns) [0..]
   (ks,vks)
       = first (T.intercalate " AND ")
       $ unzip
