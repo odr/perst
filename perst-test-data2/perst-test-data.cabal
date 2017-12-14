@@ -1,0 +1,39 @@
+name:                perst-test-data
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/odr/perst-test-data#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Dmitry Olshansky
+maintainer:          olshanskydr@gmail.com
+copyright:           Dmitry Olshansky
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Perst.Test.Data
+                      , Perst.Test.Data.Db
+                      , Perst.Test.Data.Article
+                      , Perst.Test.Data.Customer
+                      , Perst.Test.Data.CustomerTree
+                      , Perst.Test.Data.Order
+                      , Perst.Test.Data.OrderTree
+  build-depends:       base >= 4.7 && < 5
+                      , perst
+                      , perst-sqlite
+                      , gtree
+                      , text
+                      , tagged
+                      , singletons
+                      , aeson
+                      , ghc-prim
+  default-language:    Haskell2010
+  ghc-options:         -Wall -Wno-unticked-promoted-constructors
+
+source-repository head
+  type:     git
+  location: https://github.com/odr/perst-test-data

@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE ExplicitNamespaces   #-}
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE TypeApplications     #-}
@@ -8,8 +9,8 @@ module Data.Type.GrecTree.Delete(TDelete(..)) where
 import           Data.Tagged              (Tagged (..), untag)
 import           Data.Type.Bool           (If)
 import           Data.Type.Equality       (type (==))
-import           GHC.TypeLits             (type (+), type (-), type (<=?), Nat,
-                                           Symbol)
+-- import           GHC.TypeLits             (type (+), type (-), type (<=?), Nat)
+import           GHC.TypeLits             (Symbol)
 
 import           Data.Type.GrecTree.BTree
 

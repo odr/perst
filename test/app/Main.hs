@@ -3,6 +3,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# OPTIONS_GHC -Wno-missing-signatures -Wno-unused-imports #-}
+
 module Main where
 
 import           Data.Bifunctor     (first)

@@ -1,20 +1,31 @@
 {-# LANGUAGE DeriveFunctor             #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ExplicitNamespaces        #-}
 {-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeInType                #-}
+{-# LANGUAGE TypeOperators             #-}
 {-# LANGUAGE UndecidableInstances      #-}
--- {-# LANGUAGE TypeOperators #-}
+--
+{-# LANGUAGE DataKinds                 #-}
+-- default-extensions:   DataKinds
+--                     , KindSignatures
+--                     , OverloadedStrings
+--                     , ScopedTypeVariables
+--                     , PolyKinds
+--                     , MultiParamTypeClasses
+--                     , FlexibleContexts
+--                     , TypeSynonymInstances
+--                     , FlexibleInstances
+--                     , ConstraintKinds
+
 module Data.Type.GrecTree.BTree where
 
 import           Data.Singletons.Prelude
-import           Data.Singletons.Prelude.List
-import           Data.Type.Equality           (type (==))
-  --  (type (:++))
-import           Data.Singletons.TH           (singletons)
-import           Data.Tagged                  (Tagged)
-import           GHC.TypeLits                 (type (+), Nat, Symbol)
-
+import           Data.Singletons.TH      (singletons)
+import           Data.Tagged             (Tagged)
+import           GHC.TypeLits            (type (+), Nat, Symbol)
 
 singletons [d|
   data BTree t = Node (BTree t) t (BTree t)
@@ -78,19 +89,10 @@ type family GetMbSym (x::k) :: Maybe Symbol where
   GetMbSym (s::Symbol) = Just s
   GetMbSym (s::Maybe Symbol) = s
 
-----------------
--- data GroupType = GTSimple | GTGroup
--- type family EqGroupType (a::GroupType) (b::GroupType) where
---   EqGroupType GTSimple GTSimple = True
---   EqGroupType GTGroup GTGroup = True
---   EqGroupType a b = False
---
--- type instance a == b = EqGroupType a b
---
--- type family GetGroupType v :: GroupType where
---   GetGroupType (Tagged Nothing v) = GTGroup
---   GetGroupType (Tagged (s::Symbol) v) = GTGroup
---   GetGroupType (Tagged () v) = GTGroup
---   GetGroupType (Tagged (s::()) v) = GTGroup
---   GetGroupType (Tagged (s::Maybe Symbol) v) = GTGroup
---   GetGroupType x = GTSimple
+type family BTreeFromList (x::[k]) :: BTree (Maybe k) where
+  BTreeFromList '[x] = Leaf (Just x)
+  BTreeFromList (x ':xs) = Node (Leaf (Just x)) Nothing (BTreeFromList xs)
+
+type family BTreeToList (x::BTree (Maybe k)) :: [k] where
+  BTreeToList (Leaf (Just x)) = '[x]
+  BTreeToList (Node l Nothing r) = BTreeToList l :++ BTreeToList r

@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MagicHash                 #-}
 {-# LANGUAGE OverloadedStrings         #-}
@@ -36,7 +37,13 @@ instance (Convert [c] (a,[c]), Convert [c] (b,[c]))
   convert cs = ((a,b),rb)
     where
       (a,ra) = convert @_ @(a,[c]) cs
-      (b,rb) = convert rb
+      (b,rb) = convert ra
+
+convToMaybe :: (Convert [b] (a,[b]), Eq b) => b -> [b] -> (Maybe a,[b])
+convToMaybe def (x:xs)
+  | x == def  = (Nothing,xs)
+  | otherwise = first Just $ convert (x:xs)
+convToMaybe _ [] = error "Empty input list in convToMaybe"
 
 -- Functor?
 instance Convert va vb
@@ -54,22 +61,14 @@ instance ( Convert (Tagged la vla) (Tagged lb vlb)
       convertR = untag @rb . convert . Tagged @ra
 
 -- Fold?
-data ConvType = CTSkip | CTSimple --  CTGroup
-type family GetConvType x :: ConvType where
-  GetConvType [z] = CTSkip
-  -- GetConvType (Tagged (x::BTree k) v) = CTGroup
-  GetConvType x = CTSimple
+-- data ConvType = CTSkip | CTSimple --  CTGroup
+-- type family GetConvType x :: ConvType where
+--   GetConvType [z] = CTSkip
+--   -- GetConvType (Tagged (x::BTree k) v) = CTGroup
+--   GetConvType x = CTSimple
 
-instance Convert (Tagged (GetConvType va) va) mb
-      => Convert (Tagged (Leaf na :: BTree k) va) mb where
-  convert = convert . Tagged @(GetConvType va) . untag
-
-instance Monoid mb => Convert (Tagged CTSkip va) mb where
-  convert _ = mempty
-instance Convert va mb => Convert (Tagged CTSimple va) mb where
+instance Convert va mb => Convert (Tagged (Leaf na :: BTree k) va) mb where
   convert = convert . untag
--- instance Convert va mb => Convert (Tagged CTGroup va) mb where
---   convert = convert . untag
 
 instance (Convert (Tagged la vla) mb, Convert (Tagged ra vra) mb, Monoid mb)
       => Convert (Tagged (Node la t ra :: BTree k) (vla,vra)) mb where
@@ -84,19 +83,25 @@ instance (Convert mb (Tagged la vla, mb), Convert mb (Tagged ra vra, mb))
       (Tagged vla,rs)  = convert @mb @(Tagged la vla, mb) xs
       (Tagged vra,rs') = convert @mb @(Tagged ra vra, mb) rs
 
-instance Convert mb (Tagged (GetConvType v) v, mb)
+instance Convert (Tagged (BTreeFromList ns) a) [b]
+      => Convert (Tagged (ns::[Symbol]) a) [b] where
+  convert = convert @(Tagged (BTreeFromList ns) a) . retag
+
+instance Convert [b] (Tagged (BTreeFromList ns) a, [b])
+      => Convert [b] (Tagged (ns :: [Symbol]) a, [b]) where
+  convert = first retag . convert @_ @(Tagged (BTreeFromList ns) a, [b])
+
+
+convWithRest :: Convert mb (v,mb) => mb -> (v,mb)
+convWithRest = convert
+
+convNoRest :: Convert mb (v,mb) => mb -> v
+convNoRest = fst . convWithRest
+
+instance Convert mb (v, mb)
       => Convert mb (Tagged (Leaf t :: BTree k) v, mb) where
-  convert xs = first retag $ convert @mb @(Tagged (GetConvType v) v, mb) xs
+  convert xs = first Tagged $ convert @mb @(v, mb) xs
 
-instance Monoid x => Convert mb (Tagged CTSkip x, mb) where
-  convert mb = (Tagged mempty, mb)
-
-instance Convert mb (x,mb) => Convert mb (Tagged CTSimple x, mb) where
-  -- convert []     = error "Empty list in convert."
-  convert = first Tagged . convert
-
--- instance Convert mb (x,mb) => Convert mb (Tagged CTGroup x, mb) where
---   convert = first Tagged . convert
 instance (Grec a, Convert (GrecTagged a) [b])
       => Convert (Tagged () a) [b] where
   convert = convert . toTagged . untag
@@ -117,95 +122,91 @@ instance (Grec a, Convert [b] (GrecTagged a, [b]) )
       => Convert [b] (Tagged (s::Maybe Symbol) a, [b]) where
   convert = first (Tagged . fromTagged) . convert
 
+------------------------ ConvNames -----------------
+class SConvNames tag (s::Maybe Symbol) (v::Type) where
+  type SFldNames tag s v :: [Symbol]
+  type SFldNames tag s v = '[FromMaybe "" s]
+  type SFldTypes tag s v :: [*]
+  type SFldTypes tag s v = '[v]
+  sFldNames :: SingI (SFldNames tag s v) => [Text]
+  sFldNames = fromSing (sing :: Sing (SFldNames tag s v))
 
-class SConvNames (s::Maybe Symbol) (v::Type) where
-  type SFldNames s v :: [Symbol]
-  type SFldNames s v = '[FromMaybe "" s]
-  type SFldTypes s v :: [*]
-  type SFldTypes s v = '[v]
-  getSFldNames :: SingI (SFldNames s v) => [Text]
-  getSFldNames = fromSing (sing :: Sing (SFldNames s v))
+type SConsNames tag s v = (SConvNames tag s v, SingI (SFldNames tag s v))
 
-class ConvNames (v::Type) where
-  type FldNames v :: [Symbol]
-  type FldNames v = FldNames (GrecTagged v)
-  type FldTypes v :: [*]
-  type FldTypes v = FldTypes (GrecTagged v)
-  getFldNames :: SingI (FldNames v) => [Text]
-  getFldNames = fromSing (sing :: Sing (FldNames v))
+class ConvNames tag (v :: Type) where
+  type FldNames tag v :: [Symbol]
+  type FldNames tag v = FldNames tag (GrecTagged v)
+  type FldTypes tag v :: [*]
+  type FldTypes tag v = FldTypes tag (GrecTagged v)
+  fldNames :: SingI (FldNames tag v) => [Text]
+  fldNames = fromSing (sing :: Sing (FldNames tag v))
 
-instance ConvNames (Tagged '(t, GetConvType a) a)
-      => ConvNames (Tagged (Leaf t) a) where
-  type FldNames (Tagged (Leaf t) a) = FldNames (Tagged '(t, GetConvType a) a)
-  type FldTypes (Tagged (Leaf t) a) = FldTypes (Tagged '(t, GetConvType a) a)
-  -- getFldNames = getFldNames @(Tagged '(t, GetConvType a) a)
+type ConsNames tag v = (ConvNames tag v, SingI (FldNames tag v))
 
-instance (SingI (SFldNames s a), SConvNames s a)
-      => ConvNames (Tagged ('(s, CTSimple)::(Maybe Symbol,ConvType)) a) where
-  type FldNames (Tagged '(s, CTSimple) a) = SFldNames s a
-  type FldTypes (Tagged '(s, CTSimple) a) = SFldTypes s a
-  -- getFldNames = getSFldNames @s @a
+instance SConsNames tag t a => ConvNames tag (Tagged (Leaf t) a) where
+  type FldNames tag (Tagged (Leaf t) a) = SFldNames tag t a
+  type FldTypes tag (Tagged (Leaf t) a) = SFldTypes tag t a
 
-instance ConvNames (Tagged '(s, CTSkip) a) where
-  type FldNames (Tagged '(s, CTSkip) a) = '[]
-  type FldTypes (Tagged '(s, CTSkip) a) = '[]
-  -- getFldNames = []
+instance (ConvNames tag (Tagged l vl), ConvNames tag (Tagged r vr))
+      => ConvNames tag (Tagged (Node l t r) (vl,vr)) where
+  type FldNames tag (Tagged (Node l t r) (vl,vr))
+        = FldNames tag (Tagged l vl) :++ FldNames tag (Tagged r vr)
+  type FldTypes tag (Tagged (Node l t r) (vl,vr))
+        = FldTypes tag (Tagged l vl) :++ FldTypes tag (Tagged r vr)
 
--- instance (ConvNames (Tagged bt a), SingI (GetMbSym s), SingI (BTreeType bt))
---       => ConvNames (Tagged '(s, CTGroup)
---                       (Tagged (bt::BTree (Maybe Symbol)) a)) where
---   -- type FldNames = If (IsNothing (BTreeType bt)) (FldNames (Tagged bt a))
---   --                     (...)
---   type FldTypes (Tagged '(s, CTGroup) (Tagged bt a)) = FldTypes (Tagged bt a)
---   getFldNames = case fromSing (sing :: Sing (BTreeType bt)) of
---       Nothing -> grpns
---       Just p  -> (maybe "" id (fromSing (sing :: Sing (GetMbSym s)))
---                   `mappend` p `mappend`) <$> grpns
---     where
---       grpns = getFldNames @(Tagged bt a)
+instance ConvNames tag (Tagged (BTreeFromList ns) a)
+      => ConvNames tag (Tagged (ns :: [Symbol]) a) where
+  type FldNames tag (Tagged ns a) = FldNames tag (Tagged (BTreeFromList ns) a)
+  type FldTypes tag (Tagged ns a) = FldTypes tag (Tagged (BTreeFromList ns) a)
 
-instance (ConvNames (Tagged l vl), ConvNames (Tagged r vr))
-      => ConvNames (Tagged (Node l t r) (vl,vr)) where
-  type FldNames (Tagged (Node l t r) (vl,vr))
-        = FldNames (Tagged l vl) :++ FldNames (Tagged r vr)
-  type FldTypes (Tagged (Node l t r) (vl,vr))
-        = FldTypes (Tagged l vl) :++ FldTypes (Tagged r vr)
-  -- getFldNames = getFldNames @(Tagged l vl) ++ getFldNames @(Tagged r vr)
---
-instance (Grec v, ConvNames (GrecTagged v))
-      => SConvNames ms1 (Tagged ('Nothing :: Maybe Symbol) v) where
-  type SFldNames ms1 (Tagged ('Nothing :: Maybe Symbol) v)
-    = FldNames (GrecTagged v)
-  type SFldTypes ms1 (Tagged ('Nothing :: Maybe Symbol) v)
-    = FldTypes (GrecTagged v)
-  -- getSFldNames = getFldNames @(GrecTagged v)
+data AllFld
+instance (Grec v, ConvNames AllFld (GrecTagged v))
+      => SConvNames AllFld ms1 (Tagged ('Nothing :: Maybe Symbol) v) where
+  type SFldNames AllFld ms1 (Tagged ('Nothing :: Maybe Symbol) v)
+    = FldNames AllFld (GrecTagged v)
+  type SFldTypes AllFld ms1 (Tagged ('Nothing :: Maybe Symbol) v)
+    = FldTypes AllFld (GrecTagged v)
+
+instance SConvNames AllFld s (Maybe a) where
+  type SFldTypes AllFld s (Maybe a) = '[Maybe a]
+
+data EmptyFld
+instance SConvNames EmptyFld ms a where
+  type SFldNames EmptyFld ms a = '[]
+  type SFldTypes EmptyFld ms a = '[]
+
 
 genDefunSymbols [''AppendSymbol]
 
-instance (Grec v, ConvNames (GrecTagged v))
-      => SConvNames ms1 (Tagged ('Just s :: Maybe Symbol) v) where
-  type SFldNames ms1 (Tagged ('Just s) v)
-    = Map (AppendSymbolSym1 (AppendSymbol (FromMaybe "" ms1) s))
-          (FldNames (GrecTagged v))
-  type SFldTypes ms1 (Tagged ('Just s) v) = FldTypes (GrecTagged v)
+instance (Grec v, ConvNames AllFld (GrecTagged v))
+      => SConvNames AllFld ms1 (Tagged ('Just s :: Maybe Symbol) v) where
+  type SFldNames AllFld ms1 (Tagged ('Just s) v) =
+    Map (AppendSymbolSym1 (AppendSymbol (FromMaybe "" ms1) s))
+        (FldNames AllFld (GrecTagged v))
+  type SFldTypes AllFld ms1 (Tagged ('Just s) v) = FldTypes AllFld (GrecTagged v)
 
-instance SConvNames ms (Tagged ('Just s) v)
-      => SConvNames ms (Tagged (s :: Symbol) v) where
-  type SFldNames ms (Tagged s v) = SFldNames ms (Tagged (Just s) v)
-  type SFldTypes ms (Tagged s v) = SFldTypes ms (Tagged (Just s) v)
-  -- getSFldNames = getSFldNames @ms @(Tagged (Just s) v)
+instance SConvNames AllFld ms (Tagged ('Just s) v)
+      => SConvNames AllFld ms (Tagged (s :: Symbol) v) where
+  type SFldNames AllFld ms (Tagged s v) = SFldNames AllFld ms (Tagged (Just s) v)
+  type SFldTypes AllFld ms (Tagged s v) = SFldTypes AllFld ms (Tagged (Just s) v)
 
-instance SConvNames ms (Tagged ('Nothing :: Maybe Symbol) v)
-      => SConvNames ms (Tagged () v) where
-  type SFldNames ms (Tagged () v)
-    = SFldNames ms (Tagged ('Nothing :: Maybe Symbol) v)
-  type SFldTypes ms (Tagged () v)
-    = SFldTypes ms (Tagged ('Nothing :: Maybe Symbol) v)
-  -- getSFldNames = getSFldNames @ms @(Tagged ('Nothing :: Maybe Symbol) v)
+instance SConvNames AllFld ms (Tagged ('Nothing :: Maybe Symbol) v)
+      => SConvNames AllFld ms (Tagged () v) where
+  type SFldNames AllFld ms (Tagged () v) =
+    SFldNames AllFld ms (Tagged ('Nothing :: Maybe Symbol) v)
+  type SFldTypes AllFld ms (Tagged () v) =
+    SFldTypes AllFld ms (Tagged ('Nothing :: Maybe Symbol) v)
 
-instance ConvNames (a1,a2)
-instance ConvNames (a1,a2,a3)
-instance ConvNames (a1,a2,a3,a4)
-instance ConvNames (a1,a2,a3,a4,a5)
-instance ConvNames (a1,a2,a3,a4,a5,a6)
-instance ConvNames (a1,a2,a3,a4,a5,a6,a7)
+instance SConvNames AllFld ms (Tagged (BTreeFromList ns) a)
+      => SConvNames AllFld ms (Tagged (ns :: [Symbol]) a) where
+  type SFldNames AllFld ms (Tagged ns a) =
+    SFldNames AllFld ms (Tagged (BTreeFromList ns) a)
+  type SFldTypes AllFld ms (Tagged ns a) =
+    SFldTypes AllFld ms (Tagged (BTreeFromList ns) a)
+
+instance ConvNames tag (a1,a2)
+instance ConvNames tag (a1,a2,a3)
+instance ConvNames tag (a1,a2,a3,a4)
+instance ConvNames tag (a1,a2,a3,a4,a5)
+instance ConvNames tag (a1,a2,a3,a4,a5,a6)
+instance ConvNames tag (a1,a2,a3,a4,a5,a6,a7)
