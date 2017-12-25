@@ -18,9 +18,9 @@ import           Perst.Types           (PChilds)
 import           Perst.Test.Data.Order (OrderPosition, TOrder, TOrderPosition)
 
 data OrderTree = OrderTree
-  { id   :: Int64
-  , num  :: T.Text
-  , date :: T.Text
+  { id    :: Int64
+  , num   :: T.Text
+  , date  :: T.Text
   , opOrd :: PChilds OrderPosition
   } deriving (Show, Generic, Eq, Ord)
 

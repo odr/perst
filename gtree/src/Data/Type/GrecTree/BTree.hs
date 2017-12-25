@@ -9,16 +9,6 @@
 {-# LANGUAGE UndecidableInstances      #-}
 --
 {-# LANGUAGE DataKinds                 #-}
--- default-extensions:   DataKinds
---                     , KindSignatures
---                     , OverloadedStrings
---                     , ScopedTypeVariables
---                     , PolyKinds
---                     , MultiParamTypeClasses
---                     , FlexibleContexts
---                     , TypeSynonymInstances
---                     , FlexibleInstances
---                     , ConstraintKinds
 
 module Data.Type.GrecTree.BTree where
 

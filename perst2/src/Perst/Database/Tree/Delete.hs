@@ -7,11 +7,10 @@
 module Perst.Database.Tree.Delete where
 
 import           Control.Applicative       (ZipList (..))
--- import           Control.Monad.IO.Class    (MonadIO (..))
+import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Functor.Compose      (Compose (..))
 import           Data.Tagged               (Tagged (..))
 import           GHC.Prim                  (Proxy#, proxy#)
--- import           Lens.Micro.Extras         (view)
 
 import           Data.Type.GrecTree        (ConvNames (..), Grec (..),
                                             TGetSet (..), TShowHide (..))
@@ -32,7 +31,20 @@ deleteTreeManyDef :: (MonadCons m , AppCons f
   => Proxy# '(b,sch,t) -> f r -> SessionMonad b m ()
 deleteTreeManyDef (_ :: Proxy# '(b,sch,t)) (rs :: f r) = do
   deleteChilds @b @sch @t @(FldNames LstFld r) rs
+  -- case (sing :: Sing (FldNames LstFld r)) of
+  --   SNil -> return ()
+  --   SCons
   deleteManyDef (proxy#::Proxy# '(b,GetDS t sch)) rs
+  -- where
+  --   delChilds sng rs = case sng of
+  --     SNil -> return ()
+  --     SCons s ss ->
+  --       deleteTreeManyDef (proxy# :: Proxy# '(b,sch,(RefFrom ref)))
+  --                         $ fmap toTagged $ Compose $ delRec <$> rs
+  --       delChilds ss rs
+  --     where
+  --       delRec r = (Tagged @rcols1 (tget @rcols2 r),)
+  --               <$> ZipList (map toTagged $ unPChilds $ view (tlens' @s) r)
 
 class DeleteChilds b sch t fs r where
   deleteChilds  :: (MonadCons m , AppCons f) => f r -> SessionMonad b m ()
@@ -55,13 +67,9 @@ instance ( GetToRefByName t s (SchRefs sch) ~ Just ref
          , GetDataStruct (RefFrom ref) sch ~ Just cds
          , DelTreeCons b sch (RefFrom ref) tchld
          , DeleteChilds b sch t ss r
-         -- , Show vref, Show dtv
          )
       => DeleteChilds b sch t (s ': ss) r where
   deleteChilds rs = do
-    -- liftIO $ do
-    --   putStrLn "deleteChilds:"
-    --   mapM_ print $ Compose $ delRec <$> rs
     deleteTreeManyDef (proxy# :: Proxy# '(b,sch,(RefFrom ref)))
                     $ Compose $ delRec <$> rs
     deleteChilds @b @sch @t @ss rs
@@ -69,5 +77,6 @@ instance ( GetToRefByName t s (SchRefs sch) ~ Just ref
       delRec r = ( toTagged
                  . (Tagged @rcols1 (tget @rcols2 r),)
                  . thide @rcols1
+                 . toTagged
                  )
-              <$> ZipList (map toTagged $ unPChilds $ tget @'[s] r)
+                <$> ZipList (unPChilds $ tget @'[s] r)

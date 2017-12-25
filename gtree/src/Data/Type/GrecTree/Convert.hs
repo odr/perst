@@ -18,8 +18,6 @@ import           Data.Singletons.Prelude.List     (IntersectBy, SortBy)
 import           Data.Singletons.Prelude.Maybe    (FromMaybe)
 import           Data.Tagged                      (Tagged (..), retag, untag)
 import           Data.Text                        (Text)
--- import           Data.Type.Bool                (If)
--- import           Data.Type.Equality            (type (==))
 import           GHC.TypeLits                     (AppendSymbol, Symbol)
 
 import           Data.Type.GrecTree.BTree
@@ -186,6 +184,13 @@ instance SConvNames EmptyFld ms a where
   type SFldNames EmptyFld ms a = '[]
   type SFldTypes EmptyFld ms a = '[]
 
+newtype Hidden a = Hidden { unHidden :: a } deriving (Eq, Show, Ord)
+instance SConvNames AllFld ms (Hidden a) where
+  type SFldNames AllFld ms (Hidden a) = '[]
+  type SFldTypes AllFld ms (Hidden a) = '[]
+type instance GPlus (Hidden a) = False
+instance Convert (Hidden a) [b] where convert _ = []
+
 
 genDefunSymbols [''AppendSymbol]
 
@@ -221,16 +226,3 @@ instance ConvNames tag (a1,a2,a3,a4)
 instance ConvNames tag (a1,a2,a3,a4,a5)
 instance ConvNames tag (a1,a2,a3,a4,a5,a6)
 instance ConvNames tag (a1,a2,a3,a4,a5,a6,a7)
-
--- newtype Hidden to wrap some type to not visible for ConvNames and convert to list.
--- convert from lis is impossible
-newtype Hidden a = Hidden { unHidden :: a } deriving (Show, Eq, Ord)
-type instance GPlus (Hidden a) = False
-  -- deriving (Eq,Show,Ord,Functor,Monad,Applicative,Traversable,Foldable,Monoid,FromJSON,ToJSON)
-
-instance Convert (Hidden a) [b] where
-  convert _ = []
-
-instance SConvNames AllFld ms (Hidden a) where
-  type SFldNames AllFld ms (Hidden a) = '[]
-  type SFldTypes AllFld ms (Hidden a) = '[]
