@@ -9,58 +9,69 @@ import           Control.Applicative       (ZipList (..), liftA2)
 import           Data.Functor.Compose      (Compose (..))
 import           Data.Tagged               (Tagged (..))
 import           GHC.Prim                  (Proxy#, proxy#)
-import           Lens.Micro                ((&), (.~))
 
-import           Data.Type.GrecTree        (ConvNames (..), Grec (..), LType,
-                                            TGetSet (..), TLens' (..))
+import           Data.Type.GrecTree        (ConvNames (..), Grec (..),
+                                            TGetSet (..))
 import           Perst.Database.Condition  (Condition)
-import           Perst.Database.DbOption   (MonadCons, SessionMonad)
+import           Perst.Database.DataDef    (DdName, GetDS, GetDataStruct,
+                                            GetToRefByName, RefCols, RefFrom,
+                                            SchRefs, Schema)
+import           Perst.Database.DbOption   (AppCons, MonadCons, SessionMonad)
 import           Perst.Database.DML.Select (SelCondCons, SelCons, selectCondDef,
                                             selectManyDef)
-import           Perst.Database.TreeDef    (AppCons, MbChild, TdData, TreeDef)
+-- import           Perst.Database.TreeDef    (AppCons, MbChild, TdData, TreeDef)
 import           Perst.Types               (Fsts, LstFld, PChilds (..), Snds)
 
 
-type SelTreeCons b t r k
-  = (SelCons b (TdData t) r k, SelectChilds b t (FldNames LstFld r) r)
-type SelTreeCondCons b t r
-  = (SelCondCons b t r, SelectChilds b t (FldNames LstFld r) r)
+type SelTreeCons b sch t r k
+  = (SelCons b (GetDS t sch) r k, SelectChilds b sch t (FldNames LstFld r) r)
+type SelTreeCondCons b sch t r
+  = (SelCondCons b sch (GetDS t sch) r, SelectChilds b sch t (FldNames LstFld r) r)
 
-selectTreeManyDef :: (AppCons f, MonadCons m, SelTreeCons b t r k)
-                  => Proxy# '(b,t,r) -> f k -> SessionMonad b m (f [r])
-selectTreeManyDef (_::Proxy# '(b,t,r)) (ks::f k) = do
+selectTreeManyDef :: (AppCons f, MonadCons m
+                     , GetDataStruct t sch ~ Just ds
+                     , SelTreeCons b sch t r k
+                     )
+           => Proxy# '(b,(sch::Schema),t,r) -> f k -> SessionMonad b m (f [r])
+selectTreeManyDef (_::Proxy# '(b,sch,t,r)) (ks::f k) = do
   rs <- Compose . fmap ZipList
-      <$> selectManyDef (proxy#::Proxy# '(b,TdData t,r)) ks
-  fmap getZipList . getCompose <$> selectChilds @b @t @(FldNames LstFld r) rs
+      <$> selectManyDef (proxy#::Proxy# '(b,GetDS t sch,r)) ks
+  fmap getZipList . getCompose <$> selectChilds @b @sch @t @(FldNames LstFld r) rs
 
-selectTreeCondDef :: (MonadCons m, SelTreeCondCons b t r)
-  => Proxy# b -> Condition t r -> SessionMonad b m [r]
-selectTreeCondDef (pb::Proxy# b) (c::Condition t r) = do
+selectTreeCondDef :: (MonadCons m, SelTreeCondCons b sch t r
+                     , GetDataStruct t sch ~ Just ds
+                     , t ~ DdName ds
+                     )
+  => Proxy# b -> Condition (sch::Schema) t r -> SessionMonad b m [r]
+selectTreeCondDef (pb::Proxy# b) (c::Condition sch t r) = do
   rs <- ZipList <$> selectCondDef pb c
-  getZipList <$> selectChilds @b @t @(FldNames LstFld r) rs
+  getZipList <$> selectChilds @b @sch @t @(FldNames LstFld r) rs
 
-class SelectChilds b (t::TreeDef) fs r where
+class SelectChilds b (sch :: Schema) t fs r where
   selectChilds :: (MonadCons m, AppCons f) => f r -> SessionMonad b m (f r)
 
-instance SelectChilds b t '[] r where
+instance SelectChilds b sch t '[] r where
   selectChilds = return
 
-instance ( MbChild s t ~ Just '(td,ref)
-         , LType s r ~ PChilds v
+instance ( GetToRefByName t s (SchRefs sch) ~ Just ref
+         , GSType '[s] r ~ PChilds v
+         , TGetSet '[s] r
          , Grec v
-         , TLens' s r
-         , Snds ref ~ pref
-         , Fsts ref ~ cref
-         , TGetSet pref r, GSType pref r ~ vref
-         , Tagged cref vref ~ chfk
-         , SelTreeCons b td (GrecTagged v) chfk
-         , SelectChilds b t ss r
+         , RefCols ref ~ rcols
+         , Fsts rcols ~ rcols1
+         , Snds rcols ~ rcols2
+         , TGetSet rcols2 r, GSType rcols2 r ~ vref
+         , Tagged rcols1 vref ~ chfk
+         , GetDataStruct (RefFrom ref) sch ~ Just ds
+         , SelTreeCons b sch (RefFrom ref) (GrecTagged v) chfk
+         , SelectChilds b sch t ss r
          )
-      => SelectChilds b t (s ': ss) r where
+      => SelectChilds b sch t (s ': ss) r where
   selectChilds rs = do
     -- undefined
-    rs' <- liftA2 (\r cs -> r & tlens' @s .~ PChilds (fromTagged <$> cs)) rs
-      <$> selectTreeManyDef (proxy# :: Proxy# '(b,td,(GrecTagged v))) (keyRec <$> rs)
-    selectChilds @b @t @ss rs'
+    rs' <- liftA2 (\r cs -> tset @'[s] (PChilds $ fromTagged <$> cs) r) rs
+      <$> selectTreeManyDef (proxy# :: Proxy# '(b,sch,RefFrom ref,GrecTagged v))
+                            (keyRec <$> rs)
+    selectChilds @b @sch @t @ss rs'
     where
-      keyRec r = Tagged @cref (tget @pref r)
+      keyRec r = Tagged @rcols1 (tget @rcols2 r)

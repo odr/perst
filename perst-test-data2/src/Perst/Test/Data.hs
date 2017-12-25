@@ -1,10 +1,13 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE MagicHash           #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MagicHash             #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 {-# OPTIONS_GHC -Wno-missing-signatures -Wno-unused-imports #-}
 
 module Perst.Test.Data where
@@ -17,6 +20,7 @@ import qualified Data.Text                    as T
 import           GHC.Prim                     (Proxy#, proxy#)
 
 import           Data.Type.GrecTree
+import           Perst.Database.DataDef
 import           Perst.Database.DbOption      (DbOption (..), DbTypeName,
                                                SessionMonad)
 import           Perst.Database.DDL           as DDL
@@ -27,6 +31,7 @@ import           Perst.Database.Tree.Delete
 import           Perst.Database.Tree.Insert
 import           Perst.Database.Tree.Select
 import           Perst.Database.Tree.Update
+
 import           Perst.Types
 -- import           Perst.Database.DMLTree
 
@@ -36,6 +41,7 @@ import           Perst.Test.Data.CustomerTree
 import           Perst.Test.Data.Db           (Db)
 import           Perst.Test.Data.Order
 import           Perst.Test.Data.OrderTree
+import           Perst.Test.Data.Ref
 
 
 ct = [ CustomerTree 1 (Tagged $ Names "odr" $ Just "odr")
@@ -63,18 +69,26 @@ ct3 = CustomerTree 3 (Tagged $ Names "zev1" $ Just "zev")
                   (PChilds [OrderTree 5 "2" "01.12.2017" (PChilds [ OrderPosition 8 1 1 5.0 ])])
                   (PChilds[])
 
+type Sch = SchemaC '[TCustomer, TOrder, TArticle, TOrderPosition, TAddress] Refs
+
+instance DDL Db TCustomer Refs
+instance DDL Db TOrder Refs
+instance DDL Db TArticle Refs
+instance DDL Db TOrderPosition Refs
+instance DDL Db TAddress Refs
+
 dropCreateTest = do
-  dropCreate @Db @TCustomer @Customer
-  dropCreate @Db @TOrder @Orders
-  dropCreate @Db @TArticle @Article
-  dropCreate @Db @TOrderPosition @OrderPosition
-  dropCreate @Db @TAddress @Address
+  dropCreate @Db @TCustomer @Refs
+  dropCreate @Db @TOrder @Refs
+  dropCreate @Db @TArticle @Refs
+  dropCreate @Db @TOrderPosition @Refs
+  dropCreate @Db @TAddress @Refs
 
 type TCT = GrecTagged CustomerTree
 initTest = do
   dropCreateTest
   -- insertManyDef (proxy# :: Proxy# '(Db,TCustomer)) $ map toTagged ct
-  insertTreeManyDef (proxy# :: Proxy# '(Db,TCustomerTree)) $ ZipList $ map toTagged ct
+  insertTreeManyDef (proxy# :: Proxy# '(Db,Sch,"customer")) $ ZipList $ map toTagged ct
 
 check :: IO ()
 check = runSession @Db "test.db" $ do
@@ -84,7 +98,7 @@ check = runSession @Db "test.db" $ do
   --       (ZipList (map Tagged [1..3] :: [Tagged (BTreeFromList '["id"]) Int64]))
   ct' <- (map (map fromTagged) . getZipList)
       <$> selectTreeManyDef
-        (proxy# :: Proxy# '(Db,TCustomerTree, GrecTagged CustomerTree))
+        (proxy# :: Proxy# '(Db,Sch,"customer", TCT))
         (ZipList (map Tagged [1..3] :: [Tagged (BTreeFromList '["id"]) Int64]))
   liftIO $ do
     putStrLn ""
@@ -95,11 +109,12 @@ check = runSession @Db "test.db" $ do
         else "Not Checked!!! ct' = " ++ show ct'
     putStrLn ""
   --
-  deleteTreeManyDef (proxy# :: Proxy# '(Db,TCustomerTree))
+  deleteTreeManyDef (proxy# :: Proxy# '(Db,Sch,"customer"))
     $ map toTagged $ take 1 ct
-  updateTreeManyDef (proxy# :: Proxy# '(Db,TCustomerTree))
+  updateTreeManyDef (proxy# :: Proxy# '(Db,Sch,"customer"))
     (map toTagged $ Prelude.drop 2 ct)
     [toTagged ct3]
+
   -- ct' <- selectTreeMany @Db @TCustomerTree @CustomerTree
   --           (map Tagged [1..3] :: [Tagged '["id"] Int64])
   -- liftIO $ do

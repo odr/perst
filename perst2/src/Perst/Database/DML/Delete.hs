@@ -7,15 +7,16 @@ import           Data.Text               (Text, intercalate)
 import           GHC.Prim                (Proxy#, proxy#)
 
 import           Data.Type.GrecTree      (ConsNames, ConvNames (..),
-                                          Convert (..))
-import           Perst.Database.DataDef  (DataDefInfo (..), formatS)
+                                          Convert (..), SubsetNamesTypes)
+import           Perst.Database.DataDef  (DataStructInfo (..), DsRec, formatS)
 import           Perst.Database.DbOption (DbOption (..), MonadCons,
                                           SessionMonad)
 import           Perst.Types             (NoLstFld)
 
-type DelTextCons b t k = (DbOption b, DataDefInfo t, ConsNames NoLstFld k)
+type DelTextCons b t k = (DbOption b, DataStructInfo t, ConsNames NoLstFld k)
 
-type DelCons b t k = (DelTextCons b t k, Convert k [FieldDB b])
+type DelPlusCons t k = SubsetNamesTypes NoLstFld k (DsRec t)
+type DelCons b t k = (DelTextCons b t k, Convert k [FieldDB b], DelPlusCons t k)
 
 deleteTextDef :: DelTextCons b t k => Proxy# '(b,t,k) -> Text
 deleteTextDef (_ :: Proxy# '(b,t,k))

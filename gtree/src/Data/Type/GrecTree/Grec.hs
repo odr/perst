@@ -1,11 +1,16 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE DefaultSignatures    #-}
+-- {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE PolyKinds            #-}
+-- {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Type.GrecTree.Grec where
+import           Data.Singletons.Prelude       (Sing (..), SingI (..))
 import           Data.Singletons.Prelude.Maybe (FromJust, IsNothing)
+-- import           Data.Singletons.TH            (singletons)
 import           Data.Tagged                   (Tagged (..), retag, untag)
 import           Data.Type.Bool                (If)
 import           GHC.Generics
@@ -53,6 +58,7 @@ type instance GPlus (a1,a2,a3,a4,a5,a6) = True
 type instance GPlus (a1,a2,a3,a4,a5,a6,a7) = True
 
 data FieldType s = Regular | TaggedField s | TaggedRec s | TaggedGrec
+
 type family GetFT a :: FieldType (Maybe Symbol) where
   GetFT (Tagged (s::Symbol) a) =
     If (GPlus a) (TaggedRec (Just s)) (TaggedField (Just s))
@@ -115,7 +121,6 @@ instance GrecFT (GetFT b) c b => GGrec (S1 (MetaSel c m2 m3 m4) (Rec0 b)) where
   gGrecToTagged (M1 (K1 b)) = grecToTaggedFT @(GetFT b) @c b
   gTaggedToGrec = M1 . K1 . taggedToGrecFT @(GetFT b) @c
 
-
 instance  ( GGrec x
           , GGrec y
           , GTagged x ~ Tagged l vl
@@ -141,10 +146,19 @@ instance GGrec b => GGrec (D1 (MetaData md1 md2 md3 False) (C1 mc b)) where
   gGrecToTagged (M1 (M1 b)) = gGrecToTagged b
 
 -- newtype => convert internal type
-instance (Generic b, GGrec (Rep b))
-    => GGrec (D1 (MetaData md1 md2 md3 True) (C1 mc (S1 c (Rec0 b))))
-    where
-  type GTagged (D1 (MetaData md1 md2 md3 True) (C1 mc (S1 c (Rec0 b))))
-      = GTagged (Rep b)
-  gTaggedToGrec = M1 . M1 . M1 . K1 . to . gTaggedToGrec
-  gGrecToTagged (M1 (M1 (M1 (K1 b)))) = gGrecToTagged $ from b
+instance ( If (GPlus b) (Generic b, GGrec (Rep b)) (GrecFT Regular c b)
+         , SingI (GPlus b)
+         )
+  => GGrec (D1 (MetaData md1 md2 md3 True)
+               (C1 mc (S1 (MetaSel c m2 m3 m4) (Rec0 b))))
+  where
+  type GTagged (D1 (MetaData md1 md2 md3 True)
+                   (C1 mc (S1 (MetaSel c m2 m3 m4) (Rec0 b)))) =
+    If (GPlus b) (GTagged (Rep b)) (TaggedFT Regular c b)
+  gTaggedToGrec = M1 . M1 . M1 . K1
+                . case (sing :: Sing (GPlus b)) of
+                    SFalse -> taggedToGrecFT @Regular @c
+                    STrue  -> to . gTaggedToGrec
+  gGrecToTagged (M1 (M1 (M1 (K1 b)))) = case (sing :: Sing (GPlus b)) of
+    SFalse -> grecToTaggedFT @Regular @c b
+    STrue  -> gGrecToTagged $ from b

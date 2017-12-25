@@ -44,3 +44,17 @@ instance SConvNames (If (IsList a) AllFld EmptyFld) ms a
 
 type Fsts rs = Map FstSym0 rs
 type Snds rs = Map SndSym0 rs
+
+type family IsMandatory t where
+  IsMandatory (Maybe a) = 'False
+  IsMandatory (PChilds a) = 'False
+  IsMandatory a = 'True
+
+data MandatoryFld
+
+instance SConvNames (If (IsMandatory a) AllFld EmptyFld) ms a
+      => SConvNames MandatoryFld ms a where
+  type SFldNames MandatoryFld ms a =
+    SFldNames (If (IsMandatory a) AllFld EmptyFld) ms a
+  type SFldTypes MandatoryFld ms a =
+    SFldTypes (If (IsMandatory a) AllFld EmptyFld) ms a

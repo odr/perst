@@ -11,15 +11,18 @@ import qualified Data.Text               as T
 import           GHC.Prim                (Proxy#, proxy#)
 
 import           Data.Type.GrecTree      (ConsNames, ConvNames (..),
-                                          Convert (..))
-import           Perst.Database.DataDef  (DataDefInfo (..), formatS)
+                                          Convert (..), SubsetNamesTypes)
+import           Perst.Database.DataDef  (DataStructInfo (..), DsRec, formatS)
 import           Perst.Database.DbOption (DbOption (..), MonadCons,
                                           SessionMonad)
 import           Perst.Types             (NoLstFld)
 
+type UpdPlusCons t r k =
+  (SubsetNamesTypes NoLstFld r (DsRec t), SubsetNamesTypes NoLstFld k (DsRec t))
 type UpdCons b t r k =
   ( DbOption b, Convert r [FieldDB b], Convert k [FieldDB b]
-  , ConsNames NoLstFld k, ConsNames NoLstFld r, DataDefInfo t
+  , ConsNames NoLstFld k, ConsNames NoLstFld r, DataStructInfo t
+  , UpdPlusCons t r k
   )
 
 type UpdDiffCons b t r k = (UpdCons b t r k, Convert r [FieldDB b], Eq (FieldDB b))

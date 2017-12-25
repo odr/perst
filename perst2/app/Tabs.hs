@@ -13,7 +13,7 @@ import           Data.Type.Grec          ((:::), Fields, Grec (..),
                                           GrecGroup (..), GrecWith (..),
                                           GrecWithout (..))
 import           Perst.Database.DataDef  (DataAutoIns, DataDef' (..),
-                                          DataDefInfo (..), DataInfo (..),
+                                          DataStructInfo (..), DataInfo (..),
                                           DelCons (..), FK (..))
 import           Perst.Database.DbOption (DbTypeNames (..))
 import           Perst.Database.DDL      (DDL (..))

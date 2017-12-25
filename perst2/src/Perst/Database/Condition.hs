@@ -18,8 +18,8 @@ import           Control.Monad.Trans.State.Strict (State, evalState, get,
 import           Data.Aeson                       (FromJSON, ToJSON)
 import           Data.Bifunctor                   (bimap, first, second)
 import           Data.Foldable                    (toList)
-import           Data.Singletons.Prelude          (Fst, Sing, SingI (..), Snd,
-                                                   fromSing)
+import           Data.Singletons.Prelude          (Sing, SingI (..), fromSing)
+import           Data.Singletons.Prelude.Maybe    (FromJust)
 import           Data.String                      (IsString (..))
 import           Data.Tagged                      (Tagged (..), untag)
 import qualified Data.Text                        as T
@@ -30,32 +30,35 @@ import           GHC.TypeLits                     (KnownSymbol, Symbol,
                                                    symbolVal')
 
 import           Data.Type.GrecTree
-import           Perst.Database.DataDef           (formatS)
+import           Perst.Database.DataDef           (GetToRefByName, RefCols,
+                                                   RefFrom, SchRefs, Schema,
+                                                   formatS)
 import           Perst.Database.DbOption          (DbOption (..))
-import           Perst.Database.TreeDef           (Child, TreeDef)
+-- import           Perst.Database.TreeDef           (Child, TreeDef)
 import           Perst.Types                      (PChilds)
 
-data Condition (t::TreeDef) v
-  = And (Condition t v) (Condition t v)
-  | Or  (Condition t v) (Condition t v)
-  | Not (Condition t v)
-  | Rec (CondRec t v)
+-- data Condition (t::TreeDef) v
+data Condition (sch :: Schema) (t :: Symbol) v
+  = And (Condition sch t v) (Condition sch t v)
+  | Or  (Condition sch t v) (Condition sch t v)
+  | Not (Condition sch t v)
+  | Rec (CondRec   sch t v)
   deriving Generic
 
-instance Monoid (CondRec t v) => Monoid (Condition t v) where
+instance Monoid (CondRec sch t v) => Monoid (Condition sch t v) where
   mempty = Rec mempty
   mappend c1 c2 = And c1 c2
 
-type family CondRec t v where
-  CondRec t (Tagged (Leaf s) (PChilds v))   = Tagged (Leaf s)
-                                              (CondChild (Child s t) v)
-  CondRec t (Tagged (Leaf s) (Tagged s1 v)) = Tagged (Leaf s)
-                                              (Tagged s1 (CondRec t v))
-  CondRec t (Tagged (Leaf s) v)             = Tagged (Leaf s) [CondVal v]
-  CondRec t (Tagged (Node l x r) (vl,vr))   = Tagged (Node l x r)
-                                              ( Untag (CondRec t (Tagged l vl))
-                                              , Untag (CondRec t (Tagged r vr))
-                                              )
+type family CondRec sch t v where
+  CondRec sch t (Tagged (Leaf s) (PChilds v)) =
+    Tagged (Leaf s) (CondChild sch (FromJust (GetToRefByName t s (SchRefs sch))) v)
+  CondRec sch t (Tagged (Leaf s) (Tagged s1 v)) =
+    Tagged (Leaf s) (Tagged s1 (CondRec sch t v))
+  CondRec sch t (Tagged (Leaf s) v) = Tagged (Leaf s) [CondVal v]
+  CondRec sch t (Tagged (Node l x r) (vl,vr)) =
+    Tagged (Node l x r) ( Untag (CondRec sch t (Tagged l vl))
+                        , Untag (CondRec sch t (Tagged r vr))
+                        )
 
 data CondVal v  = CvEq v
                 | CvGe v
@@ -68,12 +71,14 @@ instance FromJSON v => FromJSON (CondVal v)
 instance ToJSON   v => ToJSON   (CondVal v)
 
 -- [(Symbol,Symbol)] is needed to get references info for childs
-data CondChild (t::(TreeDef,[(Symbol,Symbol)])) v
-  = CsExists (Condition (Fst t) v)
-  | CsNotExists (Condition (Fst t) v)
+data CondChild sch ref v = CsExists (Condition sch (RefFrom ref) v)
+                         | CsNotExists (Condition sch (RefFrom ref) v)
   deriving Generic
-instance FromJSON (Condition (Fst t) v) => FromJSON (CondChild t v)
-instance ToJSON   (Condition (Fst t) v) => ToJSON   (CondChild t v)
+
+instance FromJSON (Condition sch (RefFrom ref) v)
+      => FromJSON (CondChild sch ref v)
+instance ToJSON   (Condition sch (RefFrom ref) v)
+      => ToJSON   (CondChild sch ref v)
 
 type ConvCondMonad = ReaderT Int (State (Int, Int))
 runConvCond :: ConvCondMonad a -> a
@@ -102,9 +107,17 @@ convCondVal (pb::Proxy# b) name0 cv
     bi (op :: T.Text) v = withPar
       $ \p -> (formatS "{} {} {}" (name, op, p), Just $ convert v)
 
-convCondChild :: (DbOption b, SingI (Snd t), ConvCond b (Condition (Fst t) v))
-    => Proxy# b -> T.Text -> CondChild t v -> ConvCondMonad (T.Text, [FieldDB b])
-convCondChild (_::Proxy# b) name (cs :: CondChild t v)
+-- Есть проблема с циклическими ссылками.
+-- На уровне типов не понять, что дочерний список пустой.
+-- Будет бесконечный type-checking.
+-- Надо либо не поддерживать циклических структур вообще,
+-- либо ограничить вложенность каким-то количеством уровней (как?)
+convCondChild :: ( DbOption b, SingI (RefCols ref)
+                 , ConvCond b (Condition sch ch v), RefFrom ref ~ ch
+                 )
+              => Proxy# b -> T.Text -> CondChild sch ref v
+              -> ConvCondMonad (T.Text, [FieldDB b])
+convCondChild (_::Proxy# b) name (cs :: CondChild sch ref v)
   = ask >>= \pnum -> lift (modify (first (+1)) >> fst <$> get) >>= go pnum
  where
   go pnum cnum = case cs of
@@ -113,7 +126,7 @@ convCondChild (_::Proxy# b) name (cs :: CondChild t v)
    where
     ref = T.intercalate " AND "
         $ map (\(ch,pr) -> formatS "t{}.{} = t{}.{}" (cnum,ch,pnum,pr))
-        $ fromSing (sing :: Sing (Snd t))
+        $ fromSing (sing :: Sing (RefCols ref))
     sub (s :: T.Text)
       = fmap (first (\c ->
           formatS "{}EXISTS (SELECT 1 FROM {} t{} WHERE {}{}{})"
@@ -129,8 +142,10 @@ instance (KnownSymbol n, DbOption b, Convert v (FieldDB b))
                           (fromString $ symbolVal' (proxy# :: Proxy# n))
             . untag
 
-instance (KnownSymbol n, DbOption b, ConvCond b (Condition (Fst t) v), SingI (Snd t))
-      => ConvCond b (Tagged (Leaf n) (CondChild t v)) where
+instance ( KnownSymbol n, DbOption b, ConvCond b (Condition sch ch v)
+         , SingI (RefCols ref), RefFrom ref ~ ch
+         )
+      => ConvCond b (Tagged (Leaf n) (CondChild sch ref v)) where
   convCond  = convCondChild (proxy# :: Proxy# b)
                             (fromString $ symbolVal' (proxy# :: Proxy# n))
             . untag
@@ -155,7 +170,7 @@ instance (ConvCond b (Tagged l vl), ConvCond b (Tagged r vr))
     <$> convCond @b @(Tagged l vl) (Tagged vl)
     <*> convCond @b @(Tagged r vr) (Tagged vr)
 
-instance ConvCond b (CondRec t v) => ConvCond b (Condition t v) where
+instance ConvCond b (CondRec sch t v) => ConvCond b (Condition sch t v) where
   convCond = \case
     And c1 c2 -> bi "AND" c1 c2
     Or  c1 c2 -> bi "OR" c1 c2

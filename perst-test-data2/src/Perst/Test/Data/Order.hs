@@ -13,8 +13,8 @@ import qualified Data.Text              as T
 import           GHC.Generics           (Generic)
 
 import           Data.Type.GrecTree     (ConvNames (..), Grec (..))
-import           Perst.Database.DataDef (DataDef' (..), DataInfo (..),
-                                         DelCons (..), FK (..))
+import           Perst.Database.DataDef (DataInfo (..), DataStruct' (..),
+                                         DelCons (..))
 import           Perst.Database.DDL     (DDL (..))
 
 import           Perst.Test.Data.Db     (Db)
@@ -37,21 +37,24 @@ data OrderPosition = OrderPosition
 instance ToJSON OrderPosition
 instance FromJSON OrderPosition
 
-type TOrder =
-  DataDefC (TableInfo "orders" '["id"] '[ '["customerId", "num"]] True)
-             '[ FKC "customer" DcCascade '[ '("customerId", "id")]
-             ,  FKC "customer" DcSetNull '[ '("coCustomerId", "id")]
-             ]
+type TOrder = DataStructC
+                  (TableInfo "orders" '["id"] '[ '["customerId", "num"]] True)
+                  Orders
 
-type TOrderPosition =
-  DataDefC (TableInfo "OrderPosition" '["orderId","articleId"] '[] False)
-            '[ FKC "orders" DcCascade '[ '("orderId"  ,"id")]
-             , FKC "article" DcRestrict '[ '("articleId","id")]
-             ]
+             -- '[ FKC "customer" DcCascade '[ '("customerId", "id")]
+             -- ,  FKC "customer" DcSetNull '[ '("coCustomerId", "id")]
+             -- ]
+
+type TOrderPosition = DataStructC
+        (TableInfo "OrderPosition" '["orderId","articleId"] '[] False)
+        OrderPosition
+            -- '[ FKC "orders" DcCascade '[ '("orderId"  ,"id")]
+            --  , FKC "article" DcRestrict '[ '("articleId","id")]
+            --  ]
 
 instance Grec OrderPosition
 instance Grec Orders
 instance ConvNames t OrderPosition
 instance ConvNames t Orders
-instance DDL Db TOrderPosition OrderPosition
-instance DDL Db TOrder Orders
+-- instance DDL Db TOrderPosition
+-- instance DDL Db TOrder

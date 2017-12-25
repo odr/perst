@@ -9,16 +9,18 @@
 {-# LANGUAGE UndecidableInstances      #-}
 module Data.Type.GrecTree.Convert where
 
-import           Data.Bifunctor                (bimap, first)
-import           Data.Kind                     (Type)
-import           Data.Promotion.TH             (genDefunSymbols)
+import           Data.Bifunctor                   (bimap, first)
+import           Data.Kind                        (Type)
+import           Data.Promotion.TH                (genDefunSymbols)
 import           Data.Singletons.Prelude
-import           Data.Singletons.Prelude.Maybe (FromMaybe)
-import           Data.Tagged                   (Tagged (..), retag, untag)
-import           Data.Text                     (Text)
+import           Data.Singletons.Prelude.Function (OnSym2)
+import           Data.Singletons.Prelude.List     (IntersectBy, SortBy)
+import           Data.Singletons.Prelude.Maybe    (FromMaybe)
+import           Data.Tagged                      (Tagged (..), retag, untag)
+import           Data.Text                        (Text)
 -- import           Data.Type.Bool                (If)
 -- import           Data.Type.Equality            (type (==))
-import           GHC.TypeLits                  (AppendSymbol, Symbol)
+import           GHC.TypeLits                     (AppendSymbol, Symbol)
 
 import           Data.Type.GrecTree.BTree
 import           Data.Type.GrecTree.Grec
@@ -138,8 +140,17 @@ class ConvNames tag (v :: Type) where
   type FldNames tag v = FldNames tag (GrecTagged v)
   type FldTypes tag v :: [*]
   type FldTypes tag v = FldTypes tag (GrecTagged v)
+  type FldNamesTypes tag v :: [(Symbol,Type)]
+  type FldNamesTypes tag v = Zip (FldNames tag v) (FldTypes tag v)
+  type FldNamesTypesSort tag v :: [(Symbol,Type)]
+  type FldNamesTypesSort tag v = SortBy (ComparingSym1 FstSym0) (FldNamesTypes tag v)
   fldNames :: SingI (FldNames tag v) => [Text]
   fldNames = fromSing (sing :: Sing (FldNames tag v))
+
+type SubsetNamesTypes tag a b =
+  (IntersectBy (OnSym2 (:==$) FstSym0)
+               (FldNamesTypesSort tag a) (FldNamesTypesSort tag b))
+  ~ FldNamesTypesSort tag a
 
 type ConsNames tag v = (ConvNames tag v, SingI (FldNames tag v))
 
@@ -210,3 +221,16 @@ instance ConvNames tag (a1,a2,a3,a4)
 instance ConvNames tag (a1,a2,a3,a4,a5)
 instance ConvNames tag (a1,a2,a3,a4,a5,a6)
 instance ConvNames tag (a1,a2,a3,a4,a5,a6,a7)
+
+-- newtype Hidden to wrap some type to not visible for ConvNames and convert to list.
+-- convert from lis is impossible
+newtype Hidden a = Hidden { unHidden :: a } deriving (Show, Eq, Ord)
+type instance GPlus (Hidden a) = False
+  -- deriving (Eq,Show,Ord,Functor,Monad,Applicative,Traversable,Foldable,Monoid,FromJSON,ToJSON)
+
+instance Convert (Hidden a) [b] where
+  convert _ = []
+
+instance SConvNames AllFld ms (Hidden a) where
+  type SFldNames AllFld ms (Hidden a) = '[]
+  type SFldTypes AllFld ms (Hidden a) = '[]

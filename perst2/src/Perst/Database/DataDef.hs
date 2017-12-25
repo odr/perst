@@ -22,7 +22,7 @@ module Perst.Database.DataDef
   -- -- , DataDefConstr
   -- , ddFlds, ddRec
   -- -- * Good functions to take table info in runtime
-  -- -- , DataDefInfo(..)
+  -- -- , DataStructInfo(..)
   -- , tableName, fieldNames, primaryKey, uniqKeys, foreignKeys, autoIns, viewText
   -- -- , fieldNames', fieldNamesT
   -- -- * Some other stuffs
@@ -33,13 +33,16 @@ module Perst.Database.DataDef
   -- )
   where
 
-import           Data.Proxy              (Proxy (..))
+import           Data.Kind                     (Type)
+import           Data.Proxy                    (Proxy (..))
 import           Data.Singletons.Prelude
-import           Data.Singletons.TH      (singletons)
-import           Data.Text               (Text)
-import           Data.Text.Format        (Format, format)
-import           Data.Text.Format.Params (Params)
-import qualified Data.Text.Lazy          as TL
+import           Data.Singletons.Prelude.List  (FilterSym0, FindSym0)
+import           Data.Singletons.Prelude.Maybe (FromJust, FromJustSym0)
+import           Data.Singletons.TH            (promoteOnly, singletons)
+import           Data.Text                     (Text)
+import           Data.Text.Format              (Format, format)
+import           Data.Text.Format.Params       (Params)
+import qualified Data.Text.Lazy                as TL
 -- import           Data.Type.Grec                (GrecWith, GrecWithout)
 
 singletons [d|
@@ -60,29 +63,63 @@ singletons [d|
       , diKey     :: [s]
       , diUniq    :: [[s]]
       , diAutoIns :: Bool
-      }
+      } deriving Show
 
-  data FK s = FKC
-    { fkRefTab  :: s
-    , fkDelCons :: DelCons
-    , fkRefs    :: [(s,s)]
-    }
+  data DataStruct' s t = DataStructC { dsInfo  :: DataInfo s
+                                     , dsRec   :: t
+                                     } deriving Show
 
-  data DataDef' s = DataDefC
-    { ddInfo :: DataInfo s
-    , ddFKs :: [FK s]
-    }
+  data Ref' s = RefC { refName :: s
+                     , refFrom :: s
+                     , refTo :: s
+                     , refCols :: [(s,s)]
+                     , refDelCons :: DelCons
+                     } deriving Show
+
+  data Schema' s t = SchemaC { schDS :: [DataStruct' s t]
+                             , schRefs :: [Ref' s]
+                             } deriving Show
 
   |]
 
-deriving instance Show s => Show (DataInfo s)
-deriving instance Show s => Show (FK s)
-deriving instance Show s => Show (DataDef' s)
+promoteOnly [d|
+  getFromRefs :: DataStruct' s t -> [Ref' s] -> [Ref' s]
+  getFromRefs ds rs = filter (\r -> refFrom r == n) rs
+    where n = diName $ dsInfo ds
 
-type DataDef = DataDef' Symbol
+  getToRefs :: DataStruct' s t -> [Ref' s] -> [Ref' s]
+  getToRefs ds rs = filter (\r -> refTo r == n) rs
+    where n = diName $ dsInfo ds
 
-type DdKey t = DiKey (DdInfo t)
-type DdAutoIns t = DiAutoIns (DdInfo t)
+  getFromRefByName :: s -> s -> [Ref' s] -> Maybe (Ref' s)
+  getFromRefByName from ref refs =
+    find (\r -> refFrom r == from && refName r == ref) refs
+
+  getToRefByName :: s -> s -> [Ref' s] -> Maybe (Ref' s)
+  getToRefByName to ref refs =
+    find (\r -> refTo r == to && refName r == ref) refs
+
+  getDataStruct :: s -> Schema' s t -> Maybe (DataStruct' s t)
+  getDataStruct s = find ((s ==) . diName . dsInfo) . schDS
+
+  getDataStructName :: s -> Schema' s t -> s
+  getDataStructName s = diName . dsInfo . fromJust . find ((s ==) . diName . dsInfo) . schDS
+
+  |]
+
+-- deriving instance Show s => Show (DataInfo s)
+-- deriving instance Show s => Show (FK s)
+-- deriving instance Show s => Show (DataDef' s)
+
+type DataStruct = DataStruct' Symbol Type
+type Ref = Ref' Symbol
+type Schema = Schema' Symbol Type
+
+type DdKey t = DiKey (DsInfo t)
+type DdAutoIns t = DiAutoIns (DsInfo t)
+type DdName t = DiName (DsInfo t)
+
+type GetDS t sch = FromJust (GetDataStruct t sch)
 -- type DataKey t = DdKey (Snd t)
 
 -- type WithKey t r = GrecWith (DdKey t) r
@@ -90,15 +127,15 @@ type DdAutoIns t = DiAutoIns (DdInfo t)
 
 -- type DataAutoIns t = DiAutoIns (DdInfo t)
 
-class SingI t => DataDefInfo (t :: DataDef) where
-  singDataDef :: Sing t
-  singDataDef = sing
-
-  dataDef :: DataDef' Text
-  dataDef = fromSing (singDataDef @t)
+class SingI (DsInfo t) => DataStructInfo (t :: DataStruct) where
+  singDataInfo :: Sing (DsInfo t)
+  singDataInfo = sing
 
   dataInfo :: DataInfo Text
-  dataInfo = ddInfo (dataDef @t)
+  dataInfo = fromSing (singDataInfo @t)
+
+  -- dataInfo :: DataInfo Text
+  -- dataInfo = ddInfo (dataDef @t)
 
   isTable :: Bool
   isTable = case dataInfo @t of { TableInfo {} -> True; _ -> False }
@@ -112,8 +149,8 @@ class SingI t => DataDefInfo (t :: DataDef) where
   uniqKeys :: [[Text]]
   uniqKeys = diUniq (dataInfo @t)
 
-  foreignKeys :: [FK Text]
-  foreignKeys = ddFKs (dataDef @t)
+  -- foreignKeys :: [FK Text]
+  -- foreignKeys = ddFKs (dataDef @t)
 
   autoIns :: Bool
   autoIns = diAutoIns (dataInfo @t)
@@ -128,7 +165,7 @@ class SingI t => DataDefInfo (t :: DataDef) where
   -- fieldNames :: [Text]
   -- fieldNames = fromSing (sing :: Sing (Fsts (Fst t)))
 
-instance SingI t => DataDefInfo t
+instance SingI (DsInfo t) => DataStructInfo t
 
 showProxy :: (SingI t, SingKind k) => Proxy (t :: k) -> Demote k
 showProxy (_ :: Proxy t) = fromSing (sing :: Sing t)

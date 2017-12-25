@@ -21,6 +21,7 @@ library
                       , Perst.Test.Data.Customer
                       , Perst.Test.Data.CustomerTree
                       , Perst.Test.Data.Order
+                      , Perst.Test.Data.Ref
                       , Perst.Test.Data.OrderTree
   build-depends:       base >= 4.7 && < 5
                       , perst
@@ -37,3 +38,10 @@ library
 source-repository head
   type:     git
   location: https://github.com/odr/perst-test-data
+
+executable perst-test-data
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                      , perst-test-data

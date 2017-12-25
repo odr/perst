@@ -4,23 +4,30 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Perst.Database.DML.Insert where
 
-import           Control.Monad           (when)
-import           Control.Monad.Catch     (finally)
-import           Data.List               ((\\))
-import qualified Data.Text               as T
-import           GHC.Prim                (Proxy#, proxy#)
+import           Control.Monad                (when)
+import           Control.Monad.Catch          (finally)
+import           Data.List                    ((\\))
+import           Data.Singletons.Prelude.List (Sort)
+import qualified Data.Text                    as T
+import           GHC.Prim                     (Proxy#, proxy#)
 
-import           Data.Type.GrecTree      (ConsNames, ConvNames (..),
-                                          Convert (..), TDelete (..))
-import           Perst.Database.DataDef  (DataDefInfo (..), DdAutoIns, DdKey,
-                                          formatS)
-import           Perst.Database.DbOption (DbOption (..), MonadCons,
-                                          SessionMonad)
-import           Perst.Types             (NoLstFld)
+import           Data.Type.GrecTree           (ConsNames, ConvNames (..),
+                                               Convert (..), SubsetNamesTypes,
+                                               TShowHide (..))
+import           Perst.Database.DataDef       (DataStructInfo (..), DdAutoIns,
+                                               DdKey, DsRec, formatS)
+import           Perst.Database.DbOption      (DbOption (..), MonadCons,
+                                               SessionMonad)
+import           Perst.Types                  (MandatoryFld, NoLstFld)
 
-type InsTextCons b t r = (DbOption b, DataDefInfo t, ConsNames NoLstFld r)
+type InsTextCons b t r = (DbOption b, DataStructInfo t, ConsNames NoLstFld r)
 
-type InsCons b t r = (InsTextCons b t r, ReturnInsKey (DdAutoIns t) b t r)
+type InsPlusCons t r =
+  ( Sort (FldNames MandatoryFld r) ~ Sort (FldNames MandatoryFld (DsRec t))
+  , SubsetNamesTypes NoLstFld r (DsRec t)
+  )
+type InsCons b t r =
+  (InsTextCons b t r, ReturnInsKey (DdAutoIns t) b t r, InsPlusCons t r)
 
 insertTextDef :: InsTextCons b t r => Proxy# '(b,t,r) -> T.Text
 insertTextDef (_ :: Proxy# '(b,t,r))
@@ -43,12 +50,13 @@ instance Convert r [FieldDB b] => ReturnInsKey False b t r where
   returnKey = return ()
 
 instance ( DbOption b
-         , TDelete (DdKey t) r
-         , Convert (DeletedType (DdKey t) r) [FieldDB b]
+         , TShowHide (DdKey t) r
+         , Convert (HiddenType (DdKey t) r) [FieldDB b]
+         -- , Convert r [FieldDB b]
          )
       => ReturnInsKey True b t r where
   type ReturnKey True b = GenKey b
-  convertRec = convert . tdel @(DdKey t)
+  convertRec = convert . thide @(DdKey t)
   returnKey = getLastKey @b
 
 insertManyDef :: (MonadCons m, Traversable f, InsCons b t r)

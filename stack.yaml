@@ -2,12 +2,16 @@ flags: {}
 extra-package-dbs: []
 packages:
 # - perst-plugin
-- grec
-- perst
-- perst-sqlite
-- perst-test-data
-- perst-servant
+# - grec
+# - perst
+# - perst-sqlite
+# - perst-test-data
+# - perst-servant
 - gtree
+- perst2
+- perst-sqlite2
+- perst-test-data2
+- test
 # - advita
 extra-deps:
 # - Cabal-2.0.0.2

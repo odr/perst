@@ -82,7 +82,7 @@ rdb = RecBig 5 'x' (Pis 2 "y") 1 'x' (Pis 2 "y") 1 'x' (Pis 2 "y")
 
 trdb :: GrecTagged DatBig
 trdb = toTagged rdb
-rdb' = fromTagged $ trdb & tlens' @"fb1" .~ trdb ^. tlens' @"fb19" :: DatBig
+rdb' = fromTagged $ trdb & tlens' (sing :: Sing "fb1") .~ trdb ^. tlens' (sing :: Sing "fb19") :: DatBig
 
 data Dat1 = Rd1 { f11 :: Int } deriving (Show, Eq, Generic)
 instance Grec Dat1
@@ -101,7 +101,7 @@ instance ConvNames t Dat4
 type instance GPlus Dat4 = True
 vr4 = Rec4 (Just 1) 'x' (Pis 2 "test") 3 4 'z' :: Dat4
 vr4' :: Dat4
-vr4' = fromTagged $ toTagged vr4 & tlens' @"f41" .~ Nothing
+vr4' = fromTagged $ toTagged vr4 & tlens' (sing :: Sing "f41") .~ Nothing
 
 type T = (Tagged "x" Dat4, Tagged () Dat4 -- , Tagged "mb" (Maybe Dat4)
          , Tagged "z" (Tagged "1_" Dat4, Tagged (Just "2_") Dat4))
@@ -109,8 +109,8 @@ type T = (Tagged "x" Dat4, Tagged () Dat4 -- , Tagged "mb" (Maybe Dat4)
 r :: T
 r = (Tagged vr4, Tagged vr4', {-Tagged (Just vr4), -}Tagged (Tagged vr4,Tagged vr4)) :: T
 
-trdb' :: DeletedType '["f43","f41","y","fb12","fb15","x"] (GrecTagged DatBig)
-trdb' = tdel @["f43","f41","y","fb12","fb15","x"] trdb
+trdb' :: HiddenType '["f43","f41","y","fb12","fb15","x"] (GrecTagged DatBig)
+trdb' = thide @["f43","f41","y","fb12","fb15","x"] trdb
 
 -- instance (Grec v, SConvNames (TaggedTag (GrecTagged v)) (Untag (GrecTagged v)))
 --       => SConvNames ms1 (Tagged () v) where
@@ -130,8 +130,8 @@ check0 =  rdb /= rdb'
       && r == (fromTagged $ toTagged r)
       -- && toTagged (Tagged vr4::Tagged "_" Dat4, vr4)
       --       ^. tlens' @1 . tlens @"f42" == 'x'
-      && tdel @["f43","f41","y","fb12","fb15","x"] trdb
-        == tdel @["fb12","x","fb15","y","f43","f41","x"] trdb
+      && thide @["f43","f41","y","fb12","fb15","x"] trdb
+        == thide @["fb12","x","fb15","y","f43","f41","x"] trdb
       && convert tt
         == [XInt 5,XInt 1,XChar 'x',XPis (Pis 2 "test")
            ,XInt 3,XInt 4,XChar 'z',XChar 'z']

@@ -47,7 +47,7 @@ main = return ()
 --                                                 Condition (..), ConvCond (..),
 --                                                 runConvCond)
 -- import           Perst.Database.DataDef        (DataAutoIns, DataDef' (..),
---                                                 DataDefInfo (..), DataInfo (..),
+--                                                 DataStructInfo (..), DataInfo (..),
 --                                                 DelCons (..), FK (..))
 -- import           Perst.Database.DbOption       (DbOption (..), DbTypeName,
 --                                                 DbTypeNames (..), SessionMonad)

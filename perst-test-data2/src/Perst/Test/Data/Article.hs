@@ -12,7 +12,7 @@ import qualified Data.Text              as T
 import           GHC.Generics           (Generic)
 
 import           Data.Type.GrecTree     (ConvNames (..), Grec (..))
-import           Perst.Database.DataDef (DataDef' (..), DataInfo (..))
+import           Perst.Database.DataDef (DataInfo (..), DataStruct' (..))
 import           Perst.Database.DDL     (DDL (..))
 
 import           Perst.Test.Data.Db     (Db)
@@ -26,9 +26,10 @@ data Article = Article
   , note     :: Maybe T.Text
   } deriving (Show, Generic)
 
-type TArticle = DataDefC (TableInfo "article" '["id"] '[ '["name"]] False) '[]
+type TArticle = DataStructC (TableInfo "article" '["id"] '[ '["name"]] False)
+                  Article
 
 instance Grec Article
 instance ConvNames t Article
-instance DDL Db TArticle Article
+-- instance DDL Db TArticle Article
 -- instance DML Db TArticle (GrecTagged Article)

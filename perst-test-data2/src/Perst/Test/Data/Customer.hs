@@ -15,15 +15,15 @@ import           GHC.Generics           (Generic)
 import           GHC.TypeLits           (Symbol)
 
 import           Data.Type.GrecTree     (ConvNames (..), GPlus, Grec (..))
-import           Perst.Database.DataDef (DataDef' (..), DataInfo (..),
-                                         DelCons (..), FK (..))
+import           Perst.Database.DataDef (DataInfo (..), DataStruct' (..),
+                                         DelCons (..))
 import           Perst.Database.DDL     (DDL (..))
 
 import           Perst.Test.Data.Db     (Db)
 
 data Customer = Customer
   { id    :: Int64
-  , names :: Tagged ('Nothing::Maybe Symbol) Names
+  , names :: Tagged (Nothing::Maybe Symbol) Names
   , note  :: Maybe T.Text
   , note2 :: Maybe T.Text
   , note3 :: Maybe T.Text
@@ -47,10 +47,12 @@ data Address = Address
 instance ToJSON Address
 instance FromJSON Address
 
-type TCustomer = DataDefC (TableInfo "customer" '["id"] '[ '["name"]] True) '[]
+type TCustomer = DataStructC (TableInfo "customer" '["id"] '[ '["name"]] True)
+                        Customer
 
-type TAddress = DataDefC (TableInfo "address" '["id"] '[] False)
-                '[ FKC "customer" DcCascade '[ '("customerId", "id")]]
+type TAddress = DataStructC (TableInfo "address" '["id"] '[] False) Address
+
+                -- '[ FKC "customer" DcCascade '[ '("customerId", "id")]]
 
 
 instance Grec Customer
@@ -59,8 +61,8 @@ instance ConvNames t Customer
 
 instance Grec Address
 instance ConvNames t Address
-instance DDL Db TCustomer Customer
-instance DDL Db TAddress Address
+-- instance DDL Db TCustomer Customer
+-- instance DDL Db TAddress Address
 
 instance ToJSON Customer
 instance FromJSON Customer

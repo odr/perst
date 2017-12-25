@@ -29,6 +29,7 @@ module Perst.Database.DbOption
 
     , SessionMonad
     , MonadCons
+    , AppCons
 
     -- * DBFields
 
@@ -132,3 +133,5 @@ instance (Convert a Text, SingI ss) => Convert a (DBEnum ss) where
 
 instance Convert Text a => Convert (DBEnum ss) a where
   convert = convert . getDBEnum
+
+type AppCons f = (Applicative f, Traversable f)

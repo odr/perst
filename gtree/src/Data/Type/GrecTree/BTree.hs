@@ -49,6 +49,11 @@ type family BTreeHasB (b::Bool) (a::k1) (t::BTree k2) :: Bool where
   BTreeHasB True a r = True
   BTreeHasB False a r = BTreeHas a r
 
+type family BTreeHasNum s t where
+  BTreeHasNum s (Node l x r)
+    = If (BTreeHas s l) '(1,IsLeaf l)
+        (If (BTreeHas s r) '(2,IsLeaf r) '(0,False))
+
 type family ZipBTree (va::BTree a) (vb::BTree b) :: BTree (a,b) where
   ZipBTree (Leaf va) (Leaf vb) = Leaf '(va,vb)
   ZipBTree (Node la ta ra) (Node lb tb rb)
@@ -96,3 +101,12 @@ type family BTreeFromList (x::[k]) :: BTree (Maybe k) where
 type family BTreeToList (x::BTree (Maybe k)) :: [k] where
   BTreeToList (Leaf (Just x)) = '[x]
   BTreeToList (Node l Nothing r) = BTreeToList l :++ BTreeToList r
+
+type family BTreePath s x :: Maybe [Bool] where
+  BTreePath s (Leaf s') = If (Just s:==s') (Just '[]) Nothing
+  BTreePath s (Node l x r) = BTreePath' (BTreePath s l) False s l r
+
+type family BTreePath' xs b s l r where
+  BTreePath' Nothing False s l r = BTreePath' (BTreePath s r) True s l r
+  BTreePath' Nothing True s l r  = Nothing
+  BTreePath' (Just xs) b s l r   = Just (b ': xs)

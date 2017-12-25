@@ -20,7 +20,7 @@ library
                       , Data.Type.GrecTree.Convert
                       , Data.Type.GrecTree.Grec
                       , Data.Type.GrecTree.Lens
-                      , Data.Type.GrecTree.Delete
+                      -- , Data.Type.GrecTree.Delete
   default-extensions:   DataKinds
                       , TypeOperators
                       , KindSignatures

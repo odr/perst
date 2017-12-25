@@ -1,98 +1,78 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Data.Type.GrecTree.Lens(TLens(..), TGetSet(..), TLens'(..), LType) where
+module Data.Type.GrecTree.Lens where
 
-import           Data.Tagged              (Tagged (..), retag, untag)
--- import           Data.Type.Bool           (If)
--- import           Data.Type.Equality       (type (==))
--- import           GHC.TypeLits             (type (+), type (-), type (<=?), Nat,
-import           GHC.TypeLits             (Symbol)
-import           Lens.Micro               (set, (^.))
+import           Data.Kind                     (Constraint)
+import           Data.Singletons.Prelude       (If, Sing (..), SingI (..))
+import           Data.Singletons.Prelude.Maybe (FromJust, IsJust)
+import           Data.Tagged                   (Tagged (..), untag)
+import           GHC.TypeLits                  (Symbol)
+import           Lens.Micro                    (set, (%~), (^.))
 
 import           Data.Type.GrecTree.BTree
+import           Data.Type.GrecTree.Convert    (Hidden (..))
 
--- Lens?
-type family LType (n::k) b where
-  LType a (Tagged (Leaf Nothing) (Tagged b vb)) = LType a (Tagged b vb)
-  LType a (Tagged (Leaf (Just a)) va) = va
-  LType a (Tagged (Leaf a) va) = va
-  LType a (Tagged (Node l t r) v)
-    = LTypeB (BTreeHas a l) a (Tagged (Node l t r) v)
-  LType a (Tagged (ns::[Symbol]) va) = LType a (Tagged (BTreeFromList ns) va)
+class LensPath (path :: [Bool]) b a where
+  type LPathType path b
+  type LResType path b a
+  lensPath :: Functor f => (LPathType path b -> f a)
+                        -> b -> f (LResType path b a)
 
-type family LTypeB x (n::k) b where
-  LTypeB True a (Tagged (Node l t r) (vl,vr)) = LType a (Tagged l vl)
-  LTypeB False a (Tagged (Node l t r) (vl,vr)) = LType a (Tagged r vr)
+instance LensPath '[] b a where
+  type LPathType '[] b = b
+  type LResType '[] b a = a
+  lensPath = id
 
-class TLens n b n' b' where
-  tlens :: Functor f => (LType n b -> f (LType n' b')) -> b -> f b'
+instance  ( SingI x
+          , If x (LensPath xs b2 a) (LensPath xs b1 a)
+          , If x (LensPath xs b2 a) (LensPath xs b1 a)
+          )
+      => LensPath (x ':xs) (b1,b2) a where
+  type LPathType (x ': xs) (b1,b2) = If x (LPathType xs b2) (LPathType xs b1)
+  type LResType (x ': xs) (b1,b2) a =
+    If x (b1, LResType xs b2 a) (LResType xs b1 a, b2)
+  lensPath f (b1,b2) = case (sing :: Sing x) of
+    SFalse -> (,b2) <$> lensPath @xs f b1
+    STrue  -> (b1,) <$> lensPath @xs f b2
 
--- by name
-instance TLens a (Tagged b vb) a' (Tagged b' vb')
-      => TLens (a :: Symbol)  (Tagged (Leaf Nothing) (Tagged b vb))
-               (a' :: Symbol) (Tagged (Leaf Nothing) (Tagged b' vb'))
-  where
-  tlens f = fmap Tagged . tlens @a @(Tagged b vb) @a' @(Tagged b' vb') f . untag
+-----------------
+type PathType s b = FromJust (BTreePath s b)
 
-instance TLens (a :: Symbol) (Tagged (Leaf (Just a)) va)
-               (a' :: Symbol) (Tagged (Leaf (Just a')) va')
-  where
-  -- type LType a (Tagged (Leaf (Just a)) va) = va
-  tlens f = fmap Tagged . f . untag
+class TLens s b a where
+  type LType s b
+  type RType s b a
+  tlens :: Functor f => (LType s b -> f a) -> b -> f (RType s b a)
 
-instance TLens (a :: Symbol) (Tagged (Leaf a) va)
-               (a' :: Symbol) (Tagged (Leaf a') va')
-  where
-  -- type LType a (Tagged (Leaf a) va) = va
-  tlens f = fmap Tagged . f . untag
+instance LensPath (PathType s b) v a =>  TLens s (Tagged b v) a where
+  type LType s (Tagged b v) = LPathType (PathType s b) v
+  type RType s (Tagged b v) a = Tagged b (LResType (PathType s b) v a)
+  tlens f = fmap Tagged . lensPath @(PathType s b) f . untag
 
-instance ( TLensB (BTreeHas a l) a (Tagged (Node l t r) v)
-                                 a' (Tagged (Node l' t' r') v')
-          -- tree should be similar... It is not good,,,
-          -- but mostly we want change type, not name
-         , BTreeHas a l ~ BTreeHas a' l'
-         )
-      => TLens (a::Symbol) (Tagged (Node l t r) v)
-               (a'::Symbol) (Tagged (Node l' t' r') v')
-  where
-  tlens = tlensB @(BTreeHas a l) @a @(Tagged (Node l t r) v)
-                                 @a' @(Tagged (Node l' t' r') v')
+tlens' :: (Functor f, TLens s b a, a ~ LType s b, b ~ RType s b a)
+       => Sing s -> (a -> f a) -> b -> f b
+tlens' (_::Sing s) = tlens @s
 
-instance
-  ( TLens a (Tagged (BTreeFromList ns) va) a' (Tagged (BTreeFromList ns') va')
-  , LType a  (Tagged (BTreeFromList ns) va)   ~ LType a  (Tagged ns va)
-  , LType a' (Tagged (BTreeFromList ns') va') ~ LType a' (Tagged ns' va')
-  )
-  => TLens a (Tagged (ns::[Symbol]) va) a' (Tagged (ns'::[Symbol]) va')
-  where
-    tlens f = fmap retag
-            . tlens @a  @(Tagged (BTreeFromList ns)  va)
-                    @a' @(Tagged (BTreeFromList ns') va') f
-            . retag
-
-class TLens' n b where
-  tlens' :: Functor f => (LType n b -> f (LType n b)) -> b -> f b
-instance TLens n b n b => TLens' n b where
-  tlens' = tlens @n @b @n @b
-
+--
 -- multiple get/set by btree
 class TGetSet a b where
   type GSType a b
   tget :: b -> GSType a b
   tset :: GSType a b -> b -> b
 
-instance TLens' a b => TGetSet (Leaf (Just a) :: BTree (Maybe Symbol)) b where
-  type GSType (Leaf (Just a)) b = LType a b
-  tget = (^. tlens' @a)
-  tset = set (tlens' @a)
+instance TGetSet (Leaf a) b => TGetSet (Leaf (Just a) :: BTree (Maybe Symbol)) b where
+  type GSType (Leaf (Just a)) b = GSType (Leaf a) b
+  tget = tget @(Leaf a)
+  tset = tset @(Leaf a)
 
-instance TLens' a b => TGetSet (Leaf a :: BTree Symbol) b where
+instance (TLens a b c, c ~ LType a b, b ~ RType a b c, SingI a)
+      => TGetSet (Leaf a :: BTree Symbol) b where
   type GSType (Leaf a) b = LType a b
-  tget = (^. tlens' @a)
-  tset = set (tlens' @a)
+  tget = (^. tlens' (sing :: Sing a))
+  tset = set (tlens' (sing :: Sing a))
 
 instance (TGetSet l b, TGetSet r b) => TGetSet (Node l x r::BTree t) b where
   type GSType (Node l x r) b = (GSType l b, GSType r b)
@@ -104,36 +84,39 @@ instance TGetSet (BTreeFromList ns) b => TGetSet (ns :: [Symbol]) b where
   tget = tget @(BTreeFromList ns)
   tset = tset @(BTreeFromList ns)
 
--- instance TLens' a b => TGetSet ('[] :: [k]) b where
---   type GSType '[] b = ()
---   tget _ = ()
---   tset _ = id
---
--- instance TLens' a b => TGetSet ('[a] :: [k]) b where
---   type GSType '[a] b = LType a b
---   tget = (^. tlens' @a)
---   tset = set (tlens' @a)
---
--- instance (TLens' a1 b, TGetSet (a2 ':as) b)
---       => TGetSet (a1 ':a2 ':as::[k]) b where
---   type GSType (a1 ':a2 ':as) b = (LType a1 b, GSType (a2 ':as) b)
---   tget b = (b ^. tlens' @a1, tget @(a2 ':as) b)
---   tset (a1,as) = set (tlens' @a1) a1 . tset @(a2 ':as) as
+------
+class TShowHide a b where
+  type HiddenType a b
+  tshow :: HiddenType a b -> b
+  thide :: b -> HiddenType a b
 
--- TLensB
-class TLensB (x::Bool) n b n' b' where
-  tlensB :: Functor f => (LTypeB x n b -> f (LTypeB x n' b')) -> b -> f b'
+instance TShowHide ('[] :: [Symbol]) b where
+  type HiddenType '[] b = b
+  tshow = id
+  thide = id
 
-instance TLens a (Tagged l vl) a' (Tagged l' vl')
-      => TLensB True a (Tagged (Node l t r) (vl,vr))
-                     a' (Tagged (Node l' t' r) (vl',vr)) where
-  tlensB f (Tagged (vl,vr))
-    = (Tagged . (,vr) . untag)
-    <$> tlens @a @(Tagged l vl) @a' @(Tagged l' vl') f (Tagged vl)
+instance ( SingI (IsJust (BTreePath a b))
+         , If (IsJust (BTreePath a b))
+            ( bv ~ Tagged b v
+            , TLens a bv (Hidden l), l ~ (LType a bv), r ~ RType a bv (Hidden l)
+            , TLens a r l, bv ~ RType a r l, LType a r ~ Hidden l
+            )
+            (()::Constraint)
+         )
+      => TShowHide (a :: Symbol) (Tagged b v) where
+  type HiddenType a (Tagged b v) =
+    If (IsJust (BTreePath a b))
+      (RType a (Tagged b v) (Hidden (LType a (Tagged b v))))
+      (Tagged b v)
+  tshow = case (sing :: Sing (IsJust (BTreePath a b))) of
+    SFalse -> id
+    STrue  -> tlens @a @(HiddenType a bv) @(LType a bv) %~ unHidden
+  thide = case (sing :: Sing (IsJust (BTreePath a b))) of
+    SFalse -> id
+    STrue  -> tlens @a @bv @(Hidden (LType a bv)) %~ Hidden
 
-instance TLens a (Tagged r vr) a' (Tagged r' vr')
-      => TLensB False a (Tagged (Node l t r) (vl,vr))
-                      a' (Tagged (Node l t' r') (vl,vr')) where
-  tlensB f (Tagged (vl,vr))
-    = (Tagged . (vl,) . untag)
-    <$> tlens @a @(Tagged r vr) @a' @(Tagged r' vr') f (Tagged vr)
+instance (TShowHide a b, TShowHide as (HiddenType a b))
+      => TShowHide (a ':as) b where
+  type HiddenType (a ':as) b = HiddenType as (HiddenType a b)
+  tshow = tshow @a . tshow @as
+  thide = thide @as . thide @a
