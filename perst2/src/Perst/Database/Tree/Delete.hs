@@ -7,7 +7,6 @@
 module Perst.Database.Tree.Delete where
 
 import           Control.Applicative       (ZipList (..))
-import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Functor.Compose      (Compose (..))
 import           Data.Tagged               (Tagged (..))
 import           GHC.Prim                  (Proxy#, proxy#)
@@ -31,20 +30,7 @@ deleteTreeManyDef :: (MonadCons m , AppCons f
   => Proxy# '(b,sch,t) -> f r -> SessionMonad b m ()
 deleteTreeManyDef (_ :: Proxy# '(b,sch,t)) (rs :: f r) = do
   deleteChilds @b @sch @t @(FldNames LstFld r) rs
-  -- case (sing :: Sing (FldNames LstFld r)) of
-  --   SNil -> return ()
-  --   SCons
   deleteManyDef (proxy#::Proxy# '(b,GetDS t sch)) rs
-  -- where
-  --   delChilds sng rs = case sng of
-  --     SNil -> return ()
-  --     SCons s ss ->
-  --       deleteTreeManyDef (proxy# :: Proxy# '(b,sch,(RefFrom ref)))
-  --                         $ fmap toTagged $ Compose $ delRec <$> rs
-  --       delChilds ss rs
-  --     where
-  --       delRec r = (Tagged @rcols1 (tget @rcols2 r),)
-  --               <$> ZipList (map toTagged $ unPChilds $ view (tlens' @s) r)
 
 class DeleteChilds b sch t fs r where
   deleteChilds  :: (MonadCons m , AppCons f) => f r -> SessionMonad b m ()

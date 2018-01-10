@@ -28,6 +28,7 @@ library
                       , Perst.Database.Tree.Update
                       , Perst.Database.Tree.Delete
                       , Perst.Database.Condition
+                      , Perst.Database.Condition2
                       , Perst.Database.DDL
 
   default-extensions:   DataKinds
@@ -58,10 +59,12 @@ library
                       , text-format
                       , singletons
                       , tagged
---                      , data-default
                       , containers
+                      , unordered-containers
                       -- , microlens
+                      -- , microlens-aeson
                       , aeson
+                      , reflection
   ghc-options:         -Wall -Wno-unticked-promoted-constructors
   default-language:    Haskell2010
 

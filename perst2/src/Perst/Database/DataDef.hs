@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE InstanceSigs              #-}
+{-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE StandaloneDeriving        #-}
 {-# LANGUAGE TemplateHaskell           #-}
@@ -34,16 +35,20 @@ module Perst.Database.DataDef
   where
 
 import           Data.Kind                     (Type)
+import           Data.List                     (find)
 import           Data.Proxy                    (Proxy (..))
 import           Data.Singletons.Prelude
-import           Data.Singletons.Prelude.List  (FilterSym0, FindSym0)
+import           Data.Singletons.Prelude.List  (FilterSym0, FindSym0, sFilter,
+                                                sFind)
 import           Data.Singletons.Prelude.Maybe (FromJust, FromJustSym0)
 import           Data.Singletons.TH            (promoteOnly, singletons)
+import           Data.Singletons.TypeRepStar   ()
 import           Data.Text                     (Text)
 import           Data.Text.Format              (Format, format)
 import           Data.Text.Format.Params       (Params)
 import qualified Data.Text.Lazy                as TL
--- import           Data.Type.Grec                (GrecWith, GrecWithout)
+
+import           Data.Type.GrecTree            (singToList)
 
 singletons [d|
   data DelCons = DcRestrict | DcCascade | DcSetNull
@@ -79,33 +84,63 @@ singletons [d|
   data Schema' s t = SchemaC { schDS :: [DataStruct' s t]
                              , schRefs :: [Ref' s]
                              } deriving Show
-
   |]
 
-promoteOnly [d|
-  getFromRefs :: DataStruct' s t -> [Ref' s] -> [Ref' s]
-  getFromRefs ds rs = filter (\r -> refFrom r == n) rs
-    where n = diName $ dsInfo ds
+singletons [d|
+  getDiName :: DataInfo p -> p
+  getDiName (TableInfo {diName = n}) = n
+  getDiName (ViewInfo {diName = n})  = n
 
-  getToRefs :: DataStruct' s t -> [Ref' s] -> [Ref' s]
-  getToRefs ds rs = filter (\r -> refTo r == n) rs
-    where n = diName $ dsInfo ds
+  getDsName :: DataStruct' s t -> s
+  getDsName (DataStructC {dsInfo = di}) = getDiName di
 
-  getFromRefByName :: s -> s -> [Ref' s] -> Maybe (Ref' s)
+  getRefName :: Ref' s -> s
+  getRefName (RefC {refName = rn}) = rn
+
+  getRefFrom :: Ref' s -> s
+  getRefFrom (RefC {refFrom = rf}) = rf
+
+  getRefTo :: Ref' s -> s
+  getRefTo (RefC {refTo = rf}) = rf
+
+  getRefCols :: Ref' s -> [(s,s)]
+  getRefCols (RefC {refCols = rc}) = rc
+
+  getFromRefs :: Eq s => DataStruct' s t -> [Ref' s] -> [Ref' s]
+  getFromRefs ds rs = filter ((== getDsName ds) . getRefFrom) rs
+
+  getToRefs :: Eq s => DataStruct' s t -> [Ref' s] -> [Ref' s]
+  getToRefs ds rs = filter (\RefC { refTo = rf } -> rf == getDsName ds) rs
+
+  getFromRefByName :: Eq s => s -> s -> [Ref' s] -> Maybe (Ref' s)
   getFromRefByName from ref refs =
-    find (\r -> refFrom r == from && refName r == ref) refs
+    find (\r -> getRefFrom r == from && getRefName r == ref) refs
 
-  getToRefByName :: s -> s -> [Ref' s] -> Maybe (Ref' s)
+  getToRefByName :: Eq s => s -> s -> [Ref' s] -> Maybe (Ref' s)
   getToRefByName to ref refs =
-    find (\r -> refTo r == to && refName r == ref) refs
+    find (\r -> getRefTo r == to && getRefName r == ref) refs
 
-  getDataStruct :: s -> Schema' s t -> Maybe (DataStruct' s t)
-  getDataStruct s = find ((s ==) . diName . dsInfo) . schDS
+  getDataStructs :: Schema' s t -> [DataStruct' s t]
+  getDataStructs (SchemaC {schDS = ds}) = ds
 
-  getDataStructName :: s -> Schema' s t -> s
-  getDataStructName s = diName . dsInfo . fromJust . find ((s ==) . diName . dsInfo) . schDS
+  getRefs :: Schema' s t -> [Ref' s]
+  getRefs (SchemaC {schRefs = rs}) = rs
 
-  |]
+  getDataStruct :: Eq s => s -> Schema' s t -> Maybe (DataStruct' s t)
+  getDataStruct s = find ((s ==) . getDsName) . getDataStructs
+
+  -- getDataStructName :: Eq s => s -> Schema' s t -> s
+  -- getDataStructName s = getDsName . fromJust . getDataStruct
+
+  getRef :: Eq s => s -> Schema' s t -> Maybe (Ref' s)
+  getRef r = find ((r==) . getRefName) . getRefs
+ |]
+
+-- promoteOnly [d|
+--
+--
+--
+--   |]
 
 -- deriving instance Show s => Show (DataInfo s)
 -- deriving instance Show s => Show (FK s)
@@ -134,9 +169,6 @@ class SingI (DsInfo t) => DataStructInfo (t :: DataStruct) where
   dataInfo :: DataInfo Text
   dataInfo = fromSing (singDataInfo @t)
 
-  -- dataInfo :: DataInfo Text
-  -- dataInfo = ddInfo (dataDef @t)
-
   isTable :: Bool
   isTable = case dataInfo @t of { TableInfo {} -> True; _ -> False }
 
@@ -149,9 +181,6 @@ class SingI (DsInfo t) => DataStructInfo (t :: DataStruct) where
   uniqKeys :: [[Text]]
   uniqKeys = diUniq (dataInfo @t)
 
-  -- foreignKeys :: [FK Text]
-  -- foreignKeys = ddFKs (dataDef @t)
-
   autoIns :: Bool
   autoIns = diAutoIns (dataInfo @t)
 
@@ -160,10 +189,7 @@ class SingI (DsInfo t) => DataStructInfo (t :: DataStruct) where
            | otherwise = Nothing
 
   tableName :: Text
-  tableName = diName (dataInfo @t) -- fromSing (sing :: Sing (Typ (Fst t)))
-
-  -- fieldNames :: [Text]
-  -- fieldNames = fromSing (sing :: Sing (Fsts (Fst t)))
+  tableName = diName (dataInfo @t)
 
 instance SingI (DsInfo t) => DataStructInfo t
 
@@ -172,3 +198,50 @@ showProxy (_ :: Proxy t) = fromSing (sing :: Sing t)
 
 formatS :: Params ps => Format -> ps -> Text
 formatS f = TL.toStrict . format f
+
+findSomeSing :: (forall x. Sing (x::k) -> Bool) -> Sing (xs :: [k])
+             -> Maybe (SomeSing k)
+findSomeSing f = find (\(SomeSing x) -> f x) . singToList
+
+refByName :: Text -> Sing (sch::Schema) -> Maybe (SomeSing Ref)
+refByName t = \case
+  SSchemaC { sSchRefs = sr } -> find ((t ==) . getRefName') $ singToList sr
+
+singDataStructs :: Sing sch -> Sing (SchDS sch)
+singDataStructs = \case SSchemaC { sSchDS = sds } -> sds
+
+singRefs :: Sing sch -> Sing (SchRefs sch)
+singRefs = \case SSchemaC { sSchRefs = refs } -> refs
+
+-- singDataStruct :: Sing s -> Sing sch -> Sing (GetDataStruct)
+-- singDataStruct = sFind () . singDataStructs
+
+-- singDataStruct :: Sing s -> Sing sch -> Sing
+
+-- getRefName :: Sing (ref :: Ref) -> Text
+-- getRefName = fromSing . sGetRefName
+--
+getRefName' :: SomeSing Ref -> Text
+getRefName' (SomeSing x) = fromSing $ sGetRefName x
+
+dsByName :: Text -> Sing (sch::Schema) -> Maybe (SomeSing DataStruct)
+dsByName t = \case
+  SSchemaC { sSchDS = sds } -> findSomeSing (\ds -> t == fromSing (sGetDsName ds)) sds
+
+-- getDsName :: Sing (ds :: DataStruct) -> Text
+-- getDsName = \case
+--   SDataStructC { sDsInfo = dsi } -> case dsi of
+--     STableInfo { sDiName = n } -> fromSing n
+--     SViewInfo  { sDiName = n } -> fromSing n
+--
+getDsName' :: SomeSing DataStruct -> Text
+getDsName' (SomeSing x) = fromSing $ sGetDsName x
+
+-- data SomeType where
+--   SomeType :: forall t. Proxy t -> SomeType
+
+dsChildByRefName :: Text -> Sing (sch::Schema) -> Maybe (SomeSing DataStruct)
+dsChildByRefName t ssch
+  = refByName t ssch >>= \case
+      SomeSing ref -> case ref of
+          SRefC { sRefFrom = rfrom } -> dsByName (fromSing rfrom) ssch

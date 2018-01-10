@@ -1,13 +1,17 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE DeriveFunctor        #-}
-{-# LANGUAGE DeriveGeneric        #-}
-{-# LANGUAGE LambdaCase           #-}
-{-# LANGUAGE MagicHash            #-}
-{-# LANGUAGE PolyKinds            #-}
-{-# LANGUAGE TupleSections        #-}
-{-# LANGUAGE TypeApplications     #-}
-{-# LANGUAGE TypeInType           #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE DeriveFunctor             #-}
+{-# LANGUAGE DeriveGeneric             #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE MagicHash                 #-}
+{-# LANGUAGE PolyKinds                 #-}
+{-# LANGUAGE StandaloneDeriving        #-}
+{-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TupleSections             #-}
+{-# LANGUAGE TypeApplications          #-}
+{-# LANGUAGE TypeInType                #-}
+{-# LANGUAGE UndecidableInstances      #-}
 module Perst.Database.Condition where
 
 import           Control.Monad.Trans.Class        (lift)
@@ -34,16 +38,16 @@ import           Perst.Database.DataDef           (GetToRefByName, RefCols,
                                                    RefFrom, SchRefs, Schema,
                                                    formatS)
 import           Perst.Database.DbOption          (DbOption (..))
--- import           Perst.Database.TreeDef           (Child, TreeDef)
 import           Perst.Types                      (PChilds)
 
--- data Condition (t::TreeDef) v
 data Condition (sch :: Schema) (t :: Symbol) v
   = And (Condition sch t v) (Condition sch t v)
   | Or  (Condition sch t v) (Condition sch t v)
   | Not (Condition sch t v)
   | Rec (CondRec   sch t v)
   deriving Generic
+
+deriving instance Show (CondRec sch t v) => Show (Condition sch t v)
 
 instance Monoid (CondRec sch t v) => Monoid (Condition sch t v) where
   mempty = Rec mempty
@@ -80,6 +84,7 @@ instance FromJSON (Condition sch (RefFrom ref) v)
 instance ToJSON   (Condition sch (RefFrom ref) v)
       => ToJSON   (CondChild sch ref v)
 
+-- номер таблицы родителя (номер дочерней таблицы, номер параметра)
 type ConvCondMonad = ReaderT Int (State (Int, Int))
 runConvCond :: ConvCondMonad a -> a
 runConvCond x = evalState (runReaderT x 0) (0,0)

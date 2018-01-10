@@ -1,16 +1,19 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE MagicHash                 #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TypeApplications          #-}
+{-# LANGUAGE TypeInType                #-}
 {-# LANGUAGE UndecidableInstances      #-}
 module Data.Type.GrecTree.Convert where
 
 import           Data.Bifunctor                   (bimap, first)
-import           Data.Kind                        (Type)
+import           Data.Kind                        (Constraint, Type)
 import           Data.Promotion.TH                (genDefunSymbols)
 import           Data.Singletons.Prelude
 import           Data.Singletons.Prelude.Function (OnSym2)
@@ -126,17 +129,29 @@ instance (Grec a, Convert [b] (GrecTagged a, [b]) )
 class SConvNames tag (s::Maybe Symbol) (v::Type) where
   type SFldNames tag s v :: [Symbol]
   type SFldNames tag s v = '[FromMaybe "" s]
-  type SFldTypes tag s v :: [*]
+  type SFldTypes tag s v :: [Type]
   type SFldTypes tag s v = '[v]
   sFldNames :: SingI (SFldNames tag s v) => [Text]
   sFldNames = fromSing (sing :: Sing (SFldNames tag s v))
 
 type SConsNames tag s v = (SConvNames tag s v, SingI (SFldNames tag s v))
 
+-- data SomeType where
+--   SomeType :: forall t. Proxy t -> SomeType
+
+singToList :: Sing (xs :: [k]) -> [SomeSing k]
+singToList = \case
+  SNil -> []
+  SCons x xs -> SomeSing x : singToList xs
+
+-- class SomeTypeList (c::Constraint) where
+-- data SomeCons c where
+--  SomeCons :: c x => Proxy x -> SomeCons c
+
 class ConvNames tag (v :: Type) where
   type FldNames tag v :: [Symbol]
   type FldNames tag v = FldNames tag (GrecTagged v)
-  type FldTypes tag v :: [*]
+  type FldTypes tag v :: [Type]
   type FldTypes tag v = FldTypes tag (GrecTagged v)
   type FldNamesTypes tag v :: [(Symbol,Type)]
   type FldNamesTypes tag v = Zip (FldNames tag v) (FldTypes tag v)
@@ -144,6 +159,8 @@ class ConvNames tag (v :: Type) where
   type FldNamesTypesSort tag v = SortBy (ComparingSym1 FstSym0) (FldNamesTypes tag v)
   fldNames :: SingI (FldNames tag v) => [Text]
   fldNames = fromSing (sing :: Sing (FldNames tag v))
+
+type FldTypesByName tag v n = Lookup n (FldNamesTypes tag v)
 
 type SubsetNamesTypes tag a b =
   (IntersectBy (OnSym2 (:==$) FstSym0)

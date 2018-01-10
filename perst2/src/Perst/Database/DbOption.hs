@@ -2,16 +2,21 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeInType                 #-}
 {-# LANGUAGE UndecidableInstances       #-}
 module Perst.Database.DbOption
+{-
     (
     -- * Backend definition
 
       DbOption(..)
+    , FldCons
+    , FldInfo(..)
 
     -- * Singletons type machinery
 
@@ -34,24 +39,31 @@ module Perst.Database.DbOption
     -- * DBFields
 
     , DBEnum(..)
-    ) where
+    )
+-}
+     where
 
 import           Control.Monad.Catch        (MonadCatch, MonadMask)
 import           Control.Monad.IO.Class     (MonadIO)
 import           Control.Monad.Trans.Reader (ReaderT)
+import           Data.Aeson                 (FromJSON, ToJSON)
 import           Data.Kind                  (Type)
 import           Data.List                  (find)
+import qualified Data.Map                   as M
 import           Data.Maybe                 (fromMaybe)
 import           Data.Proxy                 (Proxy (..))
 import           Data.Singletons.Prelude
 import           Data.String                (IsString)
-import           Data.Text                  (Text, unpack)
+import           Data.Text                  (Text, pack, unpack)
+import           GHC.TypeLits               (KnownSymbol, symbolVal)
 -- import           Data.Text.Lazy             (Text, pack, unpack)
 import           GHC.Generics               (Generic)
 
 -- import           Data.Type.Grec             (Convert (..), FieldsConvGrec)
 import           Data.Type.GrecTree         (ConvNames (..), Convert (..))
-import           Perst.Database.DataDef     (DelCons (..), formatS, showProxy)
+import           Perst.Database.DataDef     (DataStruct, DdName, DelCons (..),
+                                             DsRec, SchDS, Schema, formatS,
+                                             showProxy)
 import           Perst.Types                (NoLstFld)
 
 type SessionMonad b m = ReaderT (Conn b) m
@@ -100,7 +112,7 @@ type family Nullable a :: (Type, Bool) where
   Nullable (Maybe x) = '(x, 'True)
   Nullable x = '(x, 'False)
 
-type family DbFldTypes b (a::[*]) :: [(Symbol,Bool)] where
+type family DbFldTypes b (a::[Type]) :: [(Symbol,Bool)] where
   DbFldTypes b '[] = '[]
   DbFldTypes b (a ': as)
     = (If (Snd (Nullable a)) '(DbTypeName b (Fst (Nullable a)), 'True)
@@ -135,3 +147,38 @@ instance Convert Text a => Convert (DBEnum ss) a where
   convert = convert . getDBEnum
 
 type AppCons f = (Applicative f, Traversable f)
+
+-----
+type FldCons b v = ( Show v, FromJSON v, ToJSON v
+                   , DbOption b, Convert v [FieldDB b]
+                   )
+
+data SomeFldType b where
+  SomeFldType :: FldCons b v => Proxy v -> SomeFldType b
+
+class FldInfo a b where
+  fldInfo :: M.Map (Text, Text) (SomeFldType b)
+
+instance (KnownSymbol x, KnownSymbol s, FldCons b v) => FldInfo '(x,'(s,v)) b where
+  fldInfo = M.singleton ( pack $ symbolVal (Proxy @x)
+                        , pack $ symbolVal (Proxy @s)
+                        )
+                        (SomeFldType (Proxy @v))
+
+instance FldInfo '(tab,'[]) b where fldInfo = mempty
+
+instance (FldInfo '(tab,x) b, FldInfo '(tab,xs) b) => FldInfo '(tab,x ': xs) b where
+  fldInfo = M.union (fldInfo @'(tab,x)) (fldInfo @'(tab,xs))
+
+instance ( ConvNames NoLstFld (DsRec ds)
+         , FldInfo '(DdName t, FldNamesTypes NoLstFld (DsRec ds)) b
+         )
+      => FldInfo (ds :: DataStruct) b where
+  fldInfo = fldInfo @'(DdName t, FldNamesTypes NoLstFld (DsRec ds))
+
+instance FldInfo '[] b where fldInfo = mempty
+instance (FldInfo ds b, FldInfo dss b) => FldInfo (ds ': dss) b where
+  fldInfo = M.union (fldInfo @ds) (fldInfo @dss)
+
+instance FldInfo (SchDS sch) b => FldInfo (sch :: Schema) b where
+  fldInfo = fldInfo @(SchDS sch)
