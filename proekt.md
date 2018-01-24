@@ -27,13 +27,11 @@ Perst \(PERSistent on Types\) - фреймворк для трехуровнев
 
 Для типа `Tagged t p` реализуются линзы на основе имен полей:
 
-> class TLens s b a where
->
->   type LType s b
->
->   type RType s b a
->
->   tlens :: Functor f =&gt; \(LType s b -&gt; f a\) -&gt; b -&gt; f \(RType s b a\)
-
+```Haskell
+class TLens s b a where
+  type LType s b
+  type RType s b a
+  tlens :: Functor f =&gt; \(LType s b -&gt; f a\) -&gt; b -&gt; f \(RType s b a\)
+```
 
 
