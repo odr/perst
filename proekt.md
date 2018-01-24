@@ -25,13 +25,28 @@ Perst \(PERSistent on Types\) - фреймворк для трехуровнев
 
 При преобразовании записи в тип Tagged t p, специальным случаем являются поля типа `Tagged (s :: Maybe Symbol) v`. Эти поля рассматриваются как подгруппы полей с префиксом имен `s`.
 
+### Доступ к полям по имени
+
 Для типа `Tagged t p` реализуются линзы на основе имен полей:
 
 ```Haskell
 class TLens s b a where
   type LType s b
   type RType s b a
-  tlens :: Functor f =&gt; \(LType s b -&gt; f a\) -&gt; b -&gt; f \(RType s b a\)
+  tlens :: Functor f -> (LType s b -> f a) -> b -> f (RType s b a)
 ```
+
+что позволяет получить
+
+```Haskell
+> :set -XTypeApplications
+> :t tlens @"x" 
+tlens @"x" :: (a -> f a) -> b -> f b
+```
+
+### Последовательный доступ
+
+
+
 
 
