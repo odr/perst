@@ -20,6 +20,7 @@ import qualified Data.Text                    as T
 import           GHC.Prim                     (Proxy#, proxy#)
 
 import           Data.Type.GrecTree
+import           Perst.Database.Condition2
 import           Perst.Database.DataDef
 import           Perst.Database.DbOption      (DbOption (..), DbTypeName,
                                                SessionMonad)
@@ -31,6 +32,7 @@ import           Perst.Database.Tree.Delete
 import           Perst.Database.Tree.Insert
 import           Perst.Database.Tree.Select
 import           Perst.Database.Tree.Update
+
 
 import           Perst.Types
 -- import           Perst.Database.DMLTree
@@ -115,11 +117,20 @@ check = runSession @Db "test.db" $ do
     (map toTagged $ Prelude.drop 2 ct)
     [toTagged ct3]
 
-  -- ct' <- selectTreeMany @Db @TCustomerTree @CustomerTree
-  --           (map Tagged [1..3] :: [Tagged '["id"] Int64])
-  -- liftIO $ do
-  --   putStrLn "After update:"
-  --   print ct'
+  (ct' :: [[CustomerTree]]) <- (map (map fromTagged) . getZipList)
+      <$> selectTreeManyDef
+        (proxy# :: Proxy# '(Db,Sch,"customer", TCT))
+        (ZipList (map Tagged [1..3] :: [Tagged (BTreeFromList '["id"]) Int64]))
+  liftIO $ do
+    putStrLn "After update:"
+    print ct'
+  (ct' :: [CustomerTree]) <- map fromTagged
+      <$> selectTreeCond2Def
+            (proxy# :: Proxy# '("customer",TCT))
+            (Tree @'(Db,Sch) (pnot (pcmp @"id" ==? (1::Int64))) Empty)
+  liftIO $ do
+    putStrLn "After update with cond2:"
+    print ct'
   --
   return ()
 

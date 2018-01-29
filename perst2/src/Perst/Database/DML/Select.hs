@@ -4,23 +4,22 @@
 {-# LANGUAGE TypeInType       #-}
 module Perst.Database.DML.Select where
 
-import           Control.Monad.Catch      (finally)
-import           Data.Monoid              (Monoid (..))
-import           Data.Singletons.Prelude  (SingI)
-import qualified Data.Text                as T
-import           GHC.Prim                 (Proxy#, proxy#)
+import           Control.Monad.Catch       (finally)
+import           Data.Monoid               (Monoid (..))
+import qualified Data.Text                 as T
+import           GHC.Prim                  (Proxy#, proxy#)
 
-import           Data.Type.GrecTree       (ConsNames, ConvNames (..),
-                                           Convert (..), convNoRest)
-import           Perst.Database.Condition (CondRec, Condition, ConvCond (..),
-                                           runConvCond)
-import           Perst.Database.DataDef   (DataStruct, DataStructInfo, DdName,
-                                           DsInfo, GetDS, GetDataStruct,
-                                           formatS, tableName)
-import           Perst.Database.DbOption  (DbOption (..), MonadCons,
-                                           SessionMonad)
+import           Data.Type.GrecTree        (ConsNames, ConvNames (..),
+                                            Convert (..), SingI, convNoRest)
+import qualified Perst.Database.Condition  as C
+import qualified Perst.Database.Condition2 as C2
+import           Perst.Database.DataDef    (DataStruct, DataStructInfo, DdName,
+                                            DsInfo, GetDS, GetDataStruct,
+                                            Schema, formatS, tableName)
+import           Perst.Database.DbOption   (DbOption (..), MonadCons,
+                                            SessionMonad)
 -- import           Perst.Database.TreeDef   (TdData)
-import           Perst.Types              (NoLstFld)
+import           Perst.Types               (NoLstFld)
 
 
 type SelCons0 b t r =
@@ -31,7 +30,7 @@ type SelCons0 b t r =
 type SelCons b t r k =
   ( SelCons0 b t r, Convert k [FieldDB b], ConsNames NoLstFld k)
 
-type SelCondCons b sch t r = (SelCons0 b t r, ConvCond b (CondRec sch (DdName t) r))
+type SelCondCons b sch t r = (SelCons0 b t r, C.ConvCond b (C.CondRec sch (DdName t) r))
 
 selectText :: ( DbOption b, DataStructInfo t
               , ConsNames NoLstFld r, ConsNames NoLstFld k
@@ -68,9 +67,21 @@ selectCondDef :: ( SelCondCons b sch ds r, MonadCons m
                  , t ~ DdName ds
                  , SingI (DsInfo ds)
                  )
-              => Proxy# b -> Condition sch t r -> SessionMonad b m [r]
-selectCondDef (_ :: Proxy# b) (c :: Condition sch t r) = do
+              => Proxy# b -> C.Condition sch t r -> SessionMonad b m [r]
+selectCondDef (_ :: Proxy# b) (c :: C.Condition sch t r) = do
   cmd <- prepareCommand @b $ selectText' (proxy# :: Proxy# '(GetDS t sch,r)) txt
   finally (map convNoRest <$> runSelect @b cmd ps) (finalizePrepared @b cmd)
  where
-  (txt,ps) = runConvCond (convCond @b c)
+  (txt,ps) = C.runConvCond (C.convCond @b c)
+
+selectCond2Def :: ( SingI sch, MonadCons m
+                  , GetDataStruct t sch ~ Just ds
+                  , SelCons0 b ds r
+                  )
+              => Proxy# '(t,r) -> C2.Cond '(b,(sch::Schema)) a
+              -> SessionMonad b m [r]
+selectCond2Def (_::Proxy# '(t,r)) (c :: C2.Cond '(b,sch) a) = do
+  cmd <- prepareCommand @b $ selectText' (proxy# :: Proxy# '(GetDS t sch,r)) txt
+  finally (map convNoRest <$> runSelect @b cmd ps) (finalizePrepared @b cmd)
+ where
+  (txt,ps) = C2.runConvCond (C2.convCond c)

@@ -32,7 +32,8 @@ import qualified Data.Text                        as T
 import           Data.Text.Format                 (Only (..))
 import           GHC.Generics                     (Generic (..))
 import           GHC.TypeLits                     (KnownSymbol, SomeSymbol (..),
-                                                   someSymbolVal, symbolVal)
+                                                   Symbol, someSymbolVal,
+                                                   symbolVal)
 
 import           Data.Type.GrecTree
 import           Perst.Database.DataDef
@@ -57,8 +58,9 @@ showCmp = \case
   (:>=) -> ">="
   (:<)  -> "<"
   (:>)  -> ">"
+  Like  -> error "'Like' is not suitable for showCmp"
 
-data Cond b (a::CondType) where
+data Cond (b::(Type,Schema)) (a::CondType) where
   Empty  :: Cond b a
   Cmp    :: (KnownSymbol a, FldCons (Fst b) v)
          => Tagged a (Cmp,v) -> Cond b TRec -- fld
@@ -189,14 +191,14 @@ instance (SingI sch, FldInfo sch b)
               <$> (Tagged @s <$> parseTreeFld ds o "tree")
               <*> parseChildsTreeFld (getDsName' ds) o "childs"
 
-class KnownSymbol a => CCond a b where
+class KnownSymbol a => CCond (a::Symbol) (b::(Type,Schema)) where
   pcmp   :: FldCons (Fst b) v => Cmp -> v -> Cond b TRec
-  pchild :: Cond b TRec -> Cond b TChild
+  pchild :: GetRef a (Snd b) ~ Just ref => Cond b TRec -> Cond b TChild
   pnull  :: Cond b TRec
   pMainTree  :: Cond b TTree -> [CondTree b TTChild] -> CondTree b TTMain
   pChildTree :: Cond b TTree -> [CondTree b TTChild] -> CondTree b TTChild
 
-instance (KnownSymbol a, GetRef a (Snd b) ~ Just ref) => CCond a b where
+instance KnownSymbol a => CCond a b where
   pcmp o v = Cmp (Tagged @a (o,v))
   pchild x = Child (Tagged @a x)
   pnull = Null (Proxy @a)
@@ -221,6 +223,8 @@ x ==? b = x (:==) b
 x ~? b  = x Like  b
 infix 4 <?, >?, <=?, >=?, ==?, ~?
 
+-- test (_::Proxy (b::(Type,Schema))) = Tree @b (pcmp @"val" >? (0 :: Double) ) Empty
+
 test (_::Proxy b) = Tree @b (pcmp @"val" >? (0 :: Double) )
      $ pchild @"xxx" (pnot (pcmp @"x" >? 'x'
                         &&& pcmp @"x" <=? 'z'
@@ -229,7 +233,6 @@ test (_::Proxy b) = Tree @b (pcmp @"val" >? (0 :: Double) )
                       ))
    &&& pchild @"zzz" (pnot (pcmp @"x" >? ("xxx"::Text) &&& pcmp @"x" <=? 'z'
                     ||| pnull @"z"))
-
 
 -- номер таблицы родителя (номер дочерней таблицы, номер параметра)
 type ConvCondMonad = ReaderT Int (State (Int, Int))
@@ -241,7 +244,6 @@ withPar (_::Proxy b) f = lift $ do
   n <- snd <$> get
   modify $ second (+1)
   return $ f (paramName @b n)
-
 
 convCond :: SingI sch => Cond '(b,sch) a -> ConvCondMonad (Text, [FieldDB b])
 convCond (condition :: Cond '(b,sch) a) = case condition of
@@ -279,17 +281,3 @@ convCond (condition :: Cond '(b,sch) a) = case condition of
         $ convCond cond
   Tree cr cc -> (\(r,rs) (c,cs) -> (formatS "({}) AND ({})" (r,c), rs++cs))
              <$> convCond cr <*> convCond cc
-
-{-
-data CondTree b (a :: CondTreeType) where
-  MainTree  :: KnownSymbol a => Tagged a (Cond b TTree) -> [CondTree b TTChild]
-                             -> CondTree b TTMain
-  ChildTree :: KnownSymbol a => Tagged a (Cond b TTree) -> [CondTree b TTChild]
-                             -> CondTree b TTChild
--}
--- convCondTree :: SingI sch
---              => CondTree '(b,sch) -> ConvCondMonad (Text, [FieldDB b])
--- convCondTree (condTree :: CondTree '(b,sch) a) = case condTree of
---   MainTree  (Tagged cond :: Tagged a (Cond b TTree)) cs ->
---
---   ChildTree (Tagged cond :: Tagged a (Cond b TTree)) cs ->

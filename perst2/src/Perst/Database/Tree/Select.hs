@@ -10,14 +10,16 @@ import           Data.Functor.Compose      (Compose (..))
 import           Data.Tagged               (Tagged (..))
 import           GHC.Prim                  (Proxy#, proxy#)
 
-import           Data.Type.GrecTree        (ConvNames (..), Grec (..),
+import           Data.Type.GrecTree        (ConvNames (..), Grec (..), SingI,
                                             TGetSet (..))
-import           Perst.Database.Condition  (Condition)
+import qualified Perst.Database.Condition  as C
+import qualified Perst.Database.Condition2 as C2
 import           Perst.Database.DataDef    (DdName, GetDS, GetDataStruct,
                                             GetToRefByName, RefCols, RefFrom,
                                             SchRefs, Schema)
 import           Perst.Database.DbOption   (AppCons, MonadCons, SessionMonad)
-import           Perst.Database.DML.Select (SelCondCons, SelCons, selectCondDef,
+import           Perst.Database.DML.Select (SelCondCons, SelCons, SelCons0,
+                                            selectCond2Def, selectCondDef,
                                             selectManyDef)
 -- import           Perst.Database.TreeDef    (AppCons, MbChild, TdData, TreeDef)
 import           Perst.Types               (Fsts, LstFld, PChilds (..), Snds)
@@ -27,6 +29,8 @@ type SelTreeCons b sch t r k
   = (SelCons b (GetDS t sch) r k, SelectChilds b sch t (FldNames LstFld r) r)
 type SelTreeCondCons b sch t r
   = (SelCondCons b sch (GetDS t sch) r, SelectChilds b sch t (FldNames LstFld r) r)
+type SelTreeCond2Cons b sch t r
+  = (SelCons0 b (GetDS t sch) r, SelectChilds b sch t (FldNames LstFld r) r)
 
 selectTreeManyDef :: (AppCons f, MonadCons m
                      , GetDataStruct t sch ~ Just ds
@@ -42,9 +46,18 @@ selectTreeCondDef :: (MonadCons m, SelTreeCondCons b sch t r
                      , GetDataStruct t sch ~ Just ds
                      , t ~ DdName ds
                      )
-  => Proxy# b -> Condition (sch::Schema) t r -> SessionMonad b m [r]
-selectTreeCondDef (pb::Proxy# b) (c::Condition sch t r) = do
+  => Proxy# b -> C.Condition (sch::Schema) t r -> SessionMonad b m [r]
+selectTreeCondDef (pb::Proxy# b) (c::C.Condition sch t r) = do
   rs <- ZipList <$> selectCondDef pb c
+  getZipList <$> selectChilds @b @sch @t @(FldNames LstFld r) rs
+
+selectTreeCond2Def :: (MonadCons m, SelTreeCond2Cons b sch t r
+                     , GetDataStruct t sch ~ Just ds
+                     , SingI sch
+                     )
+  => Proxy# '(t,r) -> C2.Cond '(b,(sch::Schema)) a -> SessionMonad b m [r]
+selectTreeCond2Def (p::Proxy# '(t,r)) (c::C2.Cond '(b,sch) a) = do
+  rs <- ZipList <$> selectCond2Def p c
   getZipList <$> selectChilds @b @sch @t @(FldNames LstFld r) rs
 
 class SelectChilds b (sch :: Schema) t fs r where

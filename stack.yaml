@@ -21,4 +21,5 @@ extra-deps:
 
 # resolver: lts-8.7
 # resolver: nightly-2017-10-23 # ghc-8.2.1
-resolver: nightly-2017-11-29 # ghc-8.2.2
+# resolver: nightly-2017-11-29 # ghc-8.2.2
+resolver: lts-10.4
